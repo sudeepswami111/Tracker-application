@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:lucide_icons/lucide_icons.dart';
-import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:flutter_map/flutter_map.dart';
+import 'package:latlong2/latlong.dart';
 import '../providers/running_provider.dart';
+import '../providers/theme_provider.dart';
 import '../widgets/glass_card.dart';
 import '../theme/app_colors.dart';
+
 class RunningScreen extends StatefulWidget {
   const RunningScreen({super.key});
   @override State<RunningScreen> createState() => _RunningScreenState();
@@ -12,7 +15,6 @@ class RunningScreen extends StatefulWidget {
 
 class _RunningScreenState extends State<RunningScreen> {
   int _tabIndex = 0;
-  GoogleMapController? _mapController;
 
   @override
   void initState() {
@@ -43,7 +45,7 @@ class _RunningScreenState extends State<RunningScreen> {
         ]),
       ])),
       const SizedBox(height: 12),
-      Expanded(child: _tabIndex == 0 ? _TrackerTab(run: run, isDark: isDark, theme: theme, mapController: _mapController, onMapCreated: (c) => _mapController = c)
+      Expanded(child: _tabIndex == 0 ? _TrackerTab(run: run, isDark: isDark, theme: theme)
         : _tabIndex == 1 ? _HistoryTab(run: run, theme: theme, isDark: isDark)
         : _RecordsTab(run: run, theme: theme)),
     ]);
@@ -63,61 +65,276 @@ class _Tab extends StatelessWidget {
   }
 }
 
-class _TrackerTab extends StatelessWidget {
+// ════════════════════════════════════════════════════
+// MAP TILE CONFIGURATION (No API key needed!)
+// ════════════════════════════════════════════════════
+// Using free OpenStreetMap + CartoDB tiles by default.
+//
+// ─── OPTIONAL: Upgrade to Mapbox ───
+// 1. Go to https://account.mapbox.com/ → Create free account
+// 2. Copy your "Default public token" from the dashboard
+// 3. Replace the URLs below with:
+//    Dark:   'https://api.mapbox.com/styles/v1/mapbox/dark-v11/tiles/{z}/{x}/{y}@2x?access_token=YOUR_TOKEN'
+//    Light:  'https://api.mapbox.com/styles/v1/mapbox/streets-v12/tiles/{z}/{x}/{y}@2x?access_token=YOUR_TOKEN'
+// 4. Set tileSize: 512 and zoomOffset: -1 in TileLayer
+
+// Dark mode: CartoDB Dark Matter (free, no key)
+String _darkTileUrl() =>
+    'https://basemaps.cartocdn.com/dark_all/{z}/{x}/{y}@2x.png';
+
+// Light mode: OpenStreetMap standard (free, no key)
+String _lightTileUrl() =>
+    'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
+
+
+class _TrackerTab extends StatefulWidget {
   final RunningProvider run; final bool isDark; final ThemeData theme;
-  final GoogleMapController? mapController; final ValueChanged<GoogleMapController> onMapCreated;
-  const _TrackerTab({required this.run, required this.isDark, required this.theme, this.mapController, required this.onMapCreated});
+  const _TrackerTab({required this.run, required this.isDark, required this.theme});
+
+  @override State<_TrackerTab> createState() => _TrackerTabState();
+}
+
+class _TrackerTabState extends State<_TrackerTab> with SingleTickerProviderStateMixin {
+  final MapController _mapController = MapController();
+  late AnimationController _pulseController;
+
+  @override
+  void initState() {
+    super.initState();
+    _pulseController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1500),
+    )..repeat();
+  }
+
+  @override
+  void dispose() {
+    _pulseController.dispose();
+    super.dispose();
+  }
+
+  @override
+  void didUpdateWidget(covariant _TrackerTab oldWidget) {
+    super.didUpdateWidget(oldWidget);
+
+    // Auto-pan map to current position while tracking
+    if (widget.run.isTracking && widget.run.currentPosition != null && !widget.run.isPaused) {
+      try {
+        _mapController.move(
+          LatLng(widget.run.currentPosition!.latitude, widget.run.currentPosition!.longitude),
+          _mapController.camera.zoom,
+        );
+      } catch (_) {}
+    }
+
+    // Fit bounds when tracking stops
+    if (oldWidget.run.isTracking && !widget.run.isTracking && widget.run.routeCoordinates.length > 1) {
+      _fitRouteBounds();
+    }
+  }
+
+  void _fitRouteBounds() {
+    final points = widget.run.routeCoordinates
+        .map((c) => LatLng(c.latitude, c.longitude))
+        .toList();
+    if (points.length < 2) return;
+
+    final bounds = LatLngBounds.fromPoints(points);
+    try {
+      _mapController.fitCamera(CameraFit.bounds(
+        bounds: bounds,
+        padding: const EdgeInsets.all(50),
+      ));
+    } catch (_) {}
+  }
 
   @override Widget build(BuildContext context) {
-    final initialPos = run.currentPosition != null
+    final run = widget.run;
+    final isDark = widget.isDark;
+    final theme = widget.theme;
+
+    final center = run.currentPosition != null
         ? LatLng(run.currentPosition!.latitude, run.currentPosition!.longitude)
         : const LatLng(20.5937, 78.9629); // Default to India center
 
-    final polylines = <Polyline>{};
-    if (run.routeCoordinates.length > 1) {
-      polylines.add(Polyline(
-        polylineId: const PolylineId('route'),
-        points: run.routeCoordinates.map((c) => LatLng(c.latitude, c.longitude)).toList(),
-        color: isDark ? AppColors.secondary : AppColors.primary,
-        width: 5,
-        patterns: [PatternItem.dot, PatternItem.gap(8)],
-      ));
-    }
-
-    final markers = <Marker>{};
-    if (run.currentPosition != null) {
-      markers.add(Marker(
-        markerId: const MarkerId('current'),
-        position: LatLng(run.currentPosition!.latitude, run.currentPosition!.longitude),
-        icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueAzure),
-      ));
-    }
-    if (run.startPosition != null && run.isTracking) {
-      markers.add(Marker(
-        markerId: const MarkerId('start'),
-        position: LatLng(run.startPosition!.latitude, run.startPosition!.longitude),
-        icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen),
-      ));
-    }
+    // Build route polyline points
+    final routePoints = run.routeCoordinates
+        .map((c) => LatLng(c.latitude, c.longitude))
+        .toList();
 
     return SingleChildScrollView(padding: const EdgeInsets.symmetric(horizontal: 16), child: Column(children: [
-      // Map
-      ClipRRect(borderRadius: BorderRadius.circular(20), child: SizedBox(height: 320, child: GoogleMap(
-        initialCameraPosition: CameraPosition(target: initialPos, zoom: 15),
-        style: isDark ? _darkMapStyle : null,
-        onMapCreated: (controller) {
-          onMapCreated(controller);
-        },
-        myLocationEnabled: true,
-        myLocationButtonEnabled: false,
-        zoomControlsEnabled: false,
-        polylines: polylines,
-        markers: markers,
-        mapType: MapType.normal,
-      ))),
+      // ─── Map ───
+      ClipRRect(borderRadius: BorderRadius.circular(20), child: SizedBox(height: 320, child: Stack(children: [
+        FlutterMap(
+          mapController: _mapController,
+          options: MapOptions(
+            initialCenter: center,
+            initialZoom: 15,
+            interactionOptions: const InteractionOptions(
+              flags: InteractiveFlag.all,
+            ),
+          ),
+          children: [
+            // ─── Map Tile Layer (free, no API key) ───
+            TileLayer(
+              urlTemplate: isDark ? _darkTileUrl() : _lightTileUrl(),
+              userAgentPackageName: 'com.lifepulse.app',
+              maxZoom: 19,
+            ),
+
+            // ─── Route Polyline ───
+            if (routePoints.length > 1)
+              PolylineLayer(
+                polylines: [
+                  Polyline(
+                    points: routePoints,
+                    strokeWidth: isDark ? 5.0 : 4.0,
+                    color: isDark ? const Color(0xFF00E5FF) : AppColors.primary,
+                    borderStrokeWidth: isDark ? 2.0 : 0,
+                    borderColor: isDark ? const Color(0xFFBB86FC).withValues(alpha: 0.6) : Colors.transparent,
+                  ),
+                ],
+              ),
+
+            // ─── Markers ───
+            MarkerLayer(
+              markers: [
+                // Start marker
+                if (run.startPosition != null && run.isTracking)
+                  Marker(
+                    point: LatLng(run.startPosition!.latitude, run.startPosition!.longitude),
+                    width: 24,
+                    height: 24,
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: AppColors.green,
+                        shape: BoxShape.circle,
+                        border: Border.all(color: Colors.white, width: 2.5),
+                        boxShadow: [BoxShadow(color: AppColors.green.withValues(alpha: 0.5), blurRadius: 8)],
+                      ),
+                      child: const Icon(Icons.flag, size: 12, color: Colors.white),
+                    ),
+                  ),
+
+                // Current position — pulsing dot
+                if (run.currentPosition != null)
+                  Marker(
+                    point: LatLng(run.currentPosition!.latitude, run.currentPosition!.longitude),
+                    width: 40,
+                    height: 40,
+                    child: AnimatedBuilder(
+                      animation: _pulseController,
+                      builder: (_, __) {
+                        final scale = 1.0 + (_pulseController.value * 0.5);
+                        final opacity = 1.0 - _pulseController.value;
+                        return Stack(
+                          alignment: Alignment.center,
+                          children: [
+                            // Pulse ring
+                            Transform.scale(
+                              scale: scale,
+                              child: Container(
+                                width: 36,
+                                height: 36,
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  border: Border.all(
+                                    color: (isDark ? const Color(0xFF00E5FF) : AppColors.primary)
+                                        .withValues(alpha: opacity * 0.6),
+                                    width: 2,
+                                  ),
+                                ),
+                              ),
+                            ),
+                            // Inner dot
+                            Container(
+                              width: 16,
+                              height: 16,
+                              decoration: BoxDecoration(
+                                color: isDark ? const Color(0xFF00E5FF) : AppColors.primary,
+                                shape: BoxShape.circle,
+                                border: Border.all(color: Colors.white, width: 2.5),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: (isDark ? const Color(0xFF00E5FF) : AppColors.primary)
+                                        .withValues(alpha: 0.6),
+                                    blurRadius: 12,
+                                    spreadRadius: 2,
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        );
+                      },
+                    ),
+                  ),
+              ],
+            ),
+          ],
+        ),
+
+        // ─── Map Attribution Overlay ───
+        Positioned(
+          bottom: 4,
+          right: 8,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+            decoration: BoxDecoration(
+              color: (isDark ? Colors.black : Colors.white).withValues(alpha: 0.7),
+              borderRadius: BorderRadius.circular(4),
+            ),
+            child: Text('© Mapbox © OpenStreetMap',
+              style: TextStyle(fontSize: 8, color: isDark ? Colors.white70 : Colors.black54)),
+          ),
+        ),
+
+        // ─── Location Error Banner ───
+        if (!run.hasLocationPermission && run.currentPosition == null)
+          Positioned(
+            top: 0, left: 0, right: 0,
+            child: Container(
+              padding: const EdgeInsets.all(12),
+              color: AppColors.coral.withValues(alpha: 0.9),
+              child: const Row(children: [
+                Icon(Icons.location_off, color: Colors.white, size: 18),
+                SizedBox(width: 8),
+                Expanded(child: Text('GPS permission required. Tap Start to enable.',
+                  style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600))),
+              ]),
+            ),
+          ),
+
+        // ─── Recenter Button ───
+        if (run.currentPosition != null)
+          Positioned(
+            bottom: 12,
+            left: 12,
+            child: GestureDetector(
+              onTap: () {
+                if (run.currentPosition != null) {
+                  _mapController.move(
+                    LatLng(run.currentPosition!.latitude, run.currentPosition!.longitude),
+                    16,
+                  );
+                }
+              },
+              child: Container(
+                width: 36, height: 36,
+                decoration: BoxDecoration(
+                  color: (isDark ? AppColors.darkSurfaceContainer : Colors.white).withValues(alpha: 0.9),
+                  shape: BoxShape.circle,
+                  boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.2), blurRadius: 6)],
+                ),
+                child: Icon(LucideIcons.crosshair, size: 18,
+                  color: isDark ? AppColors.secondary : AppColors.primary),
+              ),
+            ),
+          ),
+      ]))),
       const SizedBox(height: 12),
 
-      // Live Stats
+      // ─── Live Stats ───
       Container(padding: const EdgeInsets.all(16), decoration: BoxDecoration(
         color: isDark ? AppColors.darkSurfaceContainer.withValues(alpha: 0.55) : AppColors.lightSurface,
         borderRadius: BorderRadius.circular(20), border: Border.all(color: isDark ? Colors.white.withValues(alpha: 0.06) : Colors.black.withValues(alpha: 0.06))),
@@ -132,7 +349,7 @@ class _TrackerTab extends StatelessWidget {
         ])),
       const SizedBox(height: 16),
 
-      // Controls
+      // ─── Controls ───
       Row(mainAxisAlignment: MainAxisAlignment.center, children: [
         if (!run.isTracking) GestureDetector(onTap: () => run.startRun(), child: Container(width: 72, height: 72, decoration: BoxDecoration(gradient: AppColors.gradientPrimary, shape: BoxShape.circle,
           boxShadow: [BoxShadow(color: AppColors.primary.withValues(alpha: 0.5), blurRadius: 24, offset: const Offset(0, 6))]),
@@ -147,7 +364,7 @@ class _TrackerTab extends StatelessWidget {
       ]),
       const SizedBox(height: 16),
 
-      // Speed
+      // ─── Speed Card ───
       GlassCard(child: Column(children: [
         Row(children: [Icon(LucideIcons.zap, size: 18, color: AppColors.secondary), const SizedBox(width: 8), Text('Current Speed', style: theme.textTheme.titleMedium)]),
         const SizedBox(height: 12),
@@ -158,7 +375,7 @@ class _TrackerTab extends StatelessWidget {
       ])),
       const SizedBox(height: 16),
 
-      // Personal Records
+      // ─── Personal Records ───
       GlassCard(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Row(children: [Icon(LucideIcons.trophy, size: 18, color: AppColors.yellow), const SizedBox(width: 8), Text('Personal Records', style: theme.textTheme.titleMedium)]),
         const SizedBox(height: 12),
@@ -226,5 +443,3 @@ class _RecordsTab extends StatelessWidget {
     ]));
   }
 }
-
-const String _darkMapStyle = '''[{"elementType":"geometry","stylers":[{"color":"#1d2c4d"}]},{"elementType":"labels.text.fill","stylers":[{"color":"#8ec3b9"}]},{"elementType":"labels.text.stroke","stylers":[{"color":"#1a3646"}]},{"featureType":"administrative.country","elementType":"geometry.stroke","stylers":[{"color":"#4b6878"}]},{"featureType":"landscape","elementType":"geometry","stylers":[{"color":"#0e1626"}]},{"featureType":"poi","elementType":"geometry","stylers":[{"color":"#283d6a"}]},{"featureType":"poi","elementType":"labels.text.fill","stylers":[{"color":"#6f9ba5"}]},{"featureType":"road","elementType":"geometry","stylers":[{"color":"#304a7d"}]},{"featureType":"road","elementType":"labels.text.fill","stylers":[{"color":"#98a5be"}]},{"featureType":"transit","elementType":"geometry","stylers":[{"color":"#2f3948"}]},{"featureType":"water","elementType":"geometry","stylers":[{"color":"#0e1626"}]}]''';
