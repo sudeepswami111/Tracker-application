@@ -1,0 +1,116 @@
+.header {
+  position: fixed;
+  top: 0;
+  left: var(--sidebar-width);
+  right: 0;
+  height: var(--header-height);
+  background: rgba(11, 19, 38, 0.8);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-bottom: 1px solid var(--glass-border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 var(--spacing-lg);
+  z-index: 90;
+  transition: left var(--transition-normal);
+}
+
+[data-theme="light"] .header {
+  background: rgba(248, 249, 254, 0.85);
+}
+
+@media (max-width: 1024px) {
+  .header {
+    left: 0;
+    padding: 0 var(--spacing-md);
+  }
+}
+
+.header__left {}
+
+.header__greeting {
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.header__subtitle {
+  font-size: 0.75rem;
+  color: var(--color-on-surface-variant);
+}
+
+.header__right {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+}
+
+.header__search {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  padding: 8px 14px;
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-lg);
+  color: var(--color-on-surface-variant);
+  transition: all var(--transition-normal);
+}
+
+.header__search:focus-within {
+  border-color: var(--color-primary-container);
+  box-shadow: 0 0 0 3px rgba(108, 92, 231, 0.15);
+}
+
+.header__search-input {
+  background: transparent;
+  border: none;
+  outline: none;
+  font-size: 0.8rem;
+  width: 160px;
+  color: var(--color-on-surface);
+}
+
+.header__search-input::placeholder {
+  color: var(--color-on-surface-variant);
+}
+
+@media (max-width: 768px) {
+  .header__search {
+    display: none;
+  }
+}
+
+.header__notification-btn {
+  position: relative;
+}
+
+.header__notification-dot {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 8px;
+  height: 8px;
+  background: var(--color-coral);
+  border-radius: var(--radius-full);
+  border: 2px solid var(--color-surface);
+}
+
+.header__avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-full);
+  background: var(--gradient-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 0.875rem;
+  color: white;
+  cursor: pointer;
+  transition: transform var(--transition-normal);
+}
+
+.header__avatar:hover {
+  transform: scale(1.08);
+}

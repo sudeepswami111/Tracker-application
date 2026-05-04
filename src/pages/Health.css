@@ -1,0 +1,355 @@
+/* Heart Rate */
+.health__heart-display {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--spacing-lg);
+}
+
+.health__heart-bpm {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+}
+
+.health__heart-icon {
+  color: var(--color-coral);
+  animation: pulse 1s ease-in-out infinite;
+}
+
+.health__heart-value {
+  font-size: 3rem;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 1;
+}
+
+.health__heart-unit {
+  font-size: 0.85rem;
+  color: var(--color-on-surface-variant);
+  font-weight: 500;
+}
+
+.health__heart-info {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+}
+
+.health__heart-info-item {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  font-size: 0.8rem;
+}
+
+.health__heart-zones {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+}
+
+.health__zone-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+}
+
+.health__zone-name {
+  font-size: 0.7rem;
+  font-weight: 600;
+  min-width: 55px;
+  color: var(--color-on-surface-variant);
+}
+
+.health__zone-track {
+  flex: 1;
+  height: 6px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: var(--radius-full);
+  overflow: hidden;
+}
+
+[data-theme="light"] .health__zone-track {
+  background: rgba(0, 0, 0, 0.06);
+}
+
+.health__zone-fill {
+  height: 100%;
+  border-radius: var(--radius-full);
+  transition: width 1s ease;
+}
+
+.health__zone-time {
+  font-size: 0.7rem;
+  font-weight: 600;
+  min-width: 24px;
+  text-align: right;
+}
+
+/* Sleep */
+.health__sleep-ring {
+  display: flex;
+  justify-content: center;
+  margin: var(--spacing-md) 0;
+}
+
+.health__sleep-stages {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--spacing-sm);
+  margin-bottom: var(--spacing-md);
+}
+
+.health__sleep-stage {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-sm);
+  background: var(--glass-bg);
+  border-radius: var(--radius-md);
+}
+
+.health__stage-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.health__stage-name {
+  font-size: 0.75rem;
+  color: var(--color-on-surface-variant);
+  flex: 1;
+}
+
+.health__stage-value {
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.health__sleep-chart {
+  display: flex;
+  align-items: flex-end;
+  gap: 6px;
+  height: 60px;
+  padding-top: var(--spacing-sm);
+}
+
+.health__sleep-bar-container {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  height: 100%;
+}
+
+.health__sleep-bar {
+  width: 100%;
+  border-radius: var(--radius-sm);
+  transition: height 1s ease;
+  min-height: 4px;
+}
+
+.health__sleep-bar-label {
+  font-size: 0.6rem;
+  font-weight: 600;
+  color: var(--color-on-surface-variant);
+}
+
+/* Water */
+.health__water-display {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.health__water-glasses {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: center;
+  margin: var(--spacing-md) 0;
+}
+
+.health__water-glass {
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--glass-border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-on-surface-variant);
+  opacity: 0.3;
+  transition: all var(--transition-normal);
+}
+
+.health__water-glass--filled {
+  opacity: 1;
+  background: rgba(0, 210, 211, 0.15);
+  border-color: var(--color-secondary);
+  color: var(--color-secondary);
+}
+
+.health__water-weekly {
+  margin-top: var(--spacing-lg);
+}
+
+.health__water-bars {
+  display: flex;
+  gap: 6px;
+  height: 50px;
+  align-items: flex-end;
+}
+
+.health__water-bar-col {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  height: 100%;
+}
+
+.health__water-bar-track {
+  flex: 1;
+  width: 100%;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+}
+
+[data-theme="light"] .health__water-bar-track {
+  background: rgba(0, 0, 0, 0.06);
+}
+
+.health__water-bar-fill {
+  width: 100%;
+  background: var(--gradient-secondary);
+  border-radius: var(--radius-sm);
+  transition: height 1s ease;
+  min-height: 2px;
+}
+
+.health__water-bar-label {
+  font-size: 0.6rem;
+  font-weight: 600;
+  color: var(--color-on-surface-variant);
+}
+
+/* Weight */
+.health__weight-stats {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--spacing-md);
+}
+
+.health__weight-current {
+  display: flex;
+  align-items: baseline;
+  gap: var(--spacing-sm);
+}
+
+.health__weight-big {
+  font-size: 2.5rem;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  background: var(--gradient-green);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.health__weight-meta {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+  font-size: 0.8rem;
+}
+
+.health__weight-chart {
+  margin-top: var(--spacing-sm);
+}
+
+/* Wellness */
+.health__wellness {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xl);
+  margin-bottom: var(--spacing-lg);
+}
+
+.health__wellness-ring {
+  flex-shrink: 0;
+}
+
+.health__wellness-metrics {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-md);
+}
+
+.health__wellness-metric {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  font-size: 0.8rem;
+}
+
+.health__wellness-emoji {
+  font-size: 1.5rem;
+}
+
+.health__wellness-bar {
+  flex: 1;
+  height: 6px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: var(--radius-full);
+  overflow: hidden;
+}
+
+[data-theme="light"] .health__wellness-bar {
+  background: rgba(0, 0, 0, 0.06);
+}
+
+.health__wellness-bar-fill {
+  height: 100%;
+  border-radius: var(--radius-full);
+  transition: width 1s ease;
+}
+
+.health__vitals {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--spacing-sm);
+}
+
+.health__vital-card {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-sm) var(--spacing-md);
+  background: var(--glass-bg);
+  border-radius: var(--radius-md);
+}
+
+.health__vital-card div {
+  display: flex;
+  flex-direction: column;
+}
+
+@media (max-width: 768px) {
+  .health__wellness {
+    flex-direction: column;
+  }
+  .health__vitals {
+    grid-template-columns: 1fr;
+  }
+}
