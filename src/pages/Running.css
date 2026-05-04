@@ -5,11 +5,25 @@
 
 .running__map {
   position: relative;
-  height: 300px;
+  height: 350px;
   border-radius: var(--radius-lg);
   overflow: hidden;
   background: var(--color-surface-container-low);
   margin-bottom: var(--spacing-md);
+  z-index: 1; /* Keep leaflet controls below header */
+}
+
+.leaflet-container {
+  font-family: 'Inter', sans-serif;
+}
+
+/* Make sure leaflet attribution is subtle */
+.leaflet-control-attribution {
+  background: rgba(0, 0, 0, 0.5) !important;
+  color: rgba(255, 255, 255, 0.5) !important;
+}
+.leaflet-control-attribution a {
+  color: rgba(255, 255, 255, 0.7) !important;
 }
 
 .running__map-placeholder {
@@ -22,46 +36,6 @@
   gap: var(--spacing-sm);
   color: var(--color-on-surface-variant);
   position: relative;
-}
-
-.running__map-icon {
-  color: var(--color-primary);
-  opacity: 0.3;
-}
-
-.running__map-placeholder p {
-  font-size: 0.85rem;
-  z-index: 1;
-}
-
-.running__map-pulse {
-  position: absolute;
-  width: 100px;
-  height: 100px;
-  border-radius: 50%;
-  border: 2px solid var(--color-primary-container);
-  animation: pulse 2s ease-in-out infinite;
-  opacity: 0.3;
-}
-
-.running__route-svg {
-  position: absolute;
-  inset: 20px;
-  width: calc(100% - 40px);
-  height: calc(100% - 40px);
-  opacity: 0.6;
-}
-
-.running__route-animated {
-  animation: dash 2s linear infinite;
-}
-
-@keyframes dash {
-  to { stroke-dashoffset: -24; }
-}
-
-.running__dot-pulse {
-  animation: pulse 1.5s ease-in-out infinite;
 }
 
 .running__live-stats {

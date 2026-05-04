@@ -1,44 +1,149 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Play, Pause, Square, MapPin, Clock, Zap, Flame, Trophy, Calendar, TrendingUp } from 'lucide-react';
+import { Play, Pause, Square, Zap, Trophy, Calendar, TrendingUp, Flame, MapPin } from 'lucide-react';
+import { MapContainer, TileLayer, Polyline, Marker, useMap } from 'react-leaflet';
+import 'leaflet/dist/leaflet.css';
+import L from 'leaflet';
 import { useApp } from '../context/AppContext.jsx';
-import StatCard from '../components/StatCard.jsx';
+import { calculateDistance } from '../utils/geo.js';
 import './Running.css';
+
+// Fix for default Leaflet markers in React
+delete L.Icon.Default.prototype._getIconUrl;
+L.Icon.Default.mergeOptions({
+  iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
+  iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
+  shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
+});
+
+// Custom markers
+const startIcon = new L.Icon({
+  iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-green.png',
+  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
+  iconSize: [25, 41],
+  iconAnchor: [12, 41],
+  popupAnchor: [1, -34],
+  shadowSize: [41, 41]
+});
+
+const currentIcon = new L.Icon({
+  iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-red.png',
+  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
+  iconSize: [25, 41],
+  iconAnchor: [12, 41],
+  popupAnchor: [1, -34],
+  shadowSize: [41, 41]
+});
+
+// Component to dynamically update map view based on current position
+function MapUpdater({ position }) {
+  const map = useMap();
+  useEffect(() => {
+    if (position && position.length === 2) {
+      map.setView(position, map.getZoom(), { animate: true });
+    }
+  }, [position, map]);
+  return null;
+}
 
 export default function Running() {
   const { state, dispatch, addToast } = useApp();
   const { running } = state;
   const [activeTab, setActiveTab] = useState('tracker');
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
+  const [currentPosition, setCurrentPosition] = useState(null); // [lat, lng]
+  
   const intervalRef = useRef(null);
+  const geoWatchRef = useRef(null);
 
-  // Simulated live run tracking
+  // Initialize location on mount
+  useEffect(() => {
+    if ("geolocation" in navigator) {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => setCurrentPosition([pos.coords.latitude, pos.coords.longitude]),
+        (err) => console.error("Geolocation error:", err),
+        { enableHighAccuracy: true }
+      );
+    }
+  }, []);
+
+  // Timer and Geolocation Tracking
   useEffect(() => {
     if (running.isTracking) {
+      // 1. Start the timer
       intervalRef.current = setInterval(() => {
-        setElapsedSeconds(prev => prev + 1);
-        const newDistance = +(running.currentRun.distance + 0.003).toFixed(3);
-        const mins = Math.floor((elapsedSeconds + 1) / 60);
-        const secs = (elapsedSeconds + 1) % 60;
-        const pace = newDistance > 0 ? `${Math.floor((elapsedSeconds + 1) / 60 / newDistance)}:${String(Math.floor((elapsedSeconds + 1) / newDistance % 60)).padStart(2, '0')}` : '0:00';
-        dispatch({
-          type: 'UPDATE_CURRENT_RUN',
-          payload: {
-            distance: newDistance,
-            duration: elapsedSeconds + 1,
-            pace,
-            calories: Math.floor(newDistance * 62),
-            speed: +(newDistance / ((elapsedSeconds + 1) / 3600)).toFixed(1),
-          },
+        setElapsedSeconds(prev => {
+          const newElapsed = prev + 1;
+          
+          // Update the UI via dispatch (distance is calculated by geoWatch)
+          const dist = running.currentRun.distance;
+          const mins = Math.floor(newElapsed / 60);
+          const pace = dist > 0 ? `${Math.floor((newElapsed / 60) / dist)}:${String(Math.floor((newElapsed / dist) % 60)).padStart(2, '0')}` : '0:00';
+          const speed = dist > 0 ? +(dist / (newElapsed / 3600)).toFixed(1) : 0;
+          const calories = Math.floor(dist * 62);
+
+          dispatch({
+            type: 'UPDATE_CURRENT_RUN',
+            payload: { duration: newElapsed, pace, speed, calories }
+          });
+          
+          return newElapsed;
         });
       }, 1000);
+
+      // 2. Start GPS Tracking
+      if ("geolocation" in navigator) {
+        geoWatchRef.current = navigator.geolocation.watchPosition(
+          (pos) => {
+            const newCoord = [pos.coords.latitude, pos.coords.longitude];
+            setCurrentPosition(newCoord);
+
+            const path = running.currentRun.routePath || [];
+            let newDist = running.currentRun.distance;
+
+            // If we have previous points, calculate distance from the last point
+            if (path.length > 0) {
+              const lastCoord = path[path.length - 1];
+              const addedDist = calculateDistance(lastCoord, newCoord);
+              if (addedDist > 0.005) { // Only update if moved more than 5 meters to prevent GPS jitter
+                newDist += addedDist;
+              }
+            }
+
+            // Append new coordinate
+            const newPath = [...path, newCoord];
+            
+            dispatch({
+              type: 'UPDATE_CURRENT_RUN',
+              payload: { routePath: newPath, distance: +newDist.toFixed(3) }
+            });
+          },
+          (err) => {
+            addToast('error', 'Location tracking error: ' + err.message);
+          },
+          { enableHighAccuracy: true, maximumAge: 0, timeout: 5000 }
+        );
+      }
     } else {
       clearInterval(intervalRef.current);
+      if (geoWatchRef.current !== null) {
+        navigator.geolocation.clearWatch(geoWatchRef.current);
+      }
     }
-    return () => clearInterval(intervalRef.current);
-  }, [running.isTracking, elapsedSeconds]);
+
+    return () => {
+      clearInterval(intervalRef.current);
+      if (geoWatchRef.current !== null) {
+        navigator.geolocation.clearWatch(geoWatchRef.current);
+      }
+    };
+  }, [running.isTracking, running.currentRun.routePath, running.currentRun.distance, dispatch, addToast]);
 
   const toggleTracking = () => {
     if (!running.isTracking) {
+      if (!("geolocation" in navigator)) {
+        addToast('error', 'Geolocation is not supported by your browser');
+        return;
+      }
       addToast('info', 'Run tracking started! 🏃‍♂️');
     }
     dispatch({ type: 'TOGGLE_RUN_TRACKING' });
@@ -61,7 +166,7 @@ export default function Running() {
       addToast('success', `Run saved! ${running.currentRun.distance.toFixed(2)} km in ${formatTime(running.currentRun.duration)} 🎉`);
     }
     dispatch({ type: 'TOGGLE_RUN_TRACKING' });
-    dispatch({ type: 'UPDATE_CURRENT_RUN', payload: { distance: 0, duration: 0, pace: '0:00', calories: 0, speed: 0 } });
+    dispatch({ type: 'UPDATE_CURRENT_RUN', payload: { distance: 0, duration: 0, pace: '0:00', calories: 0, speed: 0, routePath: [] } });
     setElapsedSeconds(0);
   };
 
@@ -75,10 +180,9 @@ export default function Running() {
     <div className="running-page" id="running-page">
       <div className="page-header">
         <h1>Running Tracker</h1>
-        <p>Track your runs and set new records</p>
+        <p>Track your runs and set new records with live GPS</p>
       </div>
 
-      {/* Tabs */}
       <div className="tabs">
         <button className={`tab ${activeTab === 'tracker' ? 'active' : ''}`} onClick={() => setActiveTab('tracker')}>Live Tracker</button>
         <button className={`tab ${activeTab === 'history' ? 'active' : ''}`} onClick={() => setActiveTab('history')}>Run History</button>
@@ -87,39 +191,49 @@ export default function Running() {
 
       {activeTab === 'tracker' && (
         <div className="dashboard-grid">
-          {/* Map Area */}
           <div className="span-8">
             <div className="glass-card glass-card--no-hover animate-fade-in-up running__map-card" style={{ opacity: 0 }}>
+              
+              {/* Interactive World Map */}
               <div className="running__map">
-                <div className="running__map-placeholder">
-                  <MapPin size={48} className="running__map-icon" />
-                  <p>{running.isTracking ? 'Tracking your route...' : 'Start a run to see your route'}</p>
-                  {running.isTracking && (
-                    <div className="running__map-pulse" />
-                  )}
-                  {/* Simulated route visualization */}
-                  <svg className="running__route-svg" viewBox="0 0 400 250">
-                    <defs>
-                      <linearGradient id="routeGrad" x1="0%" y1="0%" x2="100%" y2="0%">
-                        <stop offset="0%" stopColor="#6c5ce7" />
-                        <stop offset="100%" stopColor="#00d2d3" />
-                      </linearGradient>
-                    </defs>
-                    <path
-                      d="M30,200 Q80,180 120,150 Q160,120 200,130 Q240,140 280,100 Q320,60 370,50"
-                      fill="none"
-                      stroke="url(#routeGrad)"
-                      strokeWidth="3"
-                      strokeLinecap="round"
-                      strokeDasharray={running.isTracking ? '8 4' : '0'}
-                      className={running.isTracking ? 'running__route-animated' : ''}
+                {currentPosition ? (
+                  <MapContainer 
+                    center={currentPosition} 
+                    zoom={15} 
+                    style={{ height: '100%', width: '100%', borderRadius: 'inherit' }}
+                    zoomControl={false}
+                  >
+                    <TileLayer
+                      url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+                      attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> contributors'
                     />
-                    <circle cx="30" cy="200" r="6" fill="#43e97b" />
-                    {running.isTracking && (
-                      <circle cx="370" cy="50" r="6" fill="#ff6b6b" className="running__dot-pulse" />
+                    
+                    {running.isTracking && <MapUpdater position={currentPosition} />}
+                    
+                    {/* The Route Polyline */}
+                    {running.currentRun.routePath && running.currentRun.routePath.length > 0 && (
+                      <Polyline 
+                        positions={running.currentRun.routePath} 
+                        color="#00d2d3" 
+                        weight={5} 
+                        opacity={0.8}
+                      />
                     )}
-                  </svg>
-                </div>
+
+                    {/* Start Marker */}
+                    {running.currentRun.routePath && running.currentRun.routePath.length > 0 && (
+                      <Marker position={running.currentRun.routePath[0]} icon={startIcon} />
+                    )}
+
+                    {/* Current Position Marker */}
+                    <Marker position={currentPosition} icon={running.isTracking ? currentIcon : startIcon} />
+                  </MapContainer>
+                ) : (
+                  <div className="running__map-placeholder">
+                    <MapPin size={48} className="running__map-icon" />
+                    <p>Requesting location permissions...</p>
+                  </div>
+                )}
               </div>
 
               {/* Live Stats Overlay */}
@@ -148,7 +262,7 @@ export default function Running() {
               {/* Controls */}
               <div className="running__controls">
                 {!running.isTracking ? (
-                  <button className="running__start-btn" onClick={toggleTracking} id="start-run-btn">
+                  <button className="running__start-btn" onClick={toggleTracking} id="start-run-btn" disabled={!currentPosition}>
                     <Play size={28} />
                   </button>
                 ) : (
@@ -165,7 +279,6 @@ export default function Running() {
             </div>
           </div>
 
-          {/* Side Stats */}
           <div className="span-4">
             <div className="glass-card glass-card--no-hover animate-fade-in-up" style={{ animationDelay: '0.1s', opacity: 0 }}>
               <h3 className="section-title" style={{ marginBottom: 'var(--spacing-md)' }}>
@@ -196,6 +309,7 @@ export default function Running() {
         </div>
       )}
 
+      {/* History and Records tabs remain unchanged... */}
       {activeTab === 'history' && (
         <div className="running__history animate-fade-in">
           <div className="glass-card glass-card--no-hover">

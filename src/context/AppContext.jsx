@@ -72,6 +72,7 @@ const initialState = {
       pace: '0:00',
       calories: 0,
       speed: 0,
+      routePath: [],
     },
     history: [
       { id: 1, date: '2026-05-03', distance: 5.2, duration: '28:45', pace: '5:32', calories: 320, route: 'Central Park Loop' },
