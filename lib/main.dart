@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
 import 'services/notification_service.dart';
 import 'providers/theme_provider.dart';
 import 'providers/app_provider.dart';
@@ -12,11 +13,14 @@ import 'app.dart';
 
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
+
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Hive.initFlutter();
   final prefs = await SharedPreferences.getInstance();
   await NotificationService.init();
+
 
   SystemChrome.setSystemUIOverlayStyle(
     const SystemUiOverlayStyle(

@@ -24,3 +24,26 @@ plugins {
 }
 
 include(":app")
+
+dependencyResolutionManagement {
+    repositoriesMode.set(RepositoriesMode.PREFER_PROJECT)
+    repositories {
+        google()
+        mavenCentral()
+        maven {
+            url = uri("https://api.mapbox.com/downloads/v2/releases/maven")
+            credentials {
+                username = "mapbox"
+                val properties = java.util.Properties()
+                val localPropsFile = file("local.properties")
+                if (localPropsFile.exists()) {
+                    localPropsFile.inputStream().use { properties.load(it) }
+                }
+                password = properties.getProperty("MAPBOX_DOWNLOADS_TOKEN") ?: ""
+            }
+            authentication {
+                create<BasicAuthentication>("basic")
+            }
+        }
+    }
+}

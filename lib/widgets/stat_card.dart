@@ -56,17 +56,22 @@ class StatCard extends StatelessWidget {
                 child: Icon(icon, size: 20, color: Colors.white),
               ),
               if (trend != null)
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: (trend! >= 0 ? AppColors.green : AppColors.coral).withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Text(
-                    '${trend! >= 0 ? '↑' : '↓'} ${trend!.abs()}%',
-                    style: theme.textTheme.labelSmall?.copyWith(
-                      color: trend! >= 0 ? AppColors.green : AppColors.coral,
-                      fontWeight: FontWeight.w700,
+                Flexible(
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: (trend! >= 0 ? AppColors.green : AppColors.coral).withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        '${trend! >= 0 ? '↑' : '↓'} ${trend!.abs()}%',
+                        style: theme.textTheme.labelSmall?.copyWith(
+                          color: trend! >= 0 ? AppColors.green : AppColors.coral,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
                     ),
                   ),
                 ),

@@ -22,6 +22,7 @@ class AppShell extends StatefulWidget {
 
 class _AppShellState extends State<AppShell> {
   int _currentIndex = 0;
+  bool _isMapFullscreen = false;
 
   @override
   void initState() {
@@ -31,12 +32,12 @@ class _AppShellState extends State<AppShell> {
     });
   }
 
-  final _screens = const [
-    DashboardScreen(),
-    FitnessScreen(),
-    RunningScreen(),
-    HealthScreen(),
-    StudyScreen(),
+  List<Widget> get _screens => [
+    const DashboardScreen(),
+    const FitnessScreen(),
+    RunningScreen(onFullscreenChanged: (v) => setState(() => _isMapFullscreen = v)),
+    const HealthScreen(),
+    const StudyScreen(),
   ];
 
   @override
@@ -47,7 +48,7 @@ class _AppShellState extends State<AppShell> {
     final app = context.watch<AppProvider>();
 
     return Scaffold(
-      appBar: AppBar(
+      appBar: _isMapFullscreen ? null : AppBar(
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -132,7 +133,7 @@ class _AppShellState extends State<AppShell> {
         duration: const Duration(milliseconds: 300),
         child: _screens[_currentIndex],
       ),
-      bottomNavigationBar: Container(
+      bottomNavigationBar: _isMapFullscreen ? null : Container(
         decoration: BoxDecoration(
           color: isDark
               ? AppColors.darkSurface.withValues(alpha: 0.95)
