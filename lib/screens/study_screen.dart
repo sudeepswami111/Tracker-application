@@ -39,6 +39,29 @@ class _StudyScreenState extends State<StudyScreen> {
 
   String _fmt(int s) => '${(s ~/ 60).toString().padLeft(2, '0')}:${(s % 60).toString().padLeft(2, '0')}';
 
+  void _setCustomTime(BuildContext context, AppProvider app) {
+    int mins = app.focusTimerDuration ~/ 60;
+    showDialog(context: context, builder: (ctx) => AlertDialog(
+      title: const Text('Set Custom Time'),
+      content: TextFormField(
+        initialValue: '$mins',
+        keyboardType: TextInputType.number,
+        decoration: const InputDecoration(labelText: 'Minutes'),
+        onChanged: (v) => mins = int.tryParse(v) ?? 25,
+      ),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+        ElevatedButton(onPressed: () {
+          app.focusTimerDuration = mins * 60;
+          setState(() {
+            if (!app.focusTimerRunning) _timerSeconds = app.focusTimerDuration;
+          });
+          Navigator.pop(ctx);
+        }, child: const Text('Set')),
+      ],
+    ));
+  }
+
   @override
   Widget build(BuildContext context) {
     final app = context.watch<AppProvider>();
@@ -54,7 +77,7 @@ class _StudyScreenState extends State<StudyScreen> {
 
       // Streak
       GlassCard(child: Column(children: [
-        const Text('🔥', style: TextStyle(fontSize: 48)),
+        Icon(LucideIcons.flame, size: 48, color: AppColors.coral),
         ShaderMask(shaderCallback: (b) => AppColors.gradientStreak.createShader(b),
           child: Text('${app.studyStreak}', style: theme.textTheme.displayLarge?.copyWith(fontSize: 64, color: Colors.white))),
         Text('Day Streak', style: theme.textTheme.titleMedium?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
@@ -82,6 +105,8 @@ class _StudyScreenState extends State<StudyScreen> {
           OutlinedButton.icon(onPressed: () => _resetTimer(app), icon: const Icon(LucideIcons.rotateCcw, size: 16), label: const Text('Reset'),
             style: OutlinedButton.styleFrom(foregroundColor: theme.colorScheme.onSurfaceVariant, side: BorderSide(color: theme.colorScheme.outline.withValues(alpha: 0.3)))),
         ]),
+        const SizedBox(height: 12),
+        TextButton.icon(onPressed: () => _setCustomTime(context, app), icon: const Icon(LucideIcons.clock, size: 14), label: const Text('Set Custom Time')),
       ])),
       const SizedBox(height: 16),
 
@@ -132,7 +157,7 @@ class _StudyScreenState extends State<StudyScreen> {
 
       // Heatmap
       GlassCard(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text('📊 Study Heatmap', style: theme.textTheme.titleLarge),
+        Row(children: [Icon(LucideIcons.barChart3, size: 18, color: theme.colorScheme.primary), const SizedBox(width: 8), Text('Study Heatmap', style: theme.textTheme.titleLarge)]),
         const SizedBox(height: 16),
         ...List.generate(app.weeklyHeatmap.length, (wi) {
           return Padding(padding: const EdgeInsets.only(bottom: 6), child: Row(children: [
@@ -160,7 +185,7 @@ class _StudyScreenState extends State<StudyScreen> {
             decoration: BoxDecoration(color: isDark ? Colors.white.withValues(alpha: 0.03) : Colors.black.withValues(alpha: 0.02), borderRadius: BorderRadius.circular(14),
               border: achieved ? Border.all(color: AppColors.primary.withValues(alpha: 0.2)) : null),
             child: Opacity(opacity: achieved ? 1 : 0.6, child: Row(children: [
-              Text(m['icon'] as String, style: const TextStyle(fontSize: 20)),
+              Icon(m['icon'] as IconData, size: 20, color: achieved ? AppColors.yellow : theme.colorScheme.onSurfaceVariant),
               const SizedBox(width: 8),
               Expanded(child: Text(m['title'] as String, style: theme.textTheme.bodySmall?.copyWith(fontWeight: FontWeight.w600))),
               if (achieved) Container(padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2), decoration: BoxDecoration(color: AppColors.green.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(6)),

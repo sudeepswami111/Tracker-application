@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:lucide_icons/lucide_icons.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import '../providers/running_provider.dart';
 import '../providers/theme_provider.dart';
+import '../utils/cached_tile_provider.dart';
 import '../widgets/glass_card.dart';
 import '../theme/app_colors.dart';
 
@@ -65,26 +67,15 @@ class _Tab extends StatelessWidget {
   }
 }
 
-// ════════════════════════════════════════════════════
-// MAP TILE CONFIGURATION (No API key needed!)
-// ════════════════════════════════════════════════════
-// Using free OpenStreetMap + CartoDB tiles by default.
-//
-// ─── OPTIONAL: Upgrade to Mapbox ───
-// 1. Go to https://account.mapbox.com/ → Create free account
-// 2. Copy your "Default public token" from the dashboard
-// 3. Replace the URLs below with:
-//    Dark:   'https://api.mapbox.com/styles/v1/mapbox/dark-v11/tiles/{z}/{x}/{y}@2x?access_token=YOUR_TOKEN'
-//    Light:  'https://api.mapbox.com/styles/v1/mapbox/streets-v12/tiles/{z}/{x}/{y}@2x?access_token=YOUR_TOKEN'
-// 4. Set tileSize: 512 and zoomOffset: -1 in TileLayer
+// ─── FREE PREMIUM MAP TILES (No API Key Required) ───
+// Using CartoDB tiles which provide a beautiful, modern aesthetic similar to Mapbox
+// without requiring any API tokens or causing loading errors.
 
-// Dark mode: CartoDB Dark Matter (free, no key)
 String _darkTileUrl() =>
-    'https://basemaps.cartocdn.com/dark_all/{z}/{x}/{y}@2x.png';
+    'https://a.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}@2x.png';
 
-// Light mode: OpenStreetMap standard (free, no key)
 String _lightTileUrl() =>
-    'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
+    'https://a.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}@2x.png';
 
 
 class _TrackerTab extends StatefulWidget {
@@ -180,6 +171,7 @@ class _TrackerTabState extends State<_TrackerTab> with SingleTickerProviderState
               urlTemplate: isDark ? _darkTileUrl() : _lightTileUrl(),
               userAgentPackageName: 'com.lifepulse.app',
               maxZoom: 19,
+              tileProvider: CachedTileProvider(),
             ),
 
             // ─── Route Polyline ───
@@ -189,9 +181,9 @@ class _TrackerTabState extends State<_TrackerTab> with SingleTickerProviderState
                   Polyline(
                     points: routePoints,
                     strokeWidth: isDark ? 5.0 : 4.0,
-                    color: isDark ? const Color(0xFF00E5FF) : AppColors.primary,
+                    color: isDark ? const Color(0xFF39FF14) : AppColors.primary,
                     borderStrokeWidth: isDark ? 2.0 : 0,
-                    borderColor: isDark ? const Color(0xFFBB86FC).withValues(alpha: 0.6) : Colors.transparent,
+                    borderColor: isDark ? Colors.black.withValues(alpha: 0.6) : Colors.transparent,
                   ),
                 ],
               ),
@@ -239,7 +231,7 @@ class _TrackerTabState extends State<_TrackerTab> with SingleTickerProviderState
                                 decoration: BoxDecoration(
                                   shape: BoxShape.circle,
                                   border: Border.all(
-                                    color: (isDark ? const Color(0xFF00E5FF) : AppColors.primary)
+                                    color: (isDark ? const Color(0xFF39FF14) : AppColors.primary)
                                         .withValues(alpha: opacity * 0.6),
                                     width: 2,
                                   ),
@@ -251,12 +243,12 @@ class _TrackerTabState extends State<_TrackerTab> with SingleTickerProviderState
                               width: 16,
                               height: 16,
                               decoration: BoxDecoration(
-                                color: isDark ? const Color(0xFF00E5FF) : AppColors.primary,
+                                color: isDark ? const Color(0xFF39FF14) : AppColors.primary,
                                 shape: BoxShape.circle,
                                 border: Border.all(color: Colors.white, width: 2.5),
                                 boxShadow: [
                                   BoxShadow(
-                                    color: (isDark ? const Color(0xFF00E5FF) : AppColors.primary)
+                                    color: (isDark ? const Color(0xFF39FF14) : AppColors.primary)
                                         .withValues(alpha: 0.6),
                                     blurRadius: 12,
                                     spreadRadius: 2,
@@ -349,9 +341,26 @@ class _TrackerTabState extends State<_TrackerTab> with SingleTickerProviderState
         ])),
       const SizedBox(height: 16),
 
-      // ─── Controls ───
       Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-        if (!run.isTracking) GestureDetector(onTap: () => run.startRun(), child: Container(width: 72, height: 72, decoration: BoxDecoration(gradient: AppColors.gradientPrimary, shape: BoxShape.circle,
+        if (!run.isTracking) GestureDetector(onTap: () async {
+          var status = await Permission.location.status;
+          if (!status.isGranted) {
+            status = await Permission.location.request();
+          }
+          
+          if (status.isGranted) {
+            run.startRun();
+          } else if (status.isPermanentlyDenied) {
+            if (context.mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Location permission permanently denied. Opening settings...')));
+            }
+            await openAppSettings();
+          } else {
+            if (context.mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Location permission is required to track your run.')));
+            }
+          }
+        }, child: Container(width: 72, height: 72, decoration: BoxDecoration(gradient: AppColors.gradientPrimary, shape: BoxShape.circle,
           boxShadow: [BoxShadow(color: AppColors.primary.withValues(alpha: 0.5), blurRadius: 24, offset: const Offset(0, 6))]),
           child: const Icon(LucideIcons.play, color: Colors.white, size: 30)))
         else ...[

@@ -64,7 +64,7 @@ class HealthScreen extends StatelessWidget {
         ]),
         const SizedBox(height: 12),
         SizedBox(height: 60, child: Row(crossAxisAlignment: CrossAxisAlignment.end, children: List.generate(7, (i) {
-          final h = app.sleepWeekly[i]; final days = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
+          final h = app.sleepWeekly.length > i ? app.sleepWeekly[i] : 0.0; final days = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
           return Expanded(child: Padding(padding: const EdgeInsets.symmetric(horizontal: 3), child: Column(mainAxisAlignment: MainAxisAlignment.end, children: [
             Expanded(child: FractionallySizedBox(heightFactor: (h / 10).clamp(0, 1), alignment: Alignment.bottomCenter,
               child: Container(decoration: BoxDecoration(color: h >= 7 ? AppColors.blue : AppColors.coral, borderRadius: BorderRadius.circular(4))))),
@@ -82,7 +82,7 @@ class HealthScreen extends StatelessWidget {
             child: Text('${app.waterGlasses}/${app.waterGlassGoal}', style: theme.textTheme.labelSmall?.copyWith(color: AppColors.primary, fontWeight: FontWeight.w700))),
         ]),
         const SizedBox(height: 16),
-        Center(child: Wrap(spacing: 8, runSpacing: 8, children: List.generate(app.waterGlassGoal, (i) => Container(width: 36, height: 36,
+        Center(child: Wrap(spacing: 8, runSpacing: 8, children: List.generate(app.waterGlasses > app.waterGlassGoal ? app.waterGlasses : app.waterGlassGoal, (i) => Container(width: 36, height: 36,
           decoration: BoxDecoration(color: i < app.waterGlasses ? AppColors.secondary.withValues(alpha: 0.15) : Colors.transparent, borderRadius: BorderRadius.circular(10),
             border: Border.all(color: i < app.waterGlasses ? AppColors.secondary : theme.colorScheme.outline.withValues(alpha: 0.2))),
           child: Icon(LucideIcons.droplets, size: 16, color: i < app.waterGlasses ? AppColors.secondary : theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.3)))))),
@@ -99,7 +99,7 @@ class HealthScreen extends StatelessWidget {
           ProgressRing(size: 110, strokeWidth: 10, progress: app.wellnessScore.toDouble(), color: AppColors.green, label: '${app.wellnessScore}', sublabel: 'Score', fontSize: 28),
           const SizedBox(width: 24),
           Expanded(child: Column(children: [
-            Row(children: [Text('Mood', style: theme.textTheme.bodySmall), const Spacer(), Text(app.mood == 'great' ? '😊' : '🙂', style: const TextStyle(fontSize: 20))]),
+            Row(children: [Text('Mood', style: theme.textTheme.bodySmall), const Spacer(), Icon(app.mood == 'great' ? LucideIcons.smile : LucideIcons.meh, size: 20, color: AppColors.primary)]),
             const SizedBox(height: 8),
             Row(children: [Text('Energy', style: theme.textTheme.bodySmall), const SizedBox(width: 8), Expanded(child: ClipRRect(borderRadius: BorderRadius.circular(4), child: LinearProgressIndicator(value: app.energy / 100, minHeight: 6, backgroundColor: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.black.withValues(alpha: 0.06), valueColor: const AlwaysStoppedAnimation(AppColors.coral)))), const SizedBox(width: 8), Text('${app.energy}%', style: theme.textTheme.labelSmall)]),
             const SizedBox(height: 8),

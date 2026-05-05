@@ -36,26 +36,26 @@ class DashboardScreen extends StatelessWidget {
           const SizedBox(height: 20),
 
           // Stats Grid
-          GridView.builder(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 2,
-              childAspectRatio: 1.35,
-              crossAxisSpacing: 12,
-              mainAxisSpacing: 12,
-            ),
-            itemCount: statCards.length,
-            itemBuilder: (_, i) {
-              final c = statCards[i];
-              return StatCard(
-                icon: c['icon'] as IconData,
-                label: c['label'] as String,
-                value: c['value'] as String,
-                unit: c['unit'] as String,
-                progress: c['progress'] as double,
-                gradient: c['gradient'] as LinearGradient,
-                trend: c['trend'] as int,
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final double cardWidth = (constraints.maxWidth - 12) / 2;
+              return Wrap(
+                spacing: 12,
+                runSpacing: 12,
+                children: statCards.map((c) {
+                  return SizedBox(
+                    width: cardWidth,
+                    child: StatCard(
+                      icon: c['icon'] as IconData,
+                      label: c['label'] as String,
+                      value: c['value'] as String,
+                      unit: c['unit'] as String,
+                      progress: c['progress'] as double,
+                      gradient: c['gradient'] as LinearGradient,
+                      trend: c['trend'] as int,
+                    ),
+                  );
+                }).toList(),
               );
             },
           ),
@@ -66,7 +66,13 @@ class DashboardScreen extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('🔥 Active Streaks', style: theme.textTheme.titleLarge),
+                Row(
+                  children: [
+                    Icon(LucideIcons.flame, size: 24, color: AppColors.coral),
+                    const SizedBox(width: 8),
+                    Text('Active Streaks', style: theme.textTheme.titleLarge),
+                  ],
+                ),
                 const SizedBox(height: 16),
                 ...app.streaks.entries.map((e) {
                   final colors = {
@@ -79,7 +85,7 @@ class DashboardScreen extends StatelessWidget {
                     padding: const EdgeInsets.only(bottom: 12),
                     child: Row(
                       children: [
-                        const Text('🔥', style: TextStyle(fontSize: 18)),
+                        Icon(LucideIcons.flame, size: 18, color: AppColors.coral),
                         const SizedBox(width: 10),
                         Expanded(child: Text(e.key, style: theme.textTheme.bodyMedium)),
                         Text(
@@ -172,13 +178,13 @@ class DashboardScreen extends StatelessWidget {
                 ),
                 const SizedBox(height: 16),
                 ...app.insights.map((insight) {
-                  final icons = {'positive': '✨', 'suggestion': '💡', 'warning': '⚠️'};
+                  final icons = {'positive': LucideIcons.sparkles, 'suggestion': LucideIcons.lightbulb, 'warning': LucideIcons.alertTriangle};
                   return Padding(
                     padding: const EdgeInsets.only(bottom: 10),
                     child: Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(icons[insight['type']] ?? '💡', style: const TextStyle(fontSize: 16)),
+                        Icon(icons[insight['type']] ?? LucideIcons.lightbulb, size: 16, color: AppColors.primary),
                         const SizedBox(width: 10),
                         Expanded(child: Text(insight['message']!, style: theme.textTheme.bodySmall?.copyWith(height: 1.5))),
                       ],
@@ -226,7 +232,7 @@ class DashboardScreen extends StatelessWidget {
                           child: Center(
                             child: Opacity(
                               opacity: unlocked ? 1 : 0.4,
-                              child: Text(badge['icon'] as String, style: const TextStyle(fontSize: 24)),
+                              child: Icon(badge['icon'] as IconData, size: 24, color: unlocked ? AppColors.primary : theme.colorScheme.onSurfaceVariant),
                             ),
                           ),
                         ),
@@ -252,14 +258,20 @@ class DashboardScreen extends StatelessWidget {
 
           // Overall Progress Rings
           GlassCard(
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: [
-                ProgressRing(size: 80, strokeWidth: 8, progress: app.steps / app.stepsGoal * 100, color: AppColors.primary, label: '${(app.steps / app.stepsGoal * 100).round()}%', sublabel: 'Steps', fontSize: 14),
-                ProgressRing(size: 80, strokeWidth: 8, progress: app.calories / app.caloriesGoal * 100, color: AppColors.coral, label: '${(app.calories / app.caloriesGoal * 100).round()}%', sublabel: 'Cal', fontSize: 14),
-                ProgressRing(size: 80, strokeWidth: 8, progress: app.sleepHours / app.sleepGoal * 100, color: AppColors.green, label: '${(app.sleepHours / app.sleepGoal * 100).round()}%', sublabel: 'Sleep', fontSize: 14),
-                ProgressRing(size: 80, strokeWidth: 8, progress: app.waterIntake / app.waterGoal * 100, color: AppColors.secondary, label: '${(app.waterIntake / app.waterGoal * 100).round()}%', sublabel: 'Water', fontSize: 14),
-              ],
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceAround,
+                children: [
+                  ProgressRing(size: 80, strokeWidth: 8, progress: app.steps / app.stepsGoal * 100, color: AppColors.primary, label: '${(app.steps / app.stepsGoal * 100).round()}%', sublabel: 'Steps', fontSize: 14),
+                  const SizedBox(width: 16),
+                  ProgressRing(size: 80, strokeWidth: 8, progress: app.calories / app.caloriesGoal * 100, color: AppColors.coral, label: '${(app.calories / app.caloriesGoal * 100).round()}%', sublabel: 'Cal', fontSize: 14),
+                  const SizedBox(width: 16),
+                  ProgressRing(size: 80, strokeWidth: 8, progress: app.sleepHours / app.sleepGoal * 100, color: AppColors.green, label: '${(app.sleepHours / app.sleepGoal * 100).round()}%', sublabel: 'Sleep', fontSize: 14),
+                  const SizedBox(width: 16),
+                  ProgressRing(size: 80, strokeWidth: 8, progress: app.waterIntake / app.waterGoal * 100, color: AppColors.secondary, label: '${(app.waterIntake / app.waterGoal * 100).round()}%', sublabel: 'Water', fontSize: 14),
+                ],
+              ),
             ),
           ),
           const SizedBox(height: 100), // Bottom nav clearance

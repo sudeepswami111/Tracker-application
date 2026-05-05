@@ -25,15 +25,20 @@ class FitnessScreen extends StatelessWidget {
           const SizedBox(height: 4),
           Text('Track your workouts and body metrics', style: theme.textTheme.bodySmall),
           const SizedBox(height: 20),
-          GridView.count(
-            crossAxisCount: 2, shrinkWrap: true, physics: const NeverScrollableScrollPhysics(),
-            childAspectRatio: 1.35, crossAxisSpacing: 12, mainAxisSpacing: 12,
-            children: [
-              StatCard(icon: LucideIcons.flame, label: 'Calories', value: '${app.todayCalories}', unit: 'kcal', progress: app.todayCalories / 3000 * 100, gradient: AppColors.gradientCoral, trend: 5),
-              StatCard(icon: LucideIcons.clock, label: 'Duration', value: '${app.todayDuration}', unit: 'min', progress: app.todayDuration / 90 * 100, gradient: AppColors.gradientPrimary, trend: 12),
-              StatCard(icon: LucideIcons.dumbbell, label: 'Exercises', value: '${app.todayExercises}', unit: 'done', progress: app.todayExercises / 6 * 100, gradient: AppColors.gradientSecondary),
-              StatCard(icon: LucideIcons.trendingDown, label: 'Weight', value: '${app.bodyWeight.last}', unit: 'kg', progress: 100, gradient: AppColors.gradientGreen, trend: -2),
-            ],
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final cardWidth = (constraints.maxWidth - 12) / 2;
+              return Wrap(
+                spacing: 12,
+                runSpacing: 12,
+                children: [
+                  SizedBox(width: cardWidth, child: StatCard(icon: LucideIcons.flame, label: 'Calories', value: '${app.todayCalories}', unit: 'kcal', progress: app.todayCalories / 3000 * 100, gradient: AppColors.gradientCoral, trend: 5)),
+                  SizedBox(width: cardWidth, child: StatCard(icon: LucideIcons.clock, label: 'Duration', value: '${app.todayDuration}', unit: 'min', progress: app.todayDuration / 90 * 100, gradient: AppColors.gradientPrimary, trend: 12)),
+                  SizedBox(width: cardWidth, child: StatCard(icon: LucideIcons.dumbbell, label: 'Exercises', value: '${app.todayExercises}', unit: 'done', progress: app.todayExercises / 6 * 100, gradient: AppColors.gradientSecondary)),
+                  SizedBox(width: cardWidth, child: StatCard(icon: LucideIcons.trendingDown, label: 'Weight', value: app.bodyWeight.isNotEmpty ? '${app.bodyWeight.last}' : '0', unit: 'kg', progress: 100, gradient: AppColors.gradientGreen, trend: -2)),
+                ],
+              );
+            },
           ),
           const SizedBox(height: 20),
           GlassCard(child: Column(children: [
@@ -56,9 +61,9 @@ class FitnessScreen extends StatelessWidget {
           GlassCard(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Text('Body Metrics', style: theme.textTheme.titleLarge),
             const SizedBox(height: 16),
-            _metricRow('Current Weight', '${app.bodyWeight.last} kg', theme),
+            _metricRow('Current Weight', app.bodyWeight.isNotEmpty ? '${app.bodyWeight.last} kg' : '-- kg', theme),
             _metricRow('BMI', '${app.bmi}', theme),
-            _metricRow('Weight Lost', '-${(app.bodyWeight.first - app.bodyWeight.last).toStringAsFixed(1)} kg', theme, color: AppColors.green),
+            _metricRow('Weight Lost', app.bodyWeight.isNotEmpty ? '-${(app.bodyWeight.first - app.bodyWeight.last).toStringAsFixed(1)} kg' : '0 kg', theme, color: AppColors.green),
           ])),
           const SizedBox(height: 100),
         ],

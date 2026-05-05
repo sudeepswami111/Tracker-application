@@ -75,29 +75,37 @@ class StatCard extends StatelessWidget {
           const SizedBox(height: 12),
 
           // Value
-          RichText(
-            text: TextSpan(
-              children: [
-                TextSpan(
-                  text: value,
-                  style: theme.textTheme.headlineLarge?.copyWith(fontSize: 28),
-                ),
-                if (unit.isNotEmpty)
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerLeft,
+            child: RichText(
+              text: TextSpan(
+                children: [
                   TextSpan(
-                    text: ' $unit',
-                    style: theme.textTheme.bodySmall?.copyWith(fontSize: 14),
+                    text: value,
+                    style: theme.textTheme.headlineLarge?.copyWith(fontSize: 28),
                   ),
-              ],
+                  if (unit.isNotEmpty)
+                    TextSpan(
+                      text: ' $unit',
+                      style: theme.textTheme.bodySmall?.copyWith(fontSize: 14),
+                    ),
+                ],
+              ),
             ),
           ),
           const SizedBox(height: 4),
 
           // Label
-          Text(
-            label.toUpperCase(),
-            style: theme.textTheme.labelSmall?.copyWith(
-              letterSpacing: 1,
-              fontSize: 10,
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerLeft,
+            child: Text(
+              label.toUpperCase(),
+              style: theme.textTheme.labelSmall?.copyWith(
+                letterSpacing: 1,
+                fontSize: 10,
+              ),
             ),
           ),
           const SizedBox(height: 10),

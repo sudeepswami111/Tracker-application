@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
+import '../services/notification_service.dart';
 
 class RunData {
   final int id;
@@ -113,6 +114,8 @@ class RunningProvider extends ChangeNotifier {
       startPosition = currentPosition;
       routeCoordinates.add(currentPosition!);
     }
+
+    NotificationService.showNotification('Activity Started!', 'Have a great run!');
 
     // Start GPS tracking
     _positionSubscription = Geolocator.getPositionStream(
