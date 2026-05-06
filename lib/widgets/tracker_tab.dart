@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:flutter_map/flutter_map.dart';
@@ -86,7 +85,7 @@ class _TrackerTabState extends State<TrackerTab> with SingleTickerProviderStateM
   }
 
   void _selectRoute(int idx) {
-    setState(() { for (int i = 0; i < _routes.length; i++) _routes[i].isSelected = (i == idx); });
+    setState(() { for (int i = 0; i < _routes.length; i++) { _routes[i].isSelected = (i == idx); } });
   }
 
   void _clearRoutes() {
@@ -120,7 +119,7 @@ class _TrackerTabState extends State<TrackerTab> with SingleTickerProviderStateM
       // Route info chips
       if (_routes.isNotEmpty && !widget.isFullscreen) ...[
         SizedBox(height: 36, child: ListView.separated(scrollDirection: Axis.horizontal, itemCount: _routes.length + 1,
-          separatorBuilder: (_, __) => const SizedBox(width: 8),
+          separatorBuilder: (_, _) => const SizedBox(width: 8),
           itemBuilder: (_, i) {
             if (i == _routes.length) return ActionChip(label: const Text('Clear', style: TextStyle(fontSize: 11)), avatar: const Icon(LucideIcons.x, size: 14), onPressed: _clearRoutes);
             final r = _routes[i];
@@ -157,7 +156,7 @@ class _TrackerTabState extends State<TrackerTab> with SingleTickerProviderStateM
               if (_startLatLng != null) Marker(point: _startLatLng!, width: 28, height: 28, child: Container(decoration: BoxDecoration(color: AppColors.green, shape: BoxShape.circle, border: Border.all(color: Colors.white, width: 2.5), boxShadow: [BoxShadow(color: AppColors.green.withValues(alpha: 0.5), blurRadius: 8)]), child: const Icon(Icons.flag, size: 14, color: Colors.white))),
               if (_destLatLng != null) Marker(point: _destLatLng!, width: 28, height: 28, child: Container(decoration: BoxDecoration(color: AppColors.coral, shape: BoxShape.circle, border: Border.all(color: Colors.white, width: 2.5), boxShadow: [BoxShadow(color: AppColors.coral.withValues(alpha: 0.5), blurRadius: 8)]), child: const Icon(LucideIcons.flag, size: 14, color: Colors.white))),
               if (run.startPosition != null && run.isTracking) Marker(point: LatLng(run.startPosition!.latitude, run.startPosition!.longitude), width: 24, height: 24, child: Container(decoration: BoxDecoration(color: AppColors.green, shape: BoxShape.circle, border: Border.all(color: Colors.white, width: 2.5)))),
-              if (run.currentPosition != null) Marker(point: LatLng(run.currentPosition!.latitude, run.currentPosition!.longitude), width: 40, height: 40, child: AnimatedBuilder(animation: _pulseController, builder: (_, __) {
+              if (run.currentPosition != null) Marker(point: LatLng(run.currentPosition!.latitude, run.currentPosition!.longitude), width: 40, height: 40, child: AnimatedBuilder(animation: _pulseController, builder: (_, _) {
                 final s = 1.0 + (_pulseController.value * 0.5); final o = 1.0 - _pulseController.value;
                 final c = isDark ? const Color(0xFF39FF14) : AppColors.primary;
                 return Stack(alignment: Alignment.center, children: [

@@ -85,7 +85,7 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
 
   void _calcStats(Position p) {
     double d = 0;
-    for (int i = 1; i < _gpsRoute.length; i++) d += const Distance().as(LengthUnit.Kilometer, _gpsRoute[i - 1], _gpsRoute[i]);
+    for (int i = 1; i < _gpsRoute.length; i++) { d += const Distance().as(LengthUnit.Kilometer, _gpsRoute[i - 1], _gpsRoute[i]); }
     final spd = p.speed * 3.6;
     setState(() { _distKm = d; _speedKmh = spd; _paceMin = spd > 0.5 ? 60.0 / spd : 0; _calories = (d * 65).round(); });
   }
@@ -109,7 +109,7 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
     } catch (e) { setState(() => _isSearching = false); _snack('Error: $e'); }
   }
 
-  void _selectRoute(int idx) { setState(() { for (int i = 0; i < _routes.length; i++) _routes[i].isSelected = (i == idx); }); }
+  void _selectRoute(int idx) { setState(() { for (int i = 0; i < _routes.length; i++) { _routes[i].isSelected = (i == idx); } }); }
 
   void _clearRoute() { setState(() { _routes = []; _routeStart = null; _routeDest = null; _startCtrl.clear(); _destCtrl.clear(); _state = RunState.idle; }); }
 
@@ -191,7 +191,7 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
         const SizedBox(height: 10),
         // Route choices
         if (_routes.isNotEmpty) SizedBox(height: 40, child: ListView.separated(scrollDirection: Axis.horizontal, itemCount: _routes.length,
-          separatorBuilder: (_, __) => const SizedBox(width: 8),
+          separatorBuilder: (_, _) => const SizedBox(width: 8),
           itemBuilder: (_, i) { final r = _routes[i]; return ChoiceChip(
             label: Text('${r.distanceKm.toStringAsFixed(1)} km · ${r.durationMin.toStringAsFixed(0)} min', style: TextStyle(fontSize: 11, color: r.isSelected ? Colors.white : null)),
             selected: r.isSelected, onSelected: (_) => _selectRoute(i),
@@ -262,8 +262,8 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
         if (_isFullscreen && _state != RunState.idle && _state != RunState.planning) Positioned(top: 60, left: 12, right: 70, child: Container(padding: const EdgeInsets.all(10),
           decoration: BoxDecoration(color: Colors.black.withValues(alpha: 0.7), borderRadius: BorderRadius.circular(16)),
           child: Row(mainAxisAlignment: MainAxisAlignment.spaceAround, children: [
-            _miniStat(_fmtDur(_durSecs), 'TIME'), _miniStat('${_distKm.toStringAsFixed(2)}', 'KM'),
-            _miniStat(_fmtPace(_paceMin), 'PACE'), _miniStat('${_speedKmh.toStringAsFixed(1)}', 'KM/H'),
+            _miniStat(_fmtDur(_durSecs), 'TIME'), _miniStat(_distKm.toStringAsFixed(2), 'KM'),
+            _miniStat(_fmtPace(_paceMin), 'PACE'), _miniStat(_speedKmh.toStringAsFixed(1), 'KM/H'),
           ]))),
         // Attribution
         Positioned(bottom: 4, left: 8, child: Container(padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
@@ -358,13 +358,13 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
               : Expanded(
                   child: ListView.separated(
                     itemCount: rp.savedRoutes.length,
-                    separatorBuilder: (_, __) => const SizedBox(height: 8),
+                    separatorBuilder: (_, _) => const SizedBox(height: 8),
                     itemBuilder: (_, i) {
                       final r = rp.savedRoutes[i];
-                      final fmtDur = (Duration d) {
+                      String fmtDur(Duration d) {
                         final m = d.inMinutes; final s = d.inSeconds % 60;
                         return '${m}m ${s.toString().padLeft(2, '0')}s';
-                      };
+                      }
                       return GestureDetector(
                         onTap: () {
                           setState(() => _highlightedRouteIdx = i);

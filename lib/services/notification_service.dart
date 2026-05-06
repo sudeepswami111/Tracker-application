@@ -1,4 +1,5 @@
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../providers/app_provider.dart';
 
 class NotificationService {
@@ -48,12 +49,11 @@ class NotificationService {
     );
   }
 
-  // ──── Feature 3 — Smart Nudges ────
+  // ──── Feature 3 — Smart Nudges (fires at most once per day per nudge) ────
   static Future<void> scheduleSmartNudges(AppProvider app) async {
-    // Cancel all previous nudges to avoid duplication
-    await _notificationsPlugin.cancel(id: 301);
-    await _notificationsPlugin.cancel(id: 302);
-    await _notificationsPlugin.cancel(id: 303);
+    final prefs = await SharedPreferences.getInstance();
+    final today = _todayStr();
+    final hour = DateTime.now().hour;
 
     const AndroidNotificationDetails androidDetails = AndroidNotificationDetails(
       _nudgeChannelId,
@@ -66,37 +66,51 @@ class NotificationService {
       iOS: DarwinNotificationDetails(),
     );
 
-    final hour = DateTime.now().hour;
-
     // (a) 14:00 — water nudge if < 4 glasses
     if (hour == 14 && app.waterGlasses < 4) {
-      await _notificationsPlugin.show(
-        id: 301,
-        title: "Don't forget to hydrate! 💧",
-        body: "You've only had ${app.waterGlasses} glasses — drink up!",
-        notificationDetails: details,
-      );
+      final key = 'nudge_301_$today';
+      if (prefs.getString(key) == null) {
+        await prefs.setString(key, 'sent');
+        await _notificationsPlugin.show(
+          id: 301,
+          title: "Don't forget to hydrate! 💧",
+          body: "You've only had ${app.waterGlasses} glasses — drink up!",
+          notificationDetails: details,
+        );
+      }
     }
 
     // (b) 22:00 — sleep nudge if no sleep logged
     if (hour == 22 && app.sleepHours == 0) {
-      await _notificationsPlugin.show(
-        id: 302,
-        title: 'Time to wind down 🌙',
-        body: 'No sleep logged yet — you need 8 hours.',
-        notificationDetails: details,
-      );
+      final key = 'nudge_302_$today';
+      if (prefs.getString(key) == null) {
+        await prefs.setString(key, 'sent');
+        await _notificationsPlugin.show(
+          id: 302,
+          title: 'Time to wind down 🌙',
+          body: 'No sleep logged yet — you need 8 hours.',
+          notificationDetails: details,
+        );
+      }
     }
 
     // (c) 12:00 — steps nudge if < 2000 steps
     if (hour == 12 && app.steps < 2000) {
-      await _notificationsPlugin.show(
-        id: 303,
-        title: 'Get moving! 🚶',
-        body: 'Only ${app.steps} steps so far — take a walk after lunch.',
-        notificationDetails: details,
-      );
+      final key = 'nudge_303_$today';
+      if (prefs.getString(key) == null) {
+        await prefs.setString(key, 'sent');
+        await _notificationsPlugin.show(
+          id: 303,
+          title: 'Get moving! 🚶',
+          body: 'Only ${app.steps} steps so far — take a walk after lunch.',
+          notificationDetails: details,
+        );
+      }
     }
   }
-}
 
+  static String _todayStr() {
+    final now = DateTime.now();
+    return '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
+  }
+}

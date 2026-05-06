@@ -8,6 +8,7 @@ import 'services/notification_service.dart';
 import 'providers/theme_provider.dart';
 import 'providers/app_provider.dart';
 import 'providers/running_provider.dart';
+import 'providers/watch_metrics_provider.dart';
 import 'theme/app_theme.dart';
 import 'app.dart';
 
@@ -35,6 +36,7 @@ void main() async {
         ChangeNotifierProvider(create: (_) => ThemeProvider()),
         ChangeNotifierProvider(create: (_) => AppProvider(prefs)..startLiveSimulation()),
         ChangeNotifierProvider(create: (_) => RunningProvider()),
+        ChangeNotifierProvider(create: (_) => WatchMetricsProvider()),
       ],
       child: const LifePulseApp(),
     ),

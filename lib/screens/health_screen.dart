@@ -316,10 +316,23 @@ class _HealthScreenState extends State<HealthScreen> {
                                         .withValues(alpha: 0.3)))))),
             const SizedBox(height: 12),
             Center(
-                child: ElevatedButton.icon(
-                    onPressed: app.addWater,
-                    icon: const Icon(LucideIcons.plus, size: 16),
-                    label: const Text('Add Glass'))),
+                child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                  ElevatedButton.icon(
+                      onPressed: app.removeWater,
+                      icon: const Icon(LucideIcons.minus, size: 16),
+                      label: const Text('Remove'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.coral.withValues(alpha: 0.1),
+                        foregroundColor: AppColors.coral,
+                      )),
+                  const SizedBox(width: 12),
+                  ElevatedButton.icon(
+                      onPressed: app.addWater,
+                      icon: const Icon(LucideIcons.plus, size: 16),
+                      label: const Text('Add Glass')),
+                ])),
           ])),
           const SizedBox(height: 16),
 

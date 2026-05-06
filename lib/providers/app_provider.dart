@@ -390,6 +390,16 @@ class AppProvider extends ChangeNotifier {
     }
   }
 
+  void removeWater() {
+    if (waterGlasses > 0) {
+      waterGlasses--;
+      waterIntake = (waterIntake - 0.25).clamp(0.0, double.infinity);
+      waterIntake = double.parse(waterIntake.toStringAsFixed(2));
+      _saveData();
+      notifyListeners();
+    }
+  }
+
   // ──── 3.3/3.4 Update from HealthService sync ────
   void updateFromHealth(Map<String, dynamic> data) {
     if (data.isEmpty) return;

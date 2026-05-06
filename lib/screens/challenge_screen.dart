@@ -5,7 +5,6 @@ import 'package:confetti/confetti.dart';
 import '../providers/app_provider.dart';
 import '../theme/app_colors.dart';
 import '../widgets/progress_ring.dart';
-import '../widgets/glass_card.dart';
 
 class ChallengeScreen extends StatefulWidget {
   const ChallengeScreen({super.key});
