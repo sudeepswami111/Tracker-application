@@ -1,13 +1,13 @@
-import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:lucide_icons/lucide_icons.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import '../providers/app_provider.dart';
-import '../services/health_service.dart';
 import '../widgets/glass_card.dart';
 import '../widgets/progress_ring.dart';
 import '../theme/app_colors.dart';
+import '../widgets/watch_connect_banner.dart';
+import '../widgets/watch_dashboard.dart';
+import '../providers/watch_metrics_provider.dart';
 
 class HealthScreen extends StatefulWidget {
   const HealthScreen({super.key});
@@ -17,93 +17,10 @@ class HealthScreen extends StatefulWidget {
 }
 
 class _HealthScreenState extends State<HealthScreen> {
-  bool _isConnected = false;
-  bool _isSyncing = false;
-  DateTime? _lastSynced;
-  Timer? _syncTimer;
-
-  @override
-  void initState() {
-    super.initState();
-    _loadConnectionState();
-  }
-
-  @override
-  void dispose() {
-    _syncTimer?.cancel();
-    super.dispose();
-  }
-
-  // ── 3.4 Restore connection + auto-sync on startup ──
-  Future<void> _loadConnectionState() async {
-    final prefs = await SharedPreferences.getInstance();
-    final connected = prefs.getBool('watchConnected') ?? false;
-    if (connected && mounted) {
-      setState(() => _isConnected = true);
-      await _syncNow();
-      // 3.4 — 15-minute periodic sync
-      _syncTimer = Timer.periodic(
-        const Duration(minutes: 15),
-        (_) => _syncNow(),
-      );
-    }
-  }
-
-  // ── 3.3 Connect button handler ──
-  Future<void> _onConnectPressed() async {
-    setState(() => _isSyncing = true);
-    final granted = await HealthService().requestPermissions();
-    if (!mounted) return;
-    if (granted) {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setBool('watchConnected', true);
-      setState(() => _isConnected = true);
-      await _syncNow();
-      // Start periodic timer
-      _syncTimer?.cancel();
-      _syncTimer = Timer.periodic(
-        const Duration(minutes: 15),
-        (_) => _syncNow(),
-      );
-    } else {
-      setState(() => _isSyncing = false);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Health permissions not granted.'),
-            backgroundColor: AppColors.coral,
-          ),
-        );
-      }
-    }
-  }
-
-  // ── 3.3/3.4 Sync health data and push to AppProvider ──
-  Future<void> _syncNow() async {
-    if (!mounted) return;
-    setState(() => _isSyncing = true);
-    final data = await HealthService().fetchTodayData();
-    if (!mounted) return;
-    if (data.isNotEmpty) {
-      context.read<AppProvider>().updateFromHealth(data);
-    }
-    setState(() {
-      _isSyncing = false;
-      _lastSynced = DateTime.now();
-    });
-  }
-
-  String _formatSynced(DateTime dt) {
-    final now = DateTime.now();
-    final diff = now.difference(dt);
-    if (diff.inMinutes < 1) return 'Just now';
-    if (diff.inMinutes < 60) return '${diff.inMinutes}m ago';
-    return '${diff.inHours}h ago';
-  }
-
   @override
   Widget build(BuildContext context) {
     final app = context.watch<AppProvider>();
+    final watch = context.watch<WatchMetricsProvider>();
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
 
@@ -118,16 +35,12 @@ class _HealthScreenState extends State<HealthScreen> {
               style: theme.textTheme.bodySmall),
           const SizedBox(height: 20),
 
-          // ── 3.3 Watch Connect Card ──
-          _WatchConnectCard(
-            isConnected: _isConnected,
-            isSyncing: _isSyncing,
-            lastSynced: _lastSynced,
-            formatSynced: _formatSynced,
-            onConnect: _onConnectPressed,
-            onSyncNow: _syncNow,
-          ),
+          const WatchConnectBanner(),
           const SizedBox(height: 16),
+
+          if (watch.isConnected)
+            const WatchDashboard()
+          else ...[
 
           // Heart Rate
           GlassCard(
@@ -437,6 +350,7 @@ class _HealthScreenState extends State<HealthScreen> {
                   isDark: isDark),
             ]),
           ])),
+          ], // End of else block
           const SizedBox(height: 100),
         ],
       ),
@@ -444,161 +358,6 @@ class _HealthScreenState extends State<HealthScreen> {
   }
 }
 
-// ── 3.3 Watch Connect Card ──────────────────────────────────────────────
-class _WatchConnectCard extends StatelessWidget {
-  final bool isConnected;
-  final bool isSyncing;
-  final DateTime? lastSynced;
-  final String Function(DateTime) formatSynced;
-  final VoidCallback onConnect;
-  final VoidCallback onSyncNow;
-
-  const _WatchConnectCard({
-    required this.isConnected,
-    required this.isSyncing,
-    required this.lastSynced,
-    required this.formatSynced,
-    required this.onConnect,
-    required this.onSyncNow,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
-
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        gradient: isConnected
-            ? LinearGradient(
-                colors: [
-                  AppColors.primary.withValues(alpha: 0.15),
-                  AppColors.secondary.withValues(alpha: 0.10),
-                ],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              )
-            : null,
-        color: isConnected
-            ? null
-            : (isDark
-                ? AppColors.darkSurfaceContainer.withValues(alpha: 0.7)
-                : AppColors.lightSurface),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: isConnected
-              ? AppColors.primary.withValues(alpha: 0.3)
-              : (isDark
-                  ? Colors.white.withValues(alpha: 0.06)
-                  : Colors.black.withValues(alpha: 0.06)),
-        ),
-      ),
-      child: Row(
-        children: [
-          // Watch icon with pulse ring
-          Stack(
-            alignment: Alignment.center,
-            children: [
-              Container(
-                width: 52,
-                height: 52,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: isConnected
-                      ? AppColors.primary.withValues(alpha: 0.15)
-                      : (isDark
-                          ? Colors.white.withValues(alpha: 0.05)
-                          : Colors.black.withValues(alpha: 0.04)),
-                ),
-              ),
-              Icon(
-                isConnected ? LucideIcons.watch : LucideIcons.bluetooth,
-                size: 26,
-                color:
-                    isConnected ? AppColors.primary : theme.colorScheme.onSurfaceVariant,
-              ),
-            ],
-          ),
-          const SizedBox(width: 14),
-
-          // Text block
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  isConnected
-                      ? 'Syncing with Watch'
-                      : 'Connect Smartwatch',
-                  style: theme.textTheme.titleSmall?.copyWith(
-                    fontWeight: FontWeight.w700,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                const SizedBox(height: 2),
-                Row(
-                  children: [
-                    if (isSyncing)
-                      SizedBox(
-                        width: 10,
-                        height: 10,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 1.5,
-                          color: AppColors.primary,
-                        ),
-                      ),
-                    if (isSyncing) const SizedBox(width: 6),
-                    Flexible(
-                      child: Text(
-                        isSyncing
-                            ? 'Syncing…'
-                            : (lastSynced != null
-                                ? 'Last synced ${formatSynced(lastSynced!)}'
-                                : 'HealthKit & Health Connect'),
-                        style: theme.textTheme.bodySmall?.copyWith(fontSize: 11),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 12),
-
-          // Action button
-          isConnected
-              ? IconButton(
-                  onPressed: isSyncing ? null : onSyncNow,
-                  icon: Icon(
-                    LucideIcons.refreshCw,
-                    size: 18,
-                    color: isSyncing
-                        ? theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.3)
-                        : AppColors.primary,
-                  ),
-                  tooltip: 'Sync now',
-                )
-              : ElevatedButton(
-                  onPressed: isSyncing ? null : onConnect,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.primary,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 16, vertical: 10),
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12)),
-                  ),
-                  child: Text(isSyncing ? '…' : 'Connect'),
-                ),
-        ],
-      ),
-    );
-  }
-}
 
 // ── Helper widgets (preserved from original) ────────────────────────────
 Widget _zoneBar(String name, String time, Color color, double pct,

@@ -13,6 +13,9 @@ class WatchConnectionManager {
   bool _isBluetoothConnected = false;
   bool get isBluetoothConnected => _isBluetoothConnected;
 
+  bool _permissionDeniedPermanently = false;
+  bool get permissionDeniedPermanently => _permissionDeniedPermanently;
+
   // Real-time metric callbacks
   void Function(int bpm)? onPulseUpdate;
   void Function(double spO2)? onSpO2Update;
@@ -35,6 +38,9 @@ class WatchConnectionManager {
     ].request();
 
     bool btGranted = statuses.values.every((status) => status.isGranted);
+    if (statuses.values.any((status) => status.isPermanentlyDenied)) {
+      _permissionDeniedPermanently = true;
+    }
 
     // 2. Request Health permissions
     final types = [
@@ -117,6 +123,8 @@ class WatchConnectionManager {
     try {
       List<HealthDataPoint> hrData = await _health.getHealthDataFromTypes(types: [HealthDataType.HEART_RATE], startTime: yesterday, endTime: now);
       List<HealthDataPoint> spo2Data = await _health.getHealthDataFromTypes(types: [HealthDataType.BLOOD_OXYGEN], startTime: yesterday, endTime: now);
+      List<HealthDataPoint> stepsData = await _health.getHealthDataFromTypes(types: [HealthDataType.STEPS], startTime: yesterday, endTime: now);
+      List<HealthDataPoint> sleepData = await _health.getHealthDataFromTypes(types: [HealthDataType.SLEEP_ASLEEP], startTime: yesterday, endTime: now);
       
       if (hrData.isNotEmpty) {
         final hrValues = hrData.map((d) => double.tryParse(d.value.toString()) ?? 0).toList();
@@ -128,8 +136,27 @@ class WatchConnectionManager {
         data['spO2'] = double.tryParse(spo2Data.last.value.toString()) ?? 98.0;
       }
       
-      // Basic wellness score calculation
-      data['wellnessScore'] = 85; 
+      int steps = 0;
+      for (final pt in stepsData) {
+        final v = pt.value;
+        if (v is NumericHealthValue) steps += v.numericValue.toInt();
+      }
+
+      double sleepHours = 0;
+      for (final pt in sleepData) {
+        sleepHours += pt.dateTo.difference(pt.dateFrom).inMinutes / 60.0;
+      }
+
+      // Compute wellness score (0-100) based on resting HR, steps, and sleep
+      int restingHrScore = 100;
+      int rhr = data['restingHeartRate'] as int;
+      if (rhr > 60) restingHrScore -= (rhr - 60);
+      
+      int stepScore = (steps / 100).clamp(0, 100).toInt();
+      int sleepScore = ((sleepHours / 8.0) * 100).clamp(0, 100).toInt();
+
+      data['wellnessScore'] = ((restingHrScore + stepScore + sleepScore) / 3).clamp(0, 100).toInt();
+      if (data['wellnessScore'] == 0) data['wellnessScore'] = 85; // Fallback
 
     } catch (e) {
       debugPrint("Error fetching health data: $e");
@@ -145,6 +172,9 @@ class WatchConnectionManager {
       if (onPulseUpdate != null) {
         // Random BPM between 65 and 75
         onPulseUpdate!(65 + (DateTime.now().millisecond % 10));
+      }
+      if (onSpO2Update != null) {
+        onSpO2Update!(96.0 + (DateTime.now().millisecond % 4));
       }
     });
   }
