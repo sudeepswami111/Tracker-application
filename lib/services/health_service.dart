@@ -1,6 +1,5 @@
 import 'package:flutter/foundation.dart';
 import 'package:health/health.dart';
-import 'package:permission_handler/permission_handler.dart';
 
 /// 3.2 — HealthService wraps Apple HealthKit / Google Health Connect.
 /// On platforms that don't support health (e.g. web), every method is a no-op.
@@ -23,14 +22,6 @@ class HealthService {
   Future<bool> requestPermissions() async {
     if (kIsWeb) return false;
     try {
-      // Request Bluetooth permissions first
-      final btScan = await Permission.bluetoothScan.request();
-      final btConnect = await Permission.bluetoothConnect.request();
-      if (!btScan.isGranted || !btConnect.isGranted) {
-        return false;
-      }
-
-      // Then request Health permissions
       await _health.configure();
       return await _health.requestAuthorization(_types);
     } catch (e) {
@@ -104,29 +95,5 @@ class HealthService {
       debugPrint('[HealthService] fetchTodayData error: $e');
       return {};
     }
-  }
-
-  /// Fetches the last 5 minutes of heart rate data
-  Future<int?> fetchLatestHeartRate() async {
-    if (kIsWeb) return null;
-    try {
-      final now = DateTime.now();
-      final fiveMinsAgo = now.subtract(const Duration(minutes: 5));
-
-      final data = await _health.getHealthDataFromTypes(
-        types: [HealthDataType.HEART_RATE],
-        startTime: fiveMinsAgo,
-        endTime: now,
-      );
-
-      if (data.isEmpty) return null;
-      
-      data.sort((a, b) => b.dateTo.compareTo(a.dateTo));
-      final v = data.first.value;
-      if (v is NumericHealthValue) return v.numericValue.toInt();
-    } catch (e) {
-      debugPrint('[HealthService] fetchLatestHeartRate error: $e');
-    }
-    return null;
   }
 }

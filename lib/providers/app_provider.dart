@@ -96,14 +96,6 @@ class AppProvider extends ChangeNotifier {
   int userXP = 0;
   int userXPToNext = 1000;
   bool isMetric = true;
-  // ──── Smartwatch ────
-  bool isWatchConnected = false;
-
-  void setWatchConnected(bool value) {
-    isWatchConnected = value;
-    prefs.setBool('watchConnected', value);
-    notifyListeners();
-  }
 
   // ──── Dashboard Stats ────
   int steps = 0;
@@ -247,7 +239,6 @@ class AppProvider extends ChangeNotifier {
     calories = prefs.getInt('calories') ?? 0;
     sleepHours = prefs.getDouble('sleepHours') ?? 0.0;
     studyHrs = prefs.getDouble('studyHrs') ?? 0.0;
-    isWatchConnected = prefs.getBool('watchConnected') ?? false;
     // 2.1 — Load history
     final histJson = prefs.getString('dailyHistory');
     if (histJson != null) {
