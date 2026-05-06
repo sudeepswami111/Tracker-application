@@ -25,7 +25,7 @@ android {
         applicationId = "com.lifepulse.lifepulse"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
-        minSdk = flutter.minSdkVersion // Raised to 21 for multidex
+        minSdk = 26 // health package requires API 26+ (Health Connect)
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName

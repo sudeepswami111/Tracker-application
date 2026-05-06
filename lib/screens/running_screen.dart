@@ -5,7 +5,9 @@ import 'package:flutter/services.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:provider/provider.dart';
 import '../services/routing_service.dart';
+import '../providers/running_provider.dart';
 
 final List<Map<String, String>> kTiles = [
   {'name': 'OSM Standard', 'url': 'https://tile.openstreetmap.org/{z}/{x}/{y}.png'},
@@ -40,6 +42,8 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
   int _calories = 0, _durSecs = 0;
   late AnimationController _pulseCtrl;
   late Animation<double> _pulseAnim;
+  // Feature 5
+  int? _highlightedRouteIdx;
 
   // Route planning
   final _startCtrl = TextEditingController();
@@ -209,6 +213,16 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
             ]),
             // GPS path
             if (_gpsRoute.length > 1) PolylineLayer(polylines: [Polyline(points: _gpsRoute, strokeWidth: 5, color: const Color(0xFF39FF14), borderStrokeWidth: 2, borderColor: Colors.black.withValues(alpha: 0.4))]),
+            // Feature 5: Saved routes drawn as dimmed polylines
+            if (context.watch<RunningProvider>().savedRoutes.isNotEmpty)
+              PolylineLayer(polylines: [
+                ...context.read<RunningProvider>().savedRoutes.asMap().entries.map((e) {
+                  final sel = e.key == _highlightedRouteIdx;
+                  final pts = e.value.points.map((p) => LatLng(p.latitude, p.longitude)).toList();
+                  return Polyline(points: pts, strokeWidth: sel ? 4 : 2.5,
+                    color: sel ? const Color(0xFF6C5CE7).withValues(alpha: 0.7) : Colors.grey.withValues(alpha: 0.35));
+                }),
+              ]),
             MarkerLayer(markers: [
               if (_routeStart != null) Marker(point: _routeStart!, width: 28, height: 28, child: Container(decoration: BoxDecoration(color: Colors.green, shape: BoxShape.circle, border: Border.all(color: Colors.white, width: 2)), child: const Icon(Icons.my_location, size: 14, color: Colors.white))),
               if (_routeDest != null) Marker(point: _routeDest!, width: 28, height: 28, child: Container(decoration: BoxDecoration(color: Colors.red, shape: BoxShape.circle, border: Border.all(color: Colors.white, width: 2)), child: const Icon(Icons.flag, size: 14, color: Colors.white))),
@@ -224,6 +238,8 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
         Positioned(top: 12, right: 12, child: _mapBtn(_isFullscreen ? Icons.fullscreen_exit : Icons.fullscreen, _toggleFullscreen)),
         // Layers
         Positioned(top: 12, left: 12, child: _mapBtn(Icons.layers, () => setState(() => _showStyles = !_showStyles))),
+        // Feature 5: My Routes button
+        Positioned(top: 56, right: 12, child: _mapBtn(Icons.route, _showSavedRoutes, color: const Color(0xFF6C5CE7))),
         // Recenter
         Positioned(bottom: 12, right: 12, child: _mapBtn(_follow ? Icons.my_location : Icons.location_searching, () { if (_curPos != null) { setState(() => _follow = true); _mapCtrl.move(_curPos!, _zoom); } }, color: _follow ? const Color(0xFF00E5FF) : null)),
         // Zoom
@@ -306,6 +322,86 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
   Widget _miniStat(String v, String l) => Column(mainAxisSize: MainAxisSize.min, children: [
     Text(v, style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w700)), Text(l, style: const TextStyle(color: Colors.white38, fontSize: 9))]);
   Widget _divider() => Container(width: 1, height: 36, color: Colors.grey.withValues(alpha: 0.2));
+
+  // ──── Feature 5: Saved Routes Bottom Sheet ────
+  void _showSavedRoutes() {
+    final rp = context.read<RunningProvider>();
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (_) => Container(
+        margin: const EdgeInsets.all(12),
+        padding: const EdgeInsets.all(20),
+        constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.6),
+        decoration: BoxDecoration(
+          color: Theme.of(context).brightness == Brightness.dark
+              ? const Color(0xFF111111)
+              : Colors.white,
+          borderRadius: BorderRadius.circular(28),
+          border: Border.all(color: Colors.white10),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(children: [
+              const Icon(Icons.route, color: Color(0xFF6C5CE7), size: 20),
+              const SizedBox(width: 8),
+              Text('My Routes', style: TextStyle(color: Theme.of(context).brightness == Brightness.dark ? Colors.white : Colors.black, fontSize: 18, fontWeight: FontWeight.w800)),
+            ]),
+            const SizedBox(height: 14),
+            rp.savedRoutes.isEmpty
+              ? const Center(child: Padding(
+                  padding: EdgeInsets.all(24),
+                  child: Text('No routes saved yet. Complete a run to auto-save your path!',
+                      textAlign: TextAlign.center, style: TextStyle(color: Colors.grey))))
+              : Expanded(
+                  child: ListView.separated(
+                    itemCount: rp.savedRoutes.length,
+                    separatorBuilder: (_, __) => const SizedBox(height: 8),
+                    itemBuilder: (_, i) {
+                      final r = rp.savedRoutes[i];
+                      final fmtDur = (Duration d) {
+                        final m = d.inMinutes; final s = d.inSeconds % 60;
+                        return '${m}m ${s.toString().padLeft(2, '0')}s';
+                      };
+                      return GestureDetector(
+                        onTap: () {
+                          setState(() => _highlightedRouteIdx = i);
+                          Navigator.pop(context);
+                          if (r.points.isNotEmpty) {
+                            final pts = r.points.map((p) => LatLng(p.latitude, p.longitude)).toList();
+                            _fitBounds(pts);
+                          }
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.05),
+                            borderRadius: BorderRadius.circular(14),
+                            border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+                          ),
+                          child: Row(children: [
+                            Container(width: 40, height: 40, decoration: BoxDecoration(color: const Color(0xFF6C5CE7).withValues(alpha: 0.15), shape: BoxShape.circle),
+                              child: const Icon(Icons.route, color: Color(0xFF6C5CE7), size: 20)),
+                            const SizedBox(width: 12),
+                            Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                              Text(r.name, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
+                              Text('${r.distanceKm} km · ${r.runCount}× run · Best: ${fmtDur(r.bestTime)}',
+                                style: TextStyle(color: Colors.grey[500], fontSize: 11)),
+                              Text('Avg: ${fmtDur(r.avgTime)}', style: TextStyle(color: Colors.grey[600], fontSize: 10)),
+                            ])),
+                            const Icon(Icons.chevron_right, color: Colors.white38, size: 20),
+                          ]),
+                        ),
+                      );
+                    },
+                  )),
+          ],
+        ),
+      ),
+    );
+  }
 
   @override
   void dispose() { _posSub?.cancel(); _timer?.cancel(); _pulseCtrl.dispose(); _startCtrl.dispose(); _destCtrl.dispose();

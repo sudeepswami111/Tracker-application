@@ -21,6 +21,7 @@ class AppColors {
   static const darkSurface = Color(0xFF111B33);
   static const darkSurfaceContainer = Color(0xFF162040);
   static const darkSurfaceContainerLow = Color(0xFF0E1830);
+  static const darkSurface2 = Color(0xFF1A2540);
   static const darkOnSurface = Color(0xFFE8E6F0);
   static const darkOnSurfaceVariant = Color(0xFFC8C4D7);
   static const darkOutline = Color(0xFF3D3A50);

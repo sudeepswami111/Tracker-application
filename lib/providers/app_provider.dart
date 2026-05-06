@@ -1,10 +1,86 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../main.dart';
 import '../services/notification_service.dart';
+
+// ──── 2.1 Daily Snapshot Model ────
+class DailySnapshot {
+  final String date; // yyyy-MM-dd
+  final int steps;
+  final int calories;
+  final double distanceKm;
+  final double sleepHours;
+  final double waterIntake;
+  final double studyHrs;
+  final int waterGlasses;
+  final int pulseScore;
+
+  const DailySnapshot({
+    required this.date,
+    required this.steps,
+    required this.calories,
+    required this.distanceKm,
+    required this.sleepHours,
+    required this.waterIntake,
+    required this.studyHrs,
+    required this.waterGlasses,
+    required this.pulseScore,
+  });
+
+  Map<String, dynamic> toJson() => {
+        'date': date,
+        'steps': steps,
+        'calories': calories,
+        'distanceKm': distanceKm,
+        'sleepHours': sleepHours,
+        'waterIntake': waterIntake,
+        'studyHrs': studyHrs,
+        'waterGlasses': waterGlasses,
+        'pulseScore': pulseScore,
+      };
+
+  factory DailySnapshot.fromJson(Map<String, dynamic> json) => DailySnapshot(
+        date: json['date'] as String? ?? '',
+        steps: (json['steps'] as num?)?.toInt() ?? 0,
+        calories: (json['calories'] as num?)?.toInt() ?? 0,
+        distanceKm: (json['distanceKm'] as num?)?.toDouble() ?? 0.0,
+        sleepHours: (json['sleepHours'] as num?)?.toDouble() ?? 0.0,
+        waterIntake: (json['waterIntake'] as num?)?.toDouble() ?? 0.0,
+        studyHrs: (json['studyHrs'] as num?)?.toDouble() ?? 0.0,
+        waterGlasses: (json['waterGlasses'] as num?)?.toInt() ?? 0,
+        pulseScore: (json['pulseScore'] as num?)?.toInt() ?? 0,
+      );
+}
+
+// ──── Feature 4 — Challenge Model ────
+class ChallengeModel {
+  final String title;
+  final double targetValue;
+  double currentValue;
+  final String metric;
+  final int daysLeft;
+  bool isCompleted;
+  bool claimed;
+
+  ChallengeModel({
+    required this.title,
+    required this.targetValue,
+    required this.currentValue,
+    required this.metric,
+    required this.daysLeft,
+    this.isCompleted = false,
+    this.claimed = false,
+  });
+
+  void refresh(double liveValue) {
+    currentValue = liveValue;
+    isCompleted = currentValue >= targetValue;
+  }
+}
 
 class AppProvider extends ChangeNotifier {
   final SharedPreferences prefs;
@@ -20,6 +96,14 @@ class AppProvider extends ChangeNotifier {
   int userXP = 0;
   int userXPToNext = 1000;
   bool isMetric = true;
+  // ──── Smartwatch ────
+  bool isWatchConnected = false;
+
+  void setWatchConnected(bool value) {
+    isWatchConnected = value;
+    prefs.setBool('watchConnected', value);
+    notifyListeners();
+  }
 
   // ──── Dashboard Stats ────
   int steps = 0;
@@ -106,7 +190,23 @@ class AppProvider extends ChangeNotifier {
   bool hasUnreadNotifications = false;
   List<Map<String, dynamic>> notifications = [];
 
+  // ──── 2.1 History ────
+  List<DailySnapshot> history = [];
+
+  // ──── Feature 4 Challenges ────
+  List<ChallengeModel> activeChallenges = [];
+
   bool get hasCompletedTasks => dailyGoals.any((goal) => (goal['progress'] as num) >= 100);
+
+  // ──── 2.4 Pulse Score (0-100) — 5-factor weighted ────
+  int get pulseScore {
+    final stepsP  = (steps / stepsGoal).clamp(0.0, 1.0);
+    final calP    = (todayCalories / caloriesGoal).clamp(0.0, 1.0);
+    final waterP  = (waterGlasses / waterGlassGoal).clamp(0.0, 1.0);
+    final sleepP  = (sleepHours / sleepGoal).clamp(0.0, 1.0);
+    final studyP  = (studyHrs / studyGoal).clamp(0.0, 1.0);
+    return ((stepsP * 0.25 + calP * 0.20 + waterP * 0.20 + sleepP * 0.20 + studyP * 0.15) * 100).round();
+  }
 
   // ──── Insights ────
   final List<Map<String, String>> insights = [];
@@ -116,6 +216,7 @@ class AppProvider extends ChangeNotifier {
 
   // ──── Live Data Simulation ────
   Timer? _liveTimer;
+  Timer? _resetTimer; // 2.2 Hourly midnight-check timer
 
   void startLiveSimulation() {
     _liveTimer = Timer.periodic(const Duration(seconds: 3), (_) {
@@ -126,10 +227,13 @@ class AppProvider extends ChangeNotifier {
       notifyListeners();
       _saveData();
     });
+    // 2.2 — also check for midnight reset every hour
+    _resetTimer = Timer.periodic(const Duration(hours: 1), (_) => _checkDailyReset());
   }
 
   void stopLiveSimulation() {
     _liveTimer?.cancel();
+    _resetTimer?.cancel();
   }
 
   void _loadData() {
@@ -140,6 +244,75 @@ class AppProvider extends ChangeNotifier {
     distance = prefs.getDouble('distance') ?? 0.0;
     waterGlasses = prefs.getInt('waterGlasses') ?? 0;
     waterIntake = prefs.getDouble('waterIntake') ?? 0.0;
+    calories = prefs.getInt('calories') ?? 0;
+    sleepHours = prefs.getDouble('sleepHours') ?? 0.0;
+    studyHrs = prefs.getDouble('studyHrs') ?? 0.0;
+    isWatchConnected = prefs.getBool('watchConnected') ?? false;
+    // 2.1 — Load history
+    final histJson = prefs.getString('dailyHistory');
+    if (histJson != null) {
+      try {
+        final decoded = jsonDecode(histJson) as List<dynamic>;
+        history = decoded
+            .map((e) => DailySnapshot.fromJson(e as Map<String, dynamic>))
+            .toList()
+            .reversed
+            .toList(); // newest first
+      } catch (_) {
+        history = [];
+      }
+    }
+    // 2.2 — Detect midnight and reset if new day
+    _checkDailyReset();
+    notifyListeners();
+  }
+
+  // ──── 2.2 Midnight Detection ────
+  String _todayStr() {
+    final now = DateTime.now();
+    return '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
+  }
+
+  void _checkDailyReset() {
+    final today = _todayStr();
+    final lastSaved = prefs.getString('lastSavedDate') ?? '';
+    if (lastSaved == today) return; // same day, no reset needed
+
+    // Snapshot yesterday's data before reset
+    if (lastSaved.isNotEmpty) {
+      final snapshot = DailySnapshot(
+        date: lastSaved,
+        steps: steps,
+        calories: calories,
+        distanceKm: distance,
+        sleepHours: sleepHours,
+        waterIntake: waterIntake,
+        studyHrs: studyHrs,
+        waterGlasses: waterGlasses,
+        pulseScore: pulseScore,
+      );
+      history.insert(0, snapshot);
+      // Persist history (keep last 90 days)
+      if (history.length > 90) history = history.sublist(0, 90);
+      final encoded = jsonEncode(history.map((s) => s.toJson()).toList());
+      prefs.setString('dailyHistory', encoded);
+    }
+
+    // Reset daily counters
+    steps = 0;
+    calories = 0;
+    distance = 0.0;
+    sleepHours = 0.0;
+    waterGlasses = 0;
+    waterIntake = 0.0;
+    studyHrs = 0.0;
+    todayCalories = 0;
+    todayDuration = 0;
+    todayExercises = 0;
+    workouts = [];
+
+    prefs.setString('lastSavedDate', today);
+    _saveData();
     notifyListeners();
   }
 
@@ -148,9 +321,14 @@ class AppProvider extends ChangeNotifier {
     prefs.setString('profileImagePath', profileImagePath);
     prefs.setBool('isMetric', isMetric);
     prefs.setInt('steps', steps);
+    prefs.setInt('calories', calories);
     prefs.setDouble('distance', distance);
+    prefs.setDouble('sleepHours', sleepHours);
     prefs.setInt('waterGlasses', waterGlasses);
     prefs.setDouble('waterIntake', waterIntake);
+    prefs.setDouble('studyHrs', studyHrs);
+    // Feature 3 — fire smart nudges after every save
+    NotificationService.scheduleSmartNudges(this);
   }
 
   void updateUserName(String newName) {
@@ -221,6 +399,25 @@ class AppProvider extends ChangeNotifier {
     }
   }
 
+  // ──── 3.3/3.4 Update from HealthService sync ────
+  void updateFromHealth(Map<String, dynamic> data) {
+    if (data.isEmpty) return;
+    if (data['heartRate'] != null && (data['heartRate'] as int) > 0) {
+      heartRate = data['heartRate'] as int;
+    }
+    if (data['steps'] != null && (data['steps'] as int) > steps) {
+      steps = data['steps'] as int;
+    }
+    if (data['sleepHours'] != null && (data['sleepHours'] as double) > 0) {
+      sleepHours = data['sleepHours'] as double;
+    }
+    if (data['oxygenLevel'] != null && (data['oxygenLevel'] as int) > 0) {
+      oxygenLevel = data['oxygenLevel'] as int;
+    }
+    _saveData();
+    notifyListeners();
+  }
+
   void addWorkout(Map<String, dynamic> workout) {
     workouts.insert(0, workout);
     todayCalories += workout['calories'] as int;
@@ -252,9 +449,69 @@ class AppProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  // ──── Feature 4 — Weekly Challenge Generator ────
+  void generateWeeklyChallenges() {
+    // Use last 7 snapshots; fall back to current values if not enough history
+    final recent = history.take(7).toList();
+    double avgSteps = steps.toDouble();
+    double avgCal = todayCalories.toDouble();
+    double avgStudy = studyHrs;
+
+    if (recent.isNotEmpty) {
+      avgSteps = recent.map((s) => s.steps.toDouble()).reduce((a, b) => a + b) / recent.length;
+      avgCal   = recent.map((s) => s.calories.toDouble()).reduce((a, b) => a + b) / recent.length;
+      avgStudy = recent.map((s) => s.studyHrs).reduce((a, b) => a + b) / recent.length;
+    }
+
+    const boost = 1.15; // +15%
+    final now = DateTime.now();
+    final daysLeft = 7 - now.weekday + 1;
+
+    activeChallenges = [
+      ChallengeModel(
+        title: 'Walk ${(avgSteps * boost * 7).round()} steps this week',
+        targetValue: avgSteps * boost * 7,
+        currentValue: steps.toDouble(),
+        metric: 'steps',
+        daysLeft: daysLeft,
+      ),
+      ChallengeModel(
+        title: 'Burn ${(avgCal * boost * 7).round()} kcal this week',
+        targetValue: avgCal * boost * 7,
+        currentValue: todayCalories.toDouble(),
+        metric: 'calories',
+        daysLeft: daysLeft,
+      ),
+      ChallengeModel(
+        title: 'Study ${(avgStudy * boost * 7).toStringAsFixed(1)} hrs this week',
+        targetValue: avgStudy * boost * 7,
+        currentValue: studyHrs,
+        metric: 'studyHrs',
+        daysLeft: daysLeft,
+      ),
+    ];
+    for (final c in activeChallenges) {
+      c.isCompleted = c.currentValue >= c.targetValue;
+    }
+    notifyListeners();
+  }
+
+  void claimChallenge(ChallengeModel c) {
+    if (!c.isCompleted || c.claimed) return;
+    c.claimed = true;
+    achievements.add({
+      'title': '7-Day Champ',
+      'icon': LucideIcons.medal,
+      'unlocked': true,
+      'description': c.title,
+    });
+    notifyListeners();
+  }
+
   @override
   void dispose() {
     _liveTimer?.cancel();
+    _resetTimer?.cancel();
     super.dispose();
   }
 }

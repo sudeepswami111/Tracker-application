@@ -3,7 +3,6 @@ import 'package:provider/provider.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import '../providers/app_provider.dart';
 import '../widgets/glass_card.dart';
-import '../widgets/stat_card.dart';
 import '../widgets/progress_ring.dart';
 import '../theme/app_colors.dart';
 
@@ -25,18 +24,20 @@ class FitnessScreen extends StatelessWidget {
           const SizedBox(height: 4),
           Text('Track your workouts and body metrics', style: theme.textTheme.bodySmall),
           const SizedBox(height: 20),
+          // 1.6 — 2x2 Circular Ring Cards
           LayoutBuilder(
             builder: (context, constraints) {
               final cardWidth = (constraints.maxWidth - 12) / 2;
+              final ringCards = [
+                _RingStatCard(label: 'Calories', value: '${app.todayCalories}', sublabel: 'kcal', progress: (app.todayCalories / 3000 * 100).clamp(0, 100), color: AppColors.coral),
+                _RingStatCard(label: 'Duration', value: '${app.todayDuration}', sublabel: 'min', progress: (app.todayDuration / 90 * 100).clamp(0, 100), color: AppColors.primary),
+                _RingStatCard(label: 'Exercises', value: '${app.todayExercises}', sublabel: 'done', progress: (app.todayExercises / 6 * 100).clamp(0, 100), color: AppColors.secondary),
+                _RingStatCard(label: 'Weight', value: app.bodyWeight.isNotEmpty ? '${app.bodyWeight.last}' : '0', sublabel: 'kg', progress: 100, color: AppColors.green),
+              ];
               return Wrap(
                 spacing: 12,
                 runSpacing: 12,
-                children: [
-                  SizedBox(width: cardWidth, child: StatCard(icon: LucideIcons.flame, label: 'Calories', value: '${app.todayCalories}', unit: 'kcal', progress: app.todayCalories / 3000 * 100, gradient: AppColors.gradientCoral, trend: 5)),
-                  SizedBox(width: cardWidth, child: StatCard(icon: LucideIcons.clock, label: 'Duration', value: '${app.todayDuration}', unit: 'min', progress: app.todayDuration / 90 * 100, gradient: AppColors.gradientPrimary, trend: 12)),
-                  SizedBox(width: cardWidth, child: StatCard(icon: LucideIcons.dumbbell, label: 'Exercises', value: '${app.todayExercises}', unit: 'done', progress: app.todayExercises / 6 * 100, gradient: AppColors.gradientSecondary)),
-                  SizedBox(width: cardWidth, child: StatCard(icon: LucideIcons.trendingDown, label: 'Weight', value: app.bodyWeight.isNotEmpty ? '${app.bodyWeight.last}' : '0', unit: 'kg', progress: 100, gradient: AppColors.gradientGreen, trend: -2)),
-                ],
+                children: ringCards.map((card) => SizedBox(width: cardWidth, child: card)).toList(),
               );
             },
           ),
@@ -76,6 +77,69 @@ class FitnessScreen extends StatelessWidget {
       backgroundColor: Theme.of(context).brightness == Brightness.dark ? AppColors.darkSurfaceContainer : AppColors.lightSurface,
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
       builder: (ctx) => _AddWorkoutSheet(app: app));
+  }
+}
+
+// 1.6 — Compact circular ring stat card
+class _RingStatCard extends StatelessWidget {
+  final String label;
+  final String value;
+  final String sublabel;
+  final double progress;
+  final Color color;
+
+  const _RingStatCard({
+    required this.label,
+    required this.value,
+    required this.sublabel,
+    required this.progress,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final theme = Theme.of(context);
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 16),
+      decoration: BoxDecoration(
+        color: isDark
+            ? AppColors.darkSurfaceContainer.withValues(alpha: 0.55)
+            : AppColors.lightSurface,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: isDark
+              ? Colors.white.withValues(alpha: 0.06)
+              : Colors.black.withValues(alpha: 0.06),
+        ),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          SizedBox(
+            width: 80,
+            height: 80,
+            child: ProgressRing(
+              size: 80,
+              strokeWidth: 5,
+              progress: progress,
+              color: color,
+              label: value,
+              sublabel: sublabel,
+              fontSize: 16,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            label.toUpperCase(),
+            style: theme.textTheme.labelSmall?.copyWith(
+              letterSpacing: 1,
+              fontSize: 10,
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
 

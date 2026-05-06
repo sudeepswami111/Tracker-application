@@ -31,6 +31,25 @@ class RoutePoint {
   RoutePoint(this.latitude, this.longitude);
 }
 
+// ──── Feature 5: Saved Route Memory ────
+class SavedRoute {
+  final String name;
+  final List<RoutePoint> points;
+  final double distanceKm;
+  Duration bestTime;
+  Duration avgTime;
+  int runCount;
+
+  SavedRoute({
+    required this.name,
+    required this.points,
+    required this.distanceKm,
+    required this.bestTime,
+    required this.avgTime,
+    this.runCount = 1,
+  });
+}
+
 class RunningProvider extends ChangeNotifier {
   // ──── State ────
   bool isTracking = false;
@@ -48,6 +67,9 @@ class RunningProvider extends ChangeNotifier {
   StreamSubscription<Position>? _positionSubscription;
   Timer? _durationTimer;
   bool hasLocationPermission = false;
+
+  // ──── Feature 5: Saved Routes ────
+  List<SavedRoute> savedRoutes = [];
 
   // ──── History ────
   List<RunData> history = [
@@ -214,6 +236,10 @@ class RunningProvider extends ChangeNotifier {
 
     isTracking = false;
     isPaused = false;
+    // Feature 5 — match or save this route
+    if (currentDistance > 0.01) {
+      _matchOrSaveRoute(List.from(routeCoordinates));
+    }
     notifyListeners();
   }
 
@@ -233,6 +259,48 @@ class RunningProvider extends ChangeNotifier {
     final mins = totalSecs ~/ 60;
     final secs = totalSecs % 60;
     return '$mins:${secs.toString().padLeft(2, '0')}';
+  }
+
+  // ──── Feature 5: Route Memory ────
+  void _matchOrSaveRoute(List<RoutePoint> newPoints) {
+    if (newPoints.length < 2) return;
+    final runDur = Duration(seconds: currentDuration);
+    final start = newPoints.first;
+    final end   = newPoints.last;
+
+    // Look for a matching saved route (start & end within 150m)
+    for (final route in savedRoutes) {
+      if (route.points.isEmpty) continue;
+      final rStart = route.points.first;
+      final rEnd   = route.points.last;
+      final dStart = Geolocator.distanceBetween(
+          start.latitude, start.longitude,
+          rStart.latitude, rStart.longitude);
+      final dEnd = Geolocator.distanceBetween(
+          end.latitude, end.longitude,
+          rEnd.latitude, rEnd.longitude);
+      if (dStart < 150 && dEnd < 150) {
+        // Matched existing route
+        route.runCount++;
+        if (runDur < route.bestTime) route.bestTime = runDur;
+        final totalMs = route.avgTime.inMilliseconds * (route.runCount - 1) + runDur.inMilliseconds;
+        route.avgTime = Duration(milliseconds: totalMs ~/ route.runCount);
+        notifyListeners();
+        return;
+      }
+    }
+
+    // New route — only save if distance > 0.5 km
+    if (currentDistance >= 0.5) {
+      savedRoutes.add(SavedRoute(
+        name: 'Route #${savedRoutes.length + 1}',
+        points: newPoints,
+        distanceKm: double.parse(currentDistance.toStringAsFixed(2)),
+        bestTime: runDur,
+        avgTime: runDur,
+      ));
+      notifyListeners();
+    }
   }
 
   @override

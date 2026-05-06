@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 import '../theme/app_colors.dart';
 
 class StatCard extends StatelessWidget {
@@ -9,6 +10,9 @@ class StatCard extends StatelessWidget {
   final double progress;
   final LinearGradient gradient;
   final int? trend;
+  final VoidCallback? onTap;
+  final int? waterGlasses;
+  final int? waterGlassGoal;
 
   const StatCard({
     super.key,
@@ -19,14 +23,24 @@ class StatCard extends StatelessWidget {
     required this.progress,
     required this.gradient,
     this.trend,
+    this.onTap,
+    this.waterGlasses,
+    this.waterGlassGoal,
   });
 
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final theme = Theme.of(context);
+    final isWater = label.toUpperCase() == 'WATER';
 
-    return Container(
+    return GestureDetector(
+      onTap: onTap,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(20),
+        child: Stack(
+          children: [
+            Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: isDark
@@ -115,30 +129,60 @@ class StatCard extends StatelessWidget {
           ),
           const SizedBox(height: 10),
 
-          // Progress bar
-          Row(
-            children: [
-              Expanded(
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(4),
-                  child: LinearProgressIndicator(
-                    value: (progress / 100).clamp(0, 1),
-                    minHeight: 4,
-                    backgroundColor: isDark
-                        ? Colors.white.withValues(alpha: 0.05)
-                        : Colors.black.withValues(alpha: 0.06),
-                    valueColor: AlwaysStoppedAnimation(gradient.colors.first),
+          // Progress bar OR water dots
+          if (isWater && waterGlasses != null && waterGlassGoal != null)
+            Wrap(
+              spacing: 4,
+              runSpacing: 4,
+              children: List.generate(waterGlassGoal!, (i) {
+                final filled = i < waterGlasses!;
+                return Icon(
+                  LucideIcons.droplets,
+                  size: 14,
+                  color: filled
+                      ? const Color(0xFF26C6DA)
+                      : (isDark ? Colors.white24 : Colors.black12),
+                );
+              }),
+            )
+          else
+            Row(
+              children: [
+                Expanded(
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(4),
+                    child: LinearProgressIndicator(
+                      value: (progress / 100).clamp(0, 1),
+                      minHeight: 4,
+                      backgroundColor: isDark
+                          ? Colors.white.withValues(alpha: 0.05)
+                          : Colors.black.withValues(alpha: 0.06),
+                      valueColor: AlwaysStoppedAnimation(gradient.colors.first),
+                    ),
                   ),
                 ),
-              ),
-              const SizedBox(width: 8),
-              Text(
-                '${progress.round()}%',
-                style: theme.textTheme.labelSmall?.copyWith(fontSize: 10),
-              ),
-            ],
-          ),
+                const SizedBox(width: 8),
+                Text(
+                  '${progress.round()}%',
+                  style: theme.textTheme.labelSmall?.copyWith(fontSize: 10),
+                ),
+              ],
+            ),
         ],
+      ),
+    ),
+            // 1.1 — 2px accent top bar
+            Positioned(
+              top: 0, left: 0, right: 0,
+              child: Container(
+                height: 2,
+                decoration: BoxDecoration(
+                  gradient: gradient,
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
