@@ -6,15 +6,14 @@ import 'providers/theme_provider.dart';
 import 'providers/app_provider.dart';
 import 'providers/auth_provider.dart';
 import 'screens/dashboard_screen.dart';
-import 'screens/fitness_screen.dart';
 import 'screens/running_screen.dart';
-import 'screens/health_screen.dart';
+import 'screens/health_fitness_screen.dart';
 import 'screens/study_screen.dart';
 import 'screens/history_screen.dart';
 import 'screens/profile_screen.dart';
 import 'screens/settings_screen.dart';
 import 'screens/challenge_screen.dart';
-import 'screens/chat_screen.dart';
+import 'screens/chat_inbox_screen.dart';
 import 'theme/app_colors.dart';
 
 class AppShell extends StatefulWidget {
@@ -39,9 +38,9 @@ class _AppShellState extends State<AppShell> {
 
   List<Widget> get _screens => [
     const DashboardScreen(),
-    const FitnessScreen(),
+    const HealthFitnessScreen(),
     RunningScreen(onFullscreenChanged: (v) => setState(() => _isMapFullscreen = v)),
-    const HealthScreen(),
+    const ChatInboxScreen(),
     const StudyScreen(),
   ];
 
@@ -108,8 +107,6 @@ class _AppShellState extends State<AppShell> {
                 Navigator.push(context, MaterialPageRoute(builder: (_) => const ChallengeScreen()));
               } else if (value == 'History') {
                 Navigator.push(context, MaterialPageRoute(builder: (_) => const HistoryScreen()));
-              } else if (value == 'Community Chat') {
-                Navigator.push(context, MaterialPageRoute(builder: (_) => const ChatScreen()));
               } else if (value == 'Settings') {
                 Navigator.push(context, MaterialPageRoute(builder: (_) => const SettingsScreen()));
               } else if (value == 'Logout') {
@@ -130,7 +127,6 @@ class _AppShellState extends State<AppShell> {
               const PopupMenuItem<String>(value: 'Profile', child: Text('Profile')),
               const PopupMenuItem<String>(value: 'Challenges', child: Text('🏅 Challenges')),
               const PopupMenuItem<String>(value: 'History', child: Text('History')),
-              const PopupMenuItem<String>(value: 'Community Chat', child: Text('💬 Community Chat')),
               const PopupMenuItem<String>(value: 'Settings', child: Text('Settings')),
               const PopupMenuItem<String>(value: 'Logout', child: Text('Logout')),
             ],
@@ -167,9 +163,9 @@ class _AppShellState extends State<AppShell> {
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
                 _NavItem(icon: LucideIcons.layoutDashboard, label: 'Dashboard', index: 0, current: _currentIndex, onTap: _onTap),
-                _NavItem(icon: LucideIcons.dumbbell, label: 'Fitness', index: 1, current: _currentIndex, onTap: _onTap),
+                _NavItem(icon: LucideIcons.heartPulse, label: 'Health', index: 1, current: _currentIndex, onTap: _onTap),
                 _NavItem(icon: LucideIcons.timer, label: 'Run', index: 2, current: _currentIndex, onTap: _onTap, isCenter: true),
-                _NavItem(icon: LucideIcons.heartPulse, label: 'Health', index: 3, current: _currentIndex, onTap: _onTap),
+                _NavItem(icon: LucideIcons.messageSquare, label: 'Chat', index: 3, current: _currentIndex, onTap: _onTap),
                 _NavItem(icon: LucideIcons.graduationCap, label: 'Study', index: 4, current: _currentIndex, onTap: _onTap),
               ],
             ),
