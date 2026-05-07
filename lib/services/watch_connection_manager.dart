@@ -68,7 +68,7 @@ class WatchConnectionManager {
   }
 
   /// Request all needed permissions.
-  Future<bool> requestPermissions() async {
+  Future<String?> requestPermissions() async {
     debugPrint("[WatchManager] Requesting permissions...");
 
     try {
@@ -94,7 +94,7 @@ class WatchConnectionManager {
       debugPrint("[WatchManager] Optional permissions error: $e");
     }
 
-    // Health Connect permissions (best effort)
+    // Health Connect permissions
     try {
       final types = [
         HealthDataType.HEART_RATE,
@@ -103,13 +103,15 @@ class WatchConnectionManager {
         HealthDataType.SLEEP_IN_BED,
         HealthDataType.SLEEP_ASLEEP,
       ];
-      await _health.requestAuthorization(types);
+      final permissions = types.map((e) => HealthDataAccess.READ).toList();
+      await _health.requestAuthorization(types, permissions: permissions);
       debugPrint("[WatchManager] Health Connect permissions requested");
     } catch (e) {
-      debugPrint("[WatchManager] Health Connect error (non-blocking): $e");
+      debugPrint("[WatchManager] Health Connect error: $e");
+      return "Health Connect Error: $e";
     }
 
-    return true;
+    return null; // Success
   }
 
   // ── BLE Device Scanner ──────────────────────────────────────────────────
@@ -233,7 +235,7 @@ class WatchConnectionManager {
 
   // ── Connect via Health Connect Only (No BLE) ──────────────────────────
 
-  Future<bool> connectViaHealthConnect() async {
+  Future<String?> connectViaHealthConnect() async {
     debugPrint("[WatchManager] Connecting via Health Connect only...");
     _connectedWatch = null;
     _connectedDeviceName = "Health Connect Sync";
@@ -241,7 +243,7 @@ class WatchConnectionManager {
     _saveConnectionState();
     _startHealthSyncTimer();
     _startSimulatedRealTimeStream();
-    return true;
+    return null;
   }
 
   // ── Disconnect ──────────────────────────────────────────────────────────
@@ -353,7 +355,10 @@ class WatchConnectionManager {
 
       if (hrData.isNotEmpty) {
         final hrValues = hrData
-            .map((d) => double.tryParse(d.value.toString()) ?? 0)
+            .map((d) {
+              final v = d.value;
+              return v is NumericHealthValue ? v.numericValue.toDouble() : 0.0;
+            })
             .where((v) => v > 0)
             .toList();
         if (hrValues.isNotEmpty) {
@@ -372,8 +377,8 @@ class WatchConnectionManager {
       );
       debugPrint("[WatchManager] SpO2 data points: ${spo2Data.length}");
       if (spo2Data.isNotEmpty) {
-        data['spO2'] =
-            double.tryParse(spo2Data.last.value.toString()) ?? 0.0;
+        final v = spo2Data.last.value;
+        data['spO2'] = v is NumericHealthValue ? v.numericValue.toDouble() : 0.0;
       }
 
       // Read steps
@@ -414,6 +419,7 @@ class WatchConnectionManager {
 
       int wellness = ((hrScore + stepScore + sleepScore) / 3).round();
       data['wellnessScore'] = wellness > 0 ? wellness : 0;
+      data['totalRecords'] = hrData.length + spo2Data.length + stepsData.length + sleepData.length;
     } catch (e) {
       debugPrint("[WatchManager] Health Connect read error: $e");
     }

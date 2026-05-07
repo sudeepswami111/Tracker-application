@@ -179,7 +179,13 @@ class WatchMetricsProvider extends ChangeNotifier {
 
     try {
       debugPrint("[WatchProvider] Requesting permissions...");
-      await _manager.requestPermissions();
+      final error = await _manager.requestPermissions();
+      if (error != null) {
+        _connectError = error;
+        _isScanning = false;
+        notifyListeners();
+        return;
+      }
       _permissionStatus = WatchPermissionStatus.granted;
 
       // Start scanning for devices
@@ -252,9 +258,16 @@ class WatchMetricsProvider extends ChangeNotifier {
 
     try {
       debugPrint("[WatchProvider] Syncing via Health Connect...");
-      bool success = await _manager.connectViaHealthConnect();
+      final permError = await _manager.requestPermissions();
+      if (permError != null) {
+        _connectError = permError;
+        _isConnecting = false;
+        notifyListeners();
+        return;
+      }
 
-      if (success) {
+      final successError = await _manager.connectViaHealthConnect();
+      if (successError == null) {
         _isConnected = true;
         _deviceName = "Health Connect Sync";
 
@@ -272,12 +285,17 @@ class WatchMetricsProvider extends ChangeNotifier {
         _lastSynced = DateTime.now();
         _isStreaming = true; // Still true to show the dashboard properly
 
+        final totalRecords = data['totalRecords'] ?? 0;
+        if (totalRecords == 0) {
+          _connectError = "Connected, but Health Connect is empty! Please sync Google Fit.";
+        }
+
         _saveToStorage();
         _isConnecting = false;
         notifyListeners();
-        debugPrint("[WatchProvider] Connected via Health Connect!");
+        debugPrint("[WatchProvider] Connected via Health Connect! Records: $totalRecords");
       } else {
-        _connectError = "Failed to sync with Health Connect.";
+        _connectError = successError;
         _isConnecting = false;
         notifyListeners();
       }
