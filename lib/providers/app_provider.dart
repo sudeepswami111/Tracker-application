@@ -4,6 +4,7 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../main.dart';
 import '../services/notification_service.dart';
 
@@ -322,10 +323,51 @@ class AppProvider extends ChangeNotifier {
     NotificationService.scheduleSmartNudges(this);
   }
 
-  void updateUserName(String newName) {
+  void updateUserName(String newName) async {
     userName = newName;
     _saveData();
     notifyListeners();
+
+    final user = Supabase.instance.client.auth.currentUser;
+    if (user != null) {
+      try {
+        // Try to update, if it fails maybe row doesn't exist, but we assume it does via sync
+        await Supabase.instance.client
+            .from('profiles')
+            .update({'name': newName})
+            .eq('id', user.id);
+      } catch (e) {
+        debugPrint("Error updating profile: \$e");
+      }
+    }
+  }
+
+  Future<void> syncProfileWithSupabase() async {
+    final user = Supabase.instance.client.auth.currentUser;
+    if (user == null) return;
+
+    try {
+      final data = await Supabase.instance.client
+          .from('profiles')
+          .select()
+          .eq('id', user.id)
+          .maybeSingle();
+
+      if (data != null && data['name'] != null) {
+        userName = data['name'] as String;
+      } else {
+        // Insert initial data if row doesn't exist
+        await Supabase.instance.client.from('profiles').insert({
+          'id': user.id,
+          'name': userName,
+        });
+      }
+      email = user.email ?? email;
+      _saveData();
+      notifyListeners();
+    } catch (e) {
+      debugPrint("Error syncing profile: \$e");
+    }
   }
 
   void updateProfileImagePath(String newPath) {

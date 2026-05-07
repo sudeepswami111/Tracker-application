@@ -4,6 +4,7 @@ import 'package:lucide_icons/lucide_icons.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'providers/theme_provider.dart';
 import 'providers/app_provider.dart';
+import 'providers/auth_provider.dart';
 import 'screens/dashboard_screen.dart';
 import 'screens/fitness_screen.dart';
 import 'screens/running_screen.dart';
@@ -13,6 +14,7 @@ import 'screens/history_screen.dart';
 import 'screens/profile_screen.dart';
 import 'screens/settings_screen.dart';
 import 'screens/challenge_screen.dart';
+import 'screens/chat_screen.dart';
 import 'theme/app_colors.dart';
 
 class AppShell extends StatefulWidget {
@@ -31,6 +33,7 @@ class _AppShellState extends State<AppShell> {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       Permission.notification.request();
+      context.read<AppProvider>().syncProfileWithSupabase();
     });
   }
 
@@ -105,6 +108,8 @@ class _AppShellState extends State<AppShell> {
                 Navigator.push(context, MaterialPageRoute(builder: (_) => const ChallengeScreen()));
               } else if (value == 'History') {
                 Navigator.push(context, MaterialPageRoute(builder: (_) => const HistoryScreen()));
+              } else if (value == 'Community Chat') {
+                Navigator.push(context, MaterialPageRoute(builder: (_) => const ChatScreen()));
               } else if (value == 'Settings') {
                 Navigator.push(context, MaterialPageRoute(builder: (_) => const SettingsScreen()));
               } else if (value == 'Logout') {
@@ -113,9 +118,9 @@ class _AppShellState extends State<AppShell> {
                   content: const Text('Are you sure you want to log out?'),
                   actions: [
                     TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
-                    ElevatedButton(onPressed: () {
+                    ElevatedButton(onPressed: () async {
                       Navigator.pop(ctx);
-                      // Handle logout
+                      await context.read<AuthProvider>().signOut();
                     }, child: const Text('Logout')),
                   ],
                 ));
@@ -125,6 +130,7 @@ class _AppShellState extends State<AppShell> {
               const PopupMenuItem<String>(value: 'Profile', child: Text('Profile')),
               const PopupMenuItem<String>(value: 'Challenges', child: Text('🏅 Challenges')),
               const PopupMenuItem<String>(value: 'History', child: Text('History')),
+              const PopupMenuItem<String>(value: 'Community Chat', child: Text('💬 Community Chat')),
               const PopupMenuItem<String>(value: 'Settings', child: Text('Settings')),
               const PopupMenuItem<String>(value: 'Logout', child: Text('Logout')),
             ],

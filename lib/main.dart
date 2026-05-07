@@ -4,13 +4,18 @@ import 'package:provider/provider.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
+
 import 'services/notification_service.dart';
 import 'providers/theme_provider.dart';
 import 'providers/app_provider.dart';
 import 'providers/running_provider.dart';
 import 'providers/watch_metrics_provider.dart';
+import 'providers/auth_provider.dart';
 import 'theme/app_theme.dart';
 import 'app.dart';
+import 'screens/login_screen.dart';
 
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
@@ -22,7 +27,12 @@ void main() async {
   final prefs = await SharedPreferences.getInstance();
   await NotificationService.init();
 
+  await dotenv.load(fileName: ".env");
 
+  await Supabase.initialize(
+    url: dotenv.env['SUPABASE_URL']!,
+    anonKey: dotenv.env['SUPABASE_ANON_KEY']!,
+  );
   SystemChrome.setSystemUIOverlayStyle(
     const SystemUiOverlayStyle(
       statusBarColor: Colors.transparent,
@@ -37,6 +47,7 @@ void main() async {
         ChangeNotifierProvider(create: (_) => AppProvider(prefs)..startLiveSimulation()),
         ChangeNotifierProvider(create: (_) => RunningProvider()),
         ChangeNotifierProvider(create: (_) => WatchMetricsProvider()),
+        ChangeNotifierProvider(create: (_) => AuthProvider()),
       ],
       child: const LifePulseApp(),
     ),
@@ -57,7 +68,11 @@ class LifePulseApp extends StatelessWidget {
           theme: AppTheme.light(),
           darkTheme: AppTheme.dark(),
           themeMode: themeProvider.themeMode,
-          home: const AppShell(),
+          home: Consumer<AuthProvider>(
+            builder: (context, auth, _) {
+              return auth.isAuthenticated ? const AppShell() : const LoginScreen();
+            },
+          ),
         );
       },
     );

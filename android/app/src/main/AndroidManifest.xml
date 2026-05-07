@@ -44,6 +44,14 @@
             <intent-filter>
                 <action android:name="androidx.health.ACTION_SHOW_PERMISSIONS_RATIONALE" />
             </intent-filter>
+            
+            <!-- Supabase Google OAuth Deep Linking -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="lifepulse" android:host="login-callback" />
+            </intent-filter>
         </activity>
         <!-- Privacy policy link for Health Connect review (3.1) -->
         <activity-alias
