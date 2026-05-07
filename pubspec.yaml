@@ -49,7 +49,7 @@ dependencies:
   shared_preferences: ^2.5.5
   health: ^11.0.0
   confetti: ^0.7.0
-  flutter_blue_plus: ^2.2.1
+  flutter_blue_plus: ^1.32.8
   supabase_flutter: ^2.12.4
   flutter_dotenv: ^6.0.1
   flutter_riverpod: ^3.3.1
