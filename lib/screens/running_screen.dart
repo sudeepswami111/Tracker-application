@@ -7,6 +7,7 @@ import 'package:latlong2/latlong.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:provider/provider.dart';
 import '../services/routing_service.dart';
+import '../services/places_service.dart';
 import '../providers/running_provider.dart';
 
 final List<Map<String, String>> kTiles = [
@@ -50,6 +51,12 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
   final _destCtrl = TextEditingController();
   List<RouteResult> _routes = [];
   LatLng? _routeStart, _routeDest;
+
+  // Landmark / Places
+  LatLng? _tappedPoint;
+  List<NearbyLandmark> _landmarks = [];
+  bool _loadingLandmarks = false;
+  NearbyLandmark? _selectedLandmark;
 
   @override
   void initState() {
@@ -174,9 +181,25 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
         Text('Track your runs with real-time GPS', style: TextStyle(color: Colors.grey[500], fontSize: 13)),
         const SizedBox(height: 16),
         // Route planning inputs
-        _routeInput(_startCtrl, 'Starting Point', Icons.my_location, Colors.green),
+        PlaceAutocompleteField(
+          controller: _startCtrl,
+          hint: 'Starting Point',
+          icon: Icons.my_location,
+          iconColor: Colors.green,
+          onSelected: (s) {
+            setState(() { _routeStart = s.location; });
+          },
+        ),
         const SizedBox(height: 8),
-        _routeInput(_destCtrl, 'Destination', Icons.flag, Colors.red),
+        PlaceAutocompleteField(
+          controller: _destCtrl,
+          hint: 'Destination',
+          icon: Icons.flag,
+          iconColor: Colors.red,
+          onSelected: (s) {
+            setState(() { _routeDest = s.location; });
+          },
+        ),
         const SizedBox(height: 10),
         Row(children: [
           Expanded(child: SizedBox(height: 42, child: ElevatedButton.icon(
@@ -202,8 +225,15 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
       ],
       // MAP
       ClipRRect(borderRadius: BorderRadius.circular(_isFullscreen ? 0 : 20), child: SizedBox(height: mapH, child: Stack(children: [
-        FlutterMap(mapController: _mapCtrl, options: MapOptions(initialCenter: _curPos ?? const LatLng(20.5937, 78.9629), initialZoom: _zoom, maxZoom: 19, minZoom: 3,
-          onPositionChanged: (cam, gesture) { if (gesture && _follow) setState(() => _follow = false); _zoom = cam.zoom ?? _zoom; }),
+        FlutterMap(mapController: _mapCtrl, options: MapOptions(
+          initialCenter: _curPos ?? const LatLng(20.5937, 78.9629),
+          initialZoom: _zoom, maxZoom: 19, minZoom: 3,
+          onPositionChanged: (cam, gesture) {
+            if (gesture && _follow) setState(() => _follow = false);
+            _zoom = cam.zoom ?? _zoom;
+          },
+          onTap: (_, latLng) => _onMapTap(latLng),
+        ),
           children: [
             TileLayer(urlTemplate: url, userAgentPackageName: 'com.lifepulse.app', maxZoom: 19),
             // Planned routes
@@ -223,6 +253,39 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
                     color: sel ? const Color(0xFF6C5CE7).withValues(alpha: 0.7) : Colors.grey.withValues(alpha: 0.35));
                 }),
               ]),
+            // Landmark markers
+            if (_landmarks.isNotEmpty) MarkerLayer(markers: [
+              ..._landmarks.map((lm) => Marker(
+                point: lm.location, width: 40, height: 40,
+                child: GestureDetector(
+                  onTap: () => _showLandmarkDetail(lm),
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: lm.color.withValues(alpha: 0.9),
+                      shape: BoxShape.circle,
+                      border: Border.all(color: Colors.white, width: 2),
+                      boxShadow: [BoxShadow(color: lm.color.withValues(alpha: 0.5), blurRadius: 8)],
+                    ),
+                    child: Icon(lm.icon, size: 18, color: Colors.white),
+                  ),
+                ),
+              )),
+            ]),
+            // Tapped point marker
+            if (_tappedPoint != null) MarkerLayer(markers: [
+              Marker(
+                point: _tappedPoint!, width: 36, height: 36,
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFF6B6B),
+                    shape: BoxShape.circle,
+                    border: Border.all(color: Colors.white, width: 2.5),
+                    boxShadow: [BoxShadow(color: Colors.red.withValues(alpha: 0.4), blurRadius: 10)],
+                  ),
+                  child: const Icon(Icons.place, size: 18, color: Colors.white),
+                ),
+              ),
+            ]),
             MarkerLayer(markers: [
               if (_routeStart != null) Marker(point: _routeStart!, width: 28, height: 28, child: Container(decoration: BoxDecoration(color: Colors.green, shape: BoxShape.circle, border: Border.all(color: Colors.white, width: 2)), child: const Icon(Icons.my_location, size: 14, color: Colors.white))),
               if (_routeDest != null) Marker(point: _routeDest!, width: 28, height: 28, child: Container(decoration: BoxDecoration(color: Colors.red, shape: BoxShape.circle, border: Border.all(color: Colors.white, width: 2)), child: const Icon(Icons.flag, size: 14, color: Colors.white))),
@@ -272,6 +335,46 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
       ]))),
       if (!_isFullscreen) ...[
         const SizedBox(height: 12),
+        // Landmark loading indicator
+        if (_loadingLandmarks)
+          const Center(child: Padding(
+            padding: EdgeInsets.symmetric(vertical: 8),
+            child: Row(mainAxisSize: MainAxisSize.min, children: [
+              SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF00E5FF))),
+              SizedBox(width: 8),
+              Text('Fetching nearby places...', style: TextStyle(color: Colors.grey, fontSize: 12)),
+            ]),
+          )),
+        // Landmark chips
+        if (_landmarks.isNotEmpty && !_loadingLandmarks) ...[
+          const SizedBox(height: 4),
+          SizedBox(height: 36, child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: 2),
+            itemCount: _landmarks.length,
+            separatorBuilder: (_, _) => const SizedBox(width: 6),
+            itemBuilder: (_, i) {
+              final lm = _landmarks[i];
+              return GestureDetector(
+                onTap: () => _showLandmarkDetail(lm),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: lm.color.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: lm.color.withValues(alpha: 0.4)),
+                  ),
+                  child: Row(mainAxisSize: MainAxisSize.min, children: [
+                    Icon(lm.icon, size: 13, color: lm.color),
+                    const SizedBox(width: 5),
+                    Text(lm.name, style: TextStyle(fontSize: 11, color: lm.color, fontWeight: FontWeight.w600), maxLines: 1),
+                  ]),
+                ),
+              );
+            },
+          )),
+          const SizedBox(height: 8),
+        ],
         // Stats panel
         Container(padding: const EdgeInsets.all(14), decoration: BoxDecoration(color: Theme.of(context).brightness == Brightness.dark ? Colors.white.withValues(alpha: 0.06) : Colors.black.withValues(alpha: 0.04), borderRadius: BorderRadius.circular(18)),
           child: Row(mainAxisAlignment: MainAxisAlignment.spaceAround, children: [
@@ -294,6 +397,73 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
         const SizedBox(height: 100),
       ],
     ]));
+  }
+
+  // ── Map tap → fetch nearby landmarks ──────────────────────────────────────
+  Future<void> _onMapTap(LatLng point) async {
+    if (_state == RunState.running || _state == RunState.paused) return;
+    setState(() {
+      _tappedPoint = point;
+      _landmarks = [];
+      _loadingLandmarks = true;
+    });
+    _mapCtrl.move(point, _zoom);
+    setState(() => _follow = false);
+    final results = await PlacesService.fetchNearbyLandmarks(point);
+    if (!mounted) return;
+    setState(() { _landmarks = results; _loadingLandmarks = false; });
+    if (results.isEmpty) _snack('No nearby places found at this location');
+  }
+
+  // ── Landmark detail bottom sheet ──────────────────────────────────────────
+  void _showLandmarkDetail(NearbyLandmark lm) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (_) => Container(
+        margin: const EdgeInsets.all(12),
+        padding: const EdgeInsets.all(24),
+        decoration: BoxDecoration(
+          color: Theme.of(context).brightness == Brightness.dark ? const Color(0xFF111827) : Colors.white,
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(color: lm.color.withValues(alpha: 0.3)),
+        ),
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          Container(width: 56, height: 56, decoration: BoxDecoration(color: lm.color.withValues(alpha: 0.15), shape: BoxShape.circle),
+            child: Icon(lm.icon, size: 28, color: lm.color)),
+          const SizedBox(height: 12),
+          Text(lm.name, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 18), textAlign: TextAlign.center),
+          const SizedBox(height: 4),
+          Container(padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+            decoration: BoxDecoration(color: lm.color.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(20)),
+            child: Text(lm.category.replaceAll('_', ' ').toUpperCase(),
+              style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: lm.color, letterSpacing: 1))),
+          const SizedBox(height: 16),
+          Row(children: [
+            Expanded(child: OutlinedButton.icon(
+              onPressed: () {
+                Navigator.pop(context);
+                _destCtrl.text = lm.name;
+                _routeDest = lm.location;
+              },
+              icon: const Icon(Icons.flag, size: 16),
+              label: const Text('Set as Destination'),
+              style: OutlinedButton.styleFrom(foregroundColor: lm.color, side: BorderSide(color: lm.color)),
+            )),
+            const SizedBox(width: 10),
+            Expanded(child: ElevatedButton.icon(
+              onPressed: () {
+                Navigator.pop(context);
+                _mapCtrl.move(lm.location, 17);
+              },
+              icon: const Icon(Icons.zoom_in_map, size: 16),
+              label: const Text('Zoom In'),
+              style: ElevatedButton.styleFrom(backgroundColor: lm.color, foregroundColor: Colors.white),
+            )),
+          ]),
+        ]),
+      ),
+    );
   }
 
   Widget _startButton() => GestureDetector(onTap: _startRun, child: Container(width: 72, height: 72,
