@@ -14,6 +14,7 @@ import 'screens/profile_screen.dart';
 import 'screens/settings_screen.dart';
 import 'screens/challenge_screen.dart';
 import 'screens/community_screen.dart';
+import 'screens/notifications_screen.dart';
 import 'theme/app_colors.dart';
 import 'widgets/glass_nav_bar.dart';
 
@@ -76,12 +77,7 @@ class _AppShellState extends State<AppShell> {
             children: [
               IconButton(icon: const Icon(LucideIcons.bell, size: 20), onPressed: () {
                 app.markNotificationsRead();
-                showModalBottomSheet(
-                  context: context,
-                  backgroundColor: isDark ? AppColors.darkSurface : AppColors.lightSurface,
-                  shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
-                  builder: (context) => _buildNotificationCenter(context, theme, app),
-                );
+                Navigator.push(context, MaterialPageRoute(builder: (_) => const NotificationsScreen()));
               }),
               if (app.hasUnreadNotifications)
                 Positioned(
@@ -176,45 +172,5 @@ class _AppShellState extends State<AppShell> {
 
   void _onTap(int index) {
     setState(() => _currentIndex = index);
-  }
-
-  Widget _buildNotificationCenter(BuildContext context, ThemeData theme, AppProvider app) {
-    return Container(
-      padding: const EdgeInsets.all(24),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text('Notifications', style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w700)),
-          const SizedBox(height: 24),
-          if (app.notifications.isEmpty)
-             const Text('No new notifications', style: TextStyle(color: Colors.grey)),
-          ...app.notifications.map((n) => _NotificationTile(
-            icon: n['icon'] as IconData,
-            color: n['color'] as Color,
-            title: n['title'] as String,
-            subtitle: n['subtitle'] as String,
-            theme: theme,
-          )),
-          const SizedBox(height: 16),
-        ],
-      ),
-    );
-  }
-}
-
-class _NotificationTile extends StatelessWidget {
-  final IconData icon; final Color color; final String title; final String subtitle; final ThemeData theme;
-  const _NotificationTile({required this.icon, required this.color, required this.title, required this.subtitle, required this.theme});
-  @override Widget build(BuildContext context) {
-    return Padding(padding: const EdgeInsets.only(bottom: 16), child: Row(children: [
-      Container(padding: const EdgeInsets.all(12), decoration: BoxDecoration(color: color.withValues(alpha: 0.15), shape: BoxShape.circle), child: Icon(icon, color: color, size: 20)),
-      const SizedBox(width: 16),
-      Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text(title, style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600)),
-        const SizedBox(height: 2),
-        Text(subtitle, style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
-      ])),
-    ]));
   }
 }
