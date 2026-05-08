@@ -1,3 +1,4 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../services/chat_service.dart';
@@ -25,11 +26,16 @@ class _ChatScreenState extends State<ChatScreen> {
   final TextEditingController _messageController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   late final Stream<List<Map<String, dynamic>>> _messageStream;
+  bool _hasText = false;
 
   @override
   void initState() {
     super.initState();
     _messageStream = _chatService.getMessagesStream(widget.channelId);
+    _messageController.addListener(() {
+      final hasText = _messageController.text.trim().isNotEmpty;
+      if (hasText != _hasText) setState(() => _hasText = hasText);
+    });
   }
 
   @override
@@ -199,52 +205,74 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   Widget _buildInputArea(ThemeData theme, bool isDark) {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surface,
-        border: Border(
-          top: BorderSide(
-            color: theme.colorScheme.outline.withValues(alpha: 0.2),
+    return ClipRRect(
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          decoration: BoxDecoration(
+            color: isDark ? AppColors.backgroundDeep.withValues(alpha: 0.8) : Colors.white.withValues(alpha: 0.8),
+            border: Border(
+              top: BorderSide(color: theme.colorScheme.onSurface.withValues(alpha: 0.1)),
+            ),
           ),
-        ),
-      ),
-      child: SafeArea(
-        child: Row(
-          children: [
-            Expanded(
-              child: TextField(
-                controller: _messageController,
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  color: theme.colorScheme.onSurface,
-                ),
-                onSubmitted: (_) => _send(),
-                decoration: InputDecoration(
-                  hintText: "Type a message...",
-                  hintStyle: theme.textTheme.bodyMedium?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
+          child: SafeArea(
+            child: Row(
+              children: [
+                Icon(Icons.add_circle_outline, color: theme.colorScheme.onSurfaceVariant),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: isDark ? AppColors.surfaceElevated : AppColors.lightSurfaceContainer,
+                      borderRadius: BorderRadius.circular(24),
+                    ),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: TextField(
+                            controller: _messageController,
+                            style: theme.textTheme.bodyMedium,
+                            onSubmitted: (_) => _send(),
+                            decoration: InputDecoration(
+                              hintText: "Message...",
+                              hintStyle: theme.textTheme.bodyMedium?.copyWith(
+                                color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
+                              ),
+                              border: InputBorder.none,
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                            ),
+                          ),
+                        ),
+                        IconButton(
+                          icon: Icon(Icons.emoji_emotions_outlined, color: theme.colorScheme.onSurfaceVariant, size: 22),
+                          onPressed: () {},
+                        ),
+                      ],
+                    ),
                   ),
-                  filled: true,
-                  fillColor: isDark
-                      ? AppColors.backgroundDeep
-                      : AppColors.lightSurfaceContainer,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(24),
-                    borderSide: BorderSide.none,
-                  ),
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                 ),
-              ),
+                const SizedBox(width: 12),
+                GestureDetector(
+                  onTap: _hasText ? _send : null,
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 200),
+                    width: 40,
+                    height: 40,
+                    decoration: BoxDecoration(
+                      color: _hasText ? AppColors.irisViolet : theme.colorScheme.onSurface.withValues(alpha: 0.1),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      Icons.arrow_upward,
+                      color: _hasText ? Colors.white : theme.colorScheme.onSurfaceVariant,
+                      size: 20,
+                    ),
+                  ),
+                ),
+              ],
             ),
-            const SizedBox(width: 8),
-            CircleAvatar(
-              backgroundColor: theme.colorScheme.primary,
-              child: IconButton(
-                icon: const Icon(Icons.send, color: Colors.white, size: 20),
-                onPressed: _send,
-              ),
-            ),
-          ],
+          ),
         ),
       ),
     );
