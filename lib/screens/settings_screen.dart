@@ -1,118 +1,263 @@
+import 'dart:io';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:lucide_icons/lucide_icons.dart';
-import 'package:url_launcher/url_launcher.dart';
 import '../providers/theme_provider.dart';
 import '../providers/app_provider.dart';
 import '../theme/app_colors.dart';
+import '../widgets/glass_card.dart';
 
-class SettingsScreen extends StatelessWidget {
+class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
+
+  @override
+  State<SettingsScreen> createState() => _SettingsScreenState();
+}
+
+class _SettingsScreenState extends State<SettingsScreen> {
+  // Mock State
+  bool _healthKitConnected = true;
+  bool _masterNotifications = true;
+  bool _workoutReminders = true;
+  bool _studyReminders = false;
+  double _dailyStepsGoal = 10000;
+  double _calorieBudget = 2400;
+  int _pomodoroDuration = 25;
 
   @override
   Widget build(BuildContext context) {
     final themeProvider = context.watch<ThemeProvider>();
     final app = context.watch<AppProvider>();
     final theme = Theme.of(context);
-    final isDark = themeProvider.isDark;
+    final isDark = theme.brightness == Brightness.dark;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Settings')),
+      backgroundColor: isDark ? AppColors.backgroundDeep : AppColors.lightBg,
+      appBar: AppBar(
+        title: const Text('Settings'),
+        leading: IconButton(
+          icon: const Icon(LucideIcons.arrowLeft),
+          onPressed: () => Navigator.pop(context),
+        ),
+      ),
       body: ListView(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
         children: [
-          // ── Appearance ──────────────────────────────────────────────
-          _buildSectionHeader('Appearance', theme),
-          Card(
-            elevation: 0,
-            color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.4),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 4),
-              child: Column(
+          // 2. ACCOUNT SECTION
+          GestureDetector(
+            onTap: () {
+              // Edit profile sheet
+            },
+            child: GlassCard(
+              padding: const EdgeInsets.all(16),
+              child: Row(
                 children: [
-                  // Quick toggle row
-                  SwitchListTile(
-                    title: Text(isDark ? 'Dark Mode' : 'Light Mode'),
-                    secondary: Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: AppColors.primary.withValues(alpha: 0.15),
-                        shape: BoxShape.circle,
-                      ),
-                      child: Icon(
-                        isDark ? LucideIcons.moon : LucideIcons.sun,
-                        color: AppColors.primary,
-                        size: 20,
-                      ),
+                  Container(
+                    width: 64,
+                    height: 64,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      border: Border.all(color: Colors.white, width: 2),
+                      image: app.profileImagePath.isNotEmpty
+                          ? DecorationImage(image: FileImage(File(app.profileImagePath)), fit: BoxFit.cover)
+                          : null,
+                      color: AppColors.surfaceElevated,
                     ),
-                    value: isDark,
-                    activeColor: AppColors.irisViolet,
-                    onChanged: (_) => themeProvider.toggleTheme(),
+                    child: app.profileImagePath.isEmpty
+                        ? Center(child: Text(app.userName.isNotEmpty ? app.userName[0].toUpperCase() : 'U', style: const TextStyle(fontSize: 24, color: Colors.white, fontWeight: FontWeight.bold)))
+                        : null,
                   ),
-                  Divider(
-                    height: 1,
-                    indent: 56,
-                    color: theme.colorScheme.outline.withValues(alpha: 0.2),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(app.userName, style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+                        const SizedBox(height: 4),
+                        Text('alex@example.com', style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
+                      ],
+                    ),
                   ),
-                  // Three-way selector (Light / System / Dark)
-                  Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: _ThemeModeSelector(themeProvider: themeProvider, theme: theme),
-                  ),
+                  Icon(LucideIcons.chevronRight, color: theme.colorScheme.onSurfaceVariant, size: 20),
                 ],
               ),
             ),
           ),
           const SizedBox(height: 24),
 
-          // ── Preferences ─────────────────────────────────────────────
-          _buildSectionHeader('Preferences', theme),
-          Card(
-            elevation: 0,
-            color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.4),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          // 3. HEALTH & DEVICES
+          _sectionHeader('Health & Devices'),
+          GlassCard(
+            padding: EdgeInsets.zero,
+            child: Column(
+              children: [
+                _settingsRow(LucideIcons.heartPulse, 'Health Connect', Switch.adaptive(
+                  value: _healthKitConnected,
+                  activeColor: AppColors.voltCyan,
+                  onChanged: (v) => setState(() => _healthKitConnected = v),
+                )),
+                _divider(),
+                _settingsRow(LucideIcons.bluetooth, 'Bluetooth Devices', _chevronRow('1 connected')),
+                _divider(),
+                _settingsRow(LucideIcons.shieldCheck, 'Data Permissions', _chevronRow('')),
+              ],
+            ),
+          ),
+          const SizedBox(height: 24),
+
+          // 4. MODULES
+          _sectionHeader('Modules'),
+          GlassCard(
+            padding: EdgeInsets.zero,
+            child: Column(
+              children: [
+                Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          const Icon(LucideIcons.footprints, size: 20, color: Colors.grey),
+                          const SizedBox(width: 12),
+                          const Text('Daily Steps Goal'),
+                          const Spacer(),
+                          Text('${_dailyStepsGoal.toInt()}', style: const TextStyle(fontWeight: FontWeight.bold)),
+                        ],
+                      ),
+                      Slider.adaptive(
+                        value: _dailyStepsGoal,
+                        min: 1000,
+                        max: 20000,
+                        divisions: 19,
+                        activeColor: AppColors.voltCyan,
+                        onChanged: (v) => setState(() => _dailyStepsGoal = v),
+                      ),
+                    ],
+                  ),
+                ),
+                _divider(),
+                _settingsRow(LucideIcons.bookOpen, 'Pomodoro Duration', 
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      IconButton(icon: const Icon(LucideIcons.minusCircle, color: Colors.grey), onPressed: () {
+                        if (_pomodoroDuration > 5) setState(() => _pomodoroDuration -= 5);
+                      }),
+                      SizedBox(width: 40, child: Text('$_pomodoroDuration m', textAlign: TextAlign.center, style: const TextStyle(fontWeight: FontWeight.bold))),
+                      IconButton(icon: const Icon(LucideIcons.plusCircle, color: Colors.grey), onPressed: () {
+                        if (_pomodoroDuration < 60) setState(() => _pomodoroDuration += 5);
+                      }),
+                    ],
+                  )
+                ),
+                _divider(),
+                _settingsRow(LucideIcons.apple, 'Calorie Budget', _chevronRow('${_calorieBudget.toInt()} kcal')),
+              ],
+            ),
+          ),
+          const SizedBox(height: 24),
+
+          // 5. NOTIFICATIONS
+          _sectionHeader('Notifications'),
+          GlassCard(
+            padding: EdgeInsets.zero,
+            child: Column(
+              children: [
+                _settingsRow(LucideIcons.bell, 'Master Toggle', Switch.adaptive(
+                  value: _masterNotifications,
+                  activeColor: AppColors.voltCyan,
+                  onChanged: (v) => setState(() => _masterNotifications = v),
+                )),
+                if (_masterNotifications) ...[
+                  _divider(),
+                  _settingsRow(LucideIcons.activity, 'Workout Reminders', Switch.adaptive(
+                    value: _workoutReminders,
+                    activeColor: AppColors.voltCyan,
+                    onChanged: (v) => setState(() => _workoutReminders = v),
+                  )),
+                  _divider(),
+                  _settingsRow(LucideIcons.bookOpen, 'Study Reminders', Switch.adaptive(
+                    value: _studyReminders,
+                    activeColor: AppColors.voltCyan,
+                    onChanged: (v) => setState(() => _studyReminders = v),
+                  )),
+                ]
+              ],
+            ),
+          ),
+          const SizedBox(height: 24),
+
+          // 6. APPEARANCE
+          _sectionHeader('Appearance'),
+          GlassCard(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              children: [
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(4),
+                  decoration: BoxDecoration(
+                    color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.black.withValues(alpha: 0.05),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Row(
+                    children: [
+                      _themeSegment(ThemeMode.light, 'Light', themeProvider.themeMode),
+                      _themeSegment(ThemeMode.system, 'System', themeProvider.themeMode),
+                      _themeSegment(ThemeMode.dark, 'Dark', themeProvider.themeMode),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 24),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text('Accent Override', style: TextStyle(fontWeight: FontWeight.w600)),
+                    Row(
+                      children: [
+                        _accentSwatch(AppColors.voltCyan, true),
+                        const SizedBox(width: 12),
+                        _accentSwatch(AppColors.pulseRed, false),
+                        const SizedBox(width: 12),
+                        _accentSwatch(AppColors.irisViolet, false),
+                        const SizedBox(width: 12),
+                        _accentSwatch(AppColors.solarAmber, false),
+                        const SizedBox(width: 12),
+                        _accentSwatch(Colors.white, false),
+                      ],
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 24),
+
+          // 7. DATA & PRIVACY
+          _sectionHeader('Data & Privacy'),
+          GlassCard(
+            padding: EdgeInsets.zero,
             child: Column(
               children: [
                 ListTile(
-                  leading: Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: AppColors.coral.withValues(alpha: 0.15),
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Icon(LucideIcons.ruler, color: AppColors.coral, size: 20),
-                  ),
-                  title: const Text('Unit System'),
-                  trailing: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        app.isMetric ? 'Metric' : 'Imperial',
-                        style: TextStyle(color: theme.colorScheme.onSurfaceVariant),
-                      ),
-                      const SizedBox(width: 8),
-                      const Icon(LucideIcons.chevronRight, size: 16),
-                    ],
-                  ),
-                  onTap: app.toggleUnitSystem,
+                  leading: const Icon(LucideIcons.download, color: AppColors.voltCyan, size: 20),
+                  title: const Text('Export My Data', style: TextStyle(color: AppColors.voltCyan, fontWeight: FontWeight.bold)),
+                  onTap: () {},
                 ),
-                Divider(
-                  height: 1,
-                  indent: 56,
-                  color: theme.colorScheme.outline.withValues(alpha: 0.2),
-                ),
+                _divider(),
                 ListTile(
-                  leading: Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: AppColors.green.withValues(alpha: 0.15),
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Icon(LucideIcons.lock, color: AppColors.green, size: 20),
-                  ),
-                  title: const Text('Account Privacy'),
-                  trailing: const Icon(LucideIcons.chevronRight, size: 16),
+                  leading: const Icon(LucideIcons.trash2, color: AppColors.pulseRed, size: 20),
+                  title: const Text('Delete Account', style: TextStyle(color: AppColors.pulseRed, fontWeight: FontWeight.bold)),
+                  onTap: () {},
+                ),
+                _divider(),
+                ListTile(
+                  leading: const Icon(LucideIcons.shield, color: Colors.grey, size: 20),
+                  title: const Text('Privacy Policy'),
+                  trailing: const Icon(LucideIcons.externalLink, size: 16, color: Colors.grey),
                   onTap: () {},
                 ),
               ],
@@ -120,116 +265,134 @@ class SettingsScreen extends StatelessWidget {
           ),
           const SizedBox(height: 24),
 
-          // ── Support ──────────────────────────────────────────────────
-          _buildSectionHeader('Support', theme),
-          Card(
-            elevation: 0,
-            color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.4),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-            child: ListTile(
-              leading: Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: AppColors.secondary.withValues(alpha: 0.15),
-                  shape: BoxShape.circle,
+          // 8. ABOUT
+          _sectionHeader('About'),
+          GlassCard(
+            padding: EdgeInsets.zero,
+            child: Column(
+              children: [
+                ListTile(
+                  leading: const Icon(LucideIcons.info, color: Colors.grey, size: 20),
+                  title: const Text('Version'),
+                  trailing: const Text('v2.4.0 (Build 342)', style: TextStyle(color: Colors.grey, fontSize: 12)),
                 ),
-                child: const Icon(LucideIcons.helpCircle, color: AppColors.secondary, size: 20),
-              ),
-              title: const Text('Help & Support'),
-              trailing: const Icon(LucideIcons.chevronRight, size: 16),
-              onTap: () async {
-                final uri = Uri(scheme: 'mailto', path: 'support@lifepulse.com');
-                if (await canLaunchUrl(uri)) await launchUrl(uri);
-              },
+                _divider(),
+                ListTile(
+                  leading: const Icon(LucideIcons.star, color: Colors.grey, size: 20),
+                  title: const Text('Rate App'),
+                  trailing: const Icon(LucideIcons.chevronRight, size: 16, color: Colors.grey),
+                  onTap: () {},
+                ),
+              ],
             ),
           ),
-          const SizedBox(height: 40),
+          const SizedBox(height: 48),
+
+          // 9. SIGN OUT
+          SizedBox(
+            width: double.infinity,
+            height: 56,
+            child: OutlinedButton(
+              onPressed: () {
+                HapticFeedback.heavyImpact();
+              },
+              style: OutlinedButton.styleFrom(
+                foregroundColor: AppColors.pulseRed,
+                side: const BorderSide(color: AppColors.pulseRed, width: 1.5),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              ),
+              child: const Text('Sign Out', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+            ),
+          ),
+          const SizedBox(height: 64),
         ],
       ),
     );
   }
 
-  Widget _buildSectionHeader(String title, ThemeData theme) {
+  Widget _sectionHeader(String title) {
     return Padding(
-      padding: const EdgeInsets.only(left: 8, bottom: 8, top: 8),
+      padding: const EdgeInsets.only(left: 8, bottom: 8, top: 16),
       child: Text(
         title.toUpperCase(),
-        style: theme.textTheme.labelMedium?.copyWith(
-          color: theme.colorScheme.onSurfaceVariant,
+        style: const TextStyle(
+          color: Colors.grey,
           letterSpacing: 1.2,
           fontWeight: FontWeight.bold,
+          fontSize: 12,
         ),
       ),
     );
   }
-}
 
-// ── Three-Way Theme Selector ─────────────────────────────────────────────────
+  Widget _settingsRow(IconData icon, String title, Widget trailing) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      child: Row(
+        children: [
+          Icon(icon, size: 20, color: Colors.grey),
+          const SizedBox(width: 16),
+          Expanded(child: Text(title, style: const TextStyle(fontSize: 16))),
+          trailing,
+        ],
+      ),
+    );
+  }
 
-class _ThemeModeSelector extends StatelessWidget {
-  final ThemeProvider themeProvider;
-  final ThemeData theme;
-
-  const _ThemeModeSelector({required this.themeProvider, required this.theme});
-
-  @override
-  Widget build(BuildContext context) {
-    final modes = [
-      (ThemeMode.light, LucideIcons.sun, 'Light'),
-      (ThemeMode.system, LucideIcons.monitor, 'System'),
-      (ThemeMode.dark, LucideIcons.moon, 'Dark'),
-    ];
-
+  Widget _chevronRow(String label) {
     return Row(
-      children: modes.map((entry) {
-        final (mode, icon, label) = entry;
-        final isSelected = themeProvider.themeMode == mode;
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (label.isNotEmpty)
+          Text(label, style: const TextStyle(color: Colors.grey, fontSize: 14)),
+        const SizedBox(width: 8),
+        const Icon(LucideIcons.chevronRight, color: Colors.grey, size: 16),
+      ],
+    );
+  }
 
-        return Expanded(
-          child: GestureDetector(
-            onTap: () => themeProvider.setThemeMode(mode),
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 200),
-              margin: const EdgeInsets.symmetric(horizontal: 4),
-              padding: const EdgeInsets.symmetric(vertical: 10),
-              decoration: BoxDecoration(
-                color: isSelected
-                    ? AppColors.irisViolet.withValues(alpha: 0.15)
-                    : Colors.transparent,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(
-                  color: isSelected
-                      ? AppColors.irisViolet.withValues(alpha: 0.5)
-                      : theme.colorScheme.outline.withValues(alpha: 0.3),
-                  width: isSelected ? 1.5 : 1,
-                ),
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    icon,
-                    size: 18,
-                    color: isSelected
-                        ? AppColors.irisViolet
-                        : theme.colorScheme.onSurfaceVariant,
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    label,
-                    style: theme.textTheme.labelSmall?.copyWith(
-                      color: isSelected
-                          ? AppColors.irisViolet
-                          : theme.colorScheme.onSurfaceVariant,
-                      fontWeight: isSelected ? FontWeight.w700 : FontWeight.normal,
-                    ),
-                  ),
-                ],
+  Widget _divider() {
+    return Divider(height: 1, indent: 52, color: Theme.of(context).colorScheme.outline.withValues(alpha: 0.1));
+  }
+
+  Widget _themeSegment(ThemeMode mode, String label, ThemeMode currentMode) {
+    final isSelected = mode == currentMode;
+    return Expanded(
+      child: GestureDetector(
+        onTap: () {
+          context.read<ThemeProvider>().setThemeMode(mode);
+        },
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          decoration: BoxDecoration(
+            color: isSelected ? Theme.of(context).colorScheme.surface : Colors.transparent,
+            borderRadius: BorderRadius.circular(8),
+            boxShadow: isSelected ? [BoxShadow(color: Colors.black.withValues(alpha: 0.1), blurRadius: 4, offset: const Offset(0, 2))] : null,
+          ),
+          child: Center(
+            child: Text(
+              label,
+              style: TextStyle(
+                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                color: isSelected ? Theme.of(context).colorScheme.onSurface : Colors.grey,
               ),
             ),
           ),
-        );
-      }).toList(),
+        ),
+      ),
+    );
+  }
+
+  Widget _accentSwatch(Color color, bool isSelected) {
+    return Container(
+      width: 24,
+      height: 24,
+      decoration: BoxDecoration(
+        color: color,
+        shape: BoxShape.circle,
+        border: isSelected ? Border.all(color: Colors.white, width: 2) : null,
+      ),
+      child: isSelected ? const Icon(Icons.check, color: Colors.black, size: 14) : null,
     );
   }
 }
