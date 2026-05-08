@@ -475,8 +475,9 @@ class WaterIntakeBar extends StatefulWidget {
   final int current;
   final int goal;
   final VoidCallback onAdd;
+  final VoidCallback onRemove;
 
-  const WaterIntakeBar({super.key, required this.current, required this.goal, required this.onAdd});
+  const WaterIntakeBar({super.key, required this.current, required this.goal, required this.onAdd, required this.onRemove});
 
   @override
   State<WaterIntakeBar> createState() => _WaterIntakeBarState();
@@ -536,19 +537,31 @@ class _WaterIntakeBarState extends State<WaterIntakeBar> with SingleTickerProvid
                   Text('Water Intake', style: theme.textTheme.titleMedium),
                 ],
               ),
-              IconButton(
-                icon: const Icon(LucideIcons.plusCircle, color: Color(0xFF00E5CC), size: 28),
-                onPressed: () {
-                  widget.onAdd();
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: const Text('Water logged!'),
-                      behavior: SnackBarBehavior.floating,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                      duration: const Duration(seconds: 2),
-                    ),
-                  );
-                },
+              Row(
+                children: [
+                  IconButton(
+                    icon: const Icon(LucideIcons.minusCircle, color: Colors.grey, size: 28),
+                    onPressed: () {
+                      if (widget.current > 0) {
+                        widget.onRemove();
+                      }
+                    },
+                  ),
+                  IconButton(
+                    icon: const Icon(LucideIcons.plusCircle, color: Color(0xFF00E5CC), size: 28),
+                    onPressed: () {
+                      widget.onAdd();
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: const Text('Water logged!'),
+                          behavior: SnackBarBehavior.floating,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                          duration: const Duration(seconds: 2),
+                        ),
+                      );
+                    },
+                  ),
+                ],
               ),
             ],
           ),

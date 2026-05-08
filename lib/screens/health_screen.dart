@@ -95,6 +95,7 @@ class _HealthScreenState extends State<HealthScreen> {
           current: app.waterGlasses,
           goal: app.waterGlassGoal,
           onAdd: app.addWater,
+          onRemove: app.removeWater,
         ),
       ],
     );

@@ -180,8 +180,59 @@ class AppProvider extends ChangeNotifier {
 
   List<Map<String, dynamic>> dailyGoals = [];
 
-  bool hasUnreadNotifications = false;
-  List<Map<String, dynamic>> notifications = [];
+  bool hasUnreadNotifications = true;
+  List<Map<String, dynamic>> notifications = [
+    {
+      'id': 'sample_1',
+      'type': 'Achievements',
+      'title': 'Achievement Unlocked',
+      'message': 'You earned Elite Runner! Tap to view.',
+      'time': 'Just now',
+      'icon': LucideIcons.trophy,
+      'color': const Color(0xFFF59E0B),
+      'isRead': false,
+    },
+    {
+      'id': 'sample_2',
+      'type': 'Social',
+      'title': 'Community Boost',
+      'message': 'Alex boosted your run!',
+      'time': '2m ago',
+      'icon': LucideIcons.zap,
+      'color': const Color(0xFFFF3B5C),
+      'isRead': false,
+    },
+    {
+      'id': 'sample_3',
+      'type': 'Activity',
+      'title': 'Workout Reminder',
+      'message': 'Time for your workout! You\'ve trained 3 days in a row.',
+      'time': '1h ago',
+      'icon': LucideIcons.flame,
+      'color': const Color(0xFFFF3B5C),
+      'isRead': true,
+    },
+    {
+      'id': 'sample_4',
+      'type': 'Activity',
+      'title': 'PR Badge',
+      'message': 'New personal record! Fastest 5K: 24:10.',
+      'time': 'Yesterday',
+      'icon': LucideIcons.star,
+      'color': const Color(0xFFF59E0B),
+      'isRead': true,
+    },
+    {
+      'id': 'sample_5',
+      'type': 'Reminders',
+      'title': 'Hydration Reminder',
+      'message': 'Time to hydrate! You\'re at 1.5L today.',
+      'time': 'Yesterday',
+      'icon': LucideIcons.droplets,
+      'color': const Color(0xFF00E5CC),
+      'isRead': true,
+    },
+  ];
 
   // ──── 2.1 History ────
   List<DailySnapshot> history = [];
@@ -387,8 +438,41 @@ class AppProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  void addNotification(String title, String subtitle, IconData icon, Color color) {
-    notifications.insert(0, {'title': title, 'subtitle': subtitle, 'icon': icon, 'color': color});
+  void markAllNotificationsRead() {
+    for (final n in notifications) {
+      n['isRead'] = true;
+    }
+    hasUnreadNotifications = false;
+    notifyListeners();
+  }
+
+  void markNotificationRead(String id) {
+    final index = notifications.indexWhere((n) => n['id'] == id);
+    if (index != -1) {
+      notifications[index]['isRead'] = true;
+    }
+    hasUnreadNotifications = notifications.any((n) => !(n['isRead'] as bool));
+    notifyListeners();
+  }
+
+  void removeNotification(String id) {
+    notifications.removeWhere((n) => n['id'] == id);
+    hasUnreadNotifications = notifications.any((n) => !(n['isRead'] as bool));
+    notifyListeners();
+  }
+
+  void addNotification(String title, String message, IconData icon, Color color, {String type = 'Activity'}) {
+    final id = DateTime.now().millisecondsSinceEpoch.toString();
+    notifications.insert(0, {
+      'id': id,
+      'type': type,
+      'title': title,
+      'message': message,
+      'time': 'Just now',
+      'icon': icon,
+      'color': color,
+      'isRead': false,
+    });
     hasUnreadNotifications = true;
     notifyListeners();
   }
@@ -426,7 +510,7 @@ class AppProvider extends ChangeNotifier {
       notifyListeners();
 
       if (waterGlasses == waterGlassGoal) {
-        addNotification('Goal Reached!', 'You hit your water intake goal.', LucideIcons.droplets, Colors.blue);
+        addNotification('Hydration Hero! 💧', 'You reached your daily water goal of $waterGlassGoal glasses!', LucideIcons.droplets, const Color(0xFF00E5CC), type: 'Reminders');
         _showGoalPopup('Hydration Hero', 'You reached your daily water goal of $waterGlassGoal glasses!', LucideIcons.droplets);
       }
     }
