@@ -9,6 +9,7 @@ import '../widgets/watch_dashboard.dart';
 import '../providers/watch_metrics_provider.dart';
 import '../widgets/week_strip_calendar.dart';
 import '../theme/app_spacing.dart';
+import '../widgets/health_components.dart';
 
 class HealthScreen extends StatefulWidget {
   const HealthScreen({super.key});
@@ -90,99 +91,10 @@ class _HealthScreenState extends State<HealthScreen> {
         const SizedBox(height: 16),
 
         // Water intake card (always available regardless of watch)
-        GlassCard(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Row(children: [
-                    Icon(LucideIcons.droplets,
-                        size: 18, color: AppColors.secondary),
-                    const SizedBox(width: 8),
-                    Text('Water Intake',
-                        style: theme.textTheme.titleLarge)
-                  ]),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 8, vertical: 3),
-                    decoration: BoxDecoration(
-                      color: AppColors.primary.withValues(alpha: 0.15),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Text(
-                      '${app.waterGlasses}/${app.waterGlassGoal}',
-                      style: theme.textTheme.labelSmall?.copyWith(
-                        color: AppColors.primary,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
-              Center(
-                child: Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: List.generate(
-                    app.waterGlasses > app.waterGlassGoal
-                        ? app.waterGlasses
-                        : app.waterGlassGoal,
-                    (i) => Container(
-                      width: 36,
-                      height: 36,
-                      decoration: BoxDecoration(
-                        color: i < app.waterGlasses
-                            ? AppColors.secondary.withValues(alpha: 0.15)
-                            : Colors.transparent,
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(
-                          color: i < app.waterGlasses
-                              ? AppColors.secondary
-                              : theme.colorScheme.outline
-                                  .withValues(alpha: 0.2),
-                        ),
-                      ),
-                      child: Icon(
-                        LucideIcons.droplets,
-                        size: 16,
-                        color: i < app.waterGlasses
-                            ? AppColors.secondary
-                            : theme.colorScheme.onSurfaceVariant
-                                .withValues(alpha: 0.3),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 12),
-              Center(
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    ElevatedButton.icon(
-                      onPressed: app.removeWater,
-                      icon: const Icon(LucideIcons.minus, size: 16),
-                      label: const Text('Remove'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor:
-                            AppColors.coral.withValues(alpha: 0.1),
-                        foregroundColor: AppColors.coral,
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    ElevatedButton.icon(
-                      onPressed: app.addWater,
-                      icon: const Icon(LucideIcons.plus, size: 16),
-                      label: const Text('Add Glass'),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
+        WaterIntakeBar(
+          current: app.waterGlasses,
+          goal: app.waterGlassGoal,
+          onAdd: app.addWater,
         ),
       ],
     );
