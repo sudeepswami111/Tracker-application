@@ -1,6 +1,6 @@
 import 'dart:math';
+import 'dart:ui';
 import 'package:flutter/material.dart';
-import 'package:lucide_icons/lucide_icons.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_spacing.dart';
 
@@ -9,7 +9,6 @@ class LiveRunMetricPanel extends StatelessWidget {
   final String distance;
   final int bpm;
   final String duration;
-  final List<double> elevationData;
 
   const LiveRunMetricPanel({
     super.key,
@@ -17,88 +16,89 @@ class LiveRunMetricPanel extends StatelessWidget {
     required this.distance,
     required this.bpm,
     required this.duration,
-    required this.elevationData,
   });
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    return Container(
-      width: double.infinity,
-      decoration: BoxDecoration(
-        color: AppColors.backgroundDeep.withValues(alpha: 0.95),
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
-        border: Border(
-          top: BorderSide(color: Colors.white.withValues(alpha: 0.1), width: 1),
-        ),
-      ),
-      child: SafeArea(
-        top: false,
-        child: Padding(
-          padding: const EdgeInsets.all(AppSpacing.screenMargin),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // Drag Handle
-              Container(
-                width: 40,
-                height: 4,
-                margin: const EdgeInsets.only(bottom: AppSpacing.lg),
-                decoration: BoxDecoration(
-                  color: AppColors.textSecondary.withValues(alpha: 0.3),
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-
-              // 2x2 Grid
-              Row(
+    return ClipRRect(
+      borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+        child: Container(
+          width: double.infinity,
+          decoration: BoxDecoration(
+            color: AppColors.backgroundDeep.withValues(alpha: 0.7),
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
+            border: Border(
+              top: BorderSide(color: Colors.white.withValues(alpha: 0.1), width: 1),
+            ),
+          ),
+          child: SafeArea(
+            top: false,
+            child: Padding(
+              padding: const EdgeInsets.all(AppSpacing.screenMargin),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  Expanded(
-                    child: _MetricCell(
-                      label: 'PACE',
-                      value: pace,
-                      unit: '/km',
-                      theme: theme,
-                      isMono: true,
+                  // Drag Handle
+                  Container(
+                    width: 40,
+                    height: 4,
+                    margin: const EdgeInsets.only(bottom: AppSpacing.lg),
+                    decoration: BoxDecoration(
+                      color: AppColors.textSecondary.withValues(alpha: 0.3),
+                      borderRadius: BorderRadius.circular(2),
                     ),
                   ),
-                  Expanded(
-                    child: _MetricCell(
-                      label: 'DISTANCE',
-                      value: distance,
-                      unit: 'km',
-                      theme: theme,
-                    ),
+
+                  // 2x2 Grid
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _MetricCell(
+                          label: 'PACE',
+                          value: pace,
+                          unit: '/km',
+                          theme: theme,
+                          isMono: true,
+                        ),
+                      ),
+                      Expanded(
+                        child: _MetricCell(
+                          label: 'DISTANCE',
+                          value: distance,
+                          unit: 'km',
+                          theme: theme,
+                        ),
+                      ),
+                    ],
                   ),
+                  const SizedBox(height: AppSpacing.xl),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _BpmCell(
+                          bpm: bpm,
+                          theme: theme,
+                        ),
+                      ),
+                      Expanded(
+                        child: _MetricCell(
+                          label: 'DURATION',
+                          value: duration,
+                          unit: '',
+                          theme: theme,
+                          isMono: true,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: AppSpacing.sm),
                 ],
               ),
-              const SizedBox(height: AppSpacing.lg),
-              Row(
-                children: [
-                  Expanded(
-                    child: _BpmCell(
-                      bpm: bpm,
-                      theme: theme,
-                    ),
-                  ),
-                  Expanded(
-                    child: _MetricCell(
-                      label: 'TIME',
-                      value: duration,
-                      unit: '',
-                      theme: theme,
-                      isMono: true,
-                    ),
-                  ),
-                ],
-              ),
-
-              const SizedBox(height: AppSpacing.xl),
-
-              // Elevation Chart Strip
-              _ElevationStrip(data: elevationData, theme: theme),
-            ],
+            ),
           ),
         ),
       ),
@@ -129,7 +129,7 @@ class _MetricCell extends StatelessWidget {
         Text(
           label,
           style: theme.textTheme.labelSmall?.copyWith(
-            color: AppColors.textSecondary,
+            color: const Color(0xFF8E8E9E), // Per spec: #8E8E9E
             letterSpacing: 1.2,
           ),
         ),
@@ -149,7 +149,7 @@ class _MetricCell extends StatelessWidget {
               Text(
                 unit,
                 style: theme.textTheme.bodyMedium?.copyWith(
-                  color: AppColors.textSecondary,
+                  color: const Color(0xFF8E8E9E),
                 ),
               ),
             ]
@@ -182,7 +182,7 @@ class _BpmCellState extends State<_BpmCell> with SingleTickerProviderStateMixin 
     super.initState();
     _pulseController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 800), // Dynamic duration could be tied to BPM
+      duration: const Duration(milliseconds: 800),
     )..repeat(reverse: true);
 
     _pulseAnimation = Tween<double>(begin: 0.5, end: 1.0).animate(
@@ -196,8 +196,15 @@ class _BpmCellState extends State<_BpmCell> with SingleTickerProviderStateMixin 
     super.dispose();
   }
 
+  Color _getZoneColor() {
+    if (widget.bpm < 120) return AppColors.voltCyan;
+    if (widget.bpm < 150) return AppColors.solarAmber;
+    return AppColors.pulseRed;
+  }
+
   @override
   Widget build(BuildContext context) {
+    final zoneColor = _getZoneColor();
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -206,7 +213,7 @@ class _BpmCellState extends State<_BpmCell> with SingleTickerProviderStateMixin 
             Text(
               'HEART RATE',
               style: widget.theme.textTheme.labelSmall?.copyWith(
-                color: AppColors.textSecondary,
+                color: const Color(0xFF8E8E9E),
                 letterSpacing: 1.2,
               ),
             ),
@@ -217,11 +224,18 @@ class _BpmCellState extends State<_BpmCell> with SingleTickerProviderStateMixin 
                 return Opacity(
                   opacity: _pulseAnimation.value,
                   child: Container(
-                    width: 6,
-                    height: 6,
-                    decoration: const BoxDecoration(
-                      color: AppColors.pulseRed,
+                    width: 8,
+                    height: 8,
+                    decoration: BoxDecoration(
+                      color: zoneColor,
                       shape: BoxShape.circle,
+                      boxShadow: [
+                        BoxShadow(
+                          color: zoneColor.withValues(alpha: 0.5),
+                          blurRadius: 4,
+                          spreadRadius: 1,
+                        ),
+                      ],
                     ),
                   ),
                 );
@@ -244,7 +258,7 @@ class _BpmCellState extends State<_BpmCell> with SingleTickerProviderStateMixin 
             Text(
               'bpm',
               style: widget.theme.textTheme.bodyMedium?.copyWith(
-                color: AppColors.textSecondary,
+                color: const Color(0xFF8E8E9E),
               ),
             ),
           ],
@@ -254,39 +268,46 @@ class _BpmCellState extends State<_BpmCell> with SingleTickerProviderStateMixin 
   }
 }
 
-class _ElevationStrip extends StatelessWidget {
+class ElevationStripWidget extends StatelessWidget {
   final List<double> data;
   final ThemeData theme;
 
-  const _ElevationStrip({required this.data, required this.theme});
+  const ElevationStripWidget({super.key, required this.data, required this.theme});
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            const Icon(LucideIcons.mountain, size: 14, color: AppColors.textSecondary),
-            const SizedBox(width: 8),
-            Text(
-              'ELEVATION',
-              style: theme.textTheme.labelSmall?.copyWith(
-                color: AppColors.textSecondary,
-                letterSpacing: 1.2,
+    if (data.isEmpty) return const SizedBox();
+    
+    final currentElev = data.last;
+
+    return SizedBox(
+      height: 48,
+      width: double.infinity,
+      child: Stack(
+        children: [
+          CustomPaint(
+            size: const Size(double.infinity, 48),
+            painter: _ElevationChartPainter(data: data, color: AppColors.solarAmber),
+          ),
+          Positioned(
+            right: 16,
+            top: 0,
+            bottom: 0,
+            child: Center(
+              child: Text(
+                '${currentElev.toStringAsFixed(0)}m',
+                style: theme.textTheme.labelMedium?.copyWith(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                  shadows: [
+                    const Shadow(blurRadius: 4, color: Colors.black87),
+                  ],
+                ),
               ),
             ),
-          ],
-        ),
-        const SizedBox(height: 12),
-        SizedBox(
-          height: 40,
-          width: double.infinity,
-          child: CustomPaint(
-            painter: _ElevationChartPainter(data: data, color: AppColors.voltCyan),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }
@@ -309,14 +330,7 @@ class _ElevationChartPainter extends CustomPainter {
       ..strokeJoin = StrokeJoin.round;
 
     final fillPaint = Paint()
-      ..shader = LinearGradient(
-        begin: Alignment.topCenter,
-        end: Alignment.bottomCenter,
-        colors: [
-          color.withValues(alpha: 0.3),
-          color.withValues(alpha: 0.0),
-        ],
-      ).createShader(Rect.fromLTWH(0, 0, size.width, size.height))
+      ..color = color.withValues(alpha: 0.3)
       ..style = PaintingStyle.fill;
 
     final path = Path();
