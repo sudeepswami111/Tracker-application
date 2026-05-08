@@ -15,6 +15,7 @@ import 'screens/settings_screen.dart';
 import 'screens/challenge_screen.dart';
 import 'screens/chat_inbox_screen.dart';
 import 'theme/app_colors.dart';
+import 'widgets/glass_nav_bar.dart';
 
 class AppShell extends StatefulWidget {
   const AppShell({super.key});
@@ -139,38 +140,36 @@ class _AppShellState extends State<AppShell> {
           const SizedBox(width: 16),
         ],
       ),
-      body: AnimatedSwitcher(
-        duration: const Duration(milliseconds: 300),
-        child: _screens[_currentIndex],
-      ),
-      bottomNavigationBar: _isMapFullscreen ? null : Container(
-        decoration: BoxDecoration(
-          color: isDark
-              ? AppColors.darkSurface.withValues(alpha: 0.95)
-              : AppColors.lightSurface.withValues(alpha: 0.95),
-          border: Border(
-            top: BorderSide(
-              color: isDark
-                  ? Colors.white.withValues(alpha: 0.06)
-                  : Colors.black.withValues(alpha: 0.06),
+      body: Stack(
+        children: [
+          AnimatedSwitcher(
+            duration: const Duration(milliseconds: 300),
+            transitionBuilder: (Widget child, Animation<double> animation) {
+              return FadeTransition(
+                opacity: animation,
+                child: SlideTransition(
+                  position: Tween<Offset>(
+                    begin: const Offset(0.0, 0.05),
+                    end: Offset.zero,
+                  ).animate(animation),
+                  child: child,
+                ),
+              );
+            },
+            child: KeyedSubtree(
+              key: ValueKey<int>(_currentIndex),
+              child: _screens[_currentIndex],
             ),
           ),
-        ),
-        child: SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: [
-                _NavItem(icon: LucideIcons.layoutDashboard, label: 'Dashboard', index: 0, current: _currentIndex, onTap: _onTap),
-                _NavItem(icon: LucideIcons.heartPulse, label: 'Health', index: 1, current: _currentIndex, onTap: _onTap),
-                _NavItem(icon: LucideIcons.timer, label: 'Run', index: 2, current: _currentIndex, onTap: _onTap, isCenter: true),
-                _NavItem(icon: LucideIcons.messageSquare, label: 'Chat', index: 3, current: _currentIndex, onTap: _onTap),
-                _NavItem(icon: LucideIcons.graduationCap, label: 'Study', index: 4, current: _currentIndex, onTap: _onTap),
-              ],
+          if (!_isMapFullscreen)
+            Align(
+              alignment: Alignment.bottomCenter,
+              child: GlassNavBar(
+                currentIndex: _currentIndex,
+                onTap: _onTap,
+              ),
             ),
-          ),
-        ),
+        ],
       ),
     );
   }
@@ -217,87 +216,5 @@ class _NotificationTile extends StatelessWidget {
         Text(subtitle, style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
       ])),
     ]));
-  }
-}
-
-class _NavItem extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final int index;
-  final int current;
-  final ValueChanged<int> onTap;
-  final bool isCenter;
-
-  const _NavItem({
-    required this.icon,
-    required this.label,
-    required this.index,
-    required this.current,
-    required this.onTap,
-    this.isCenter = false,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final isActive = index == current;
-    final theme = Theme.of(context);
-
-    if (isCenter) {
-      return GestureDetector(
-        onTap: () => onTap(index),
-        child: Container(
-          width: 56,
-          height: 56,
-          decoration: BoxDecoration(
-            gradient: isActive ? AppColors.gradientPrimary : null,
-            color: isActive ? null : theme.colorScheme.surfaceContainerHighest,
-            shape: BoxShape.circle,
-            boxShadow: isActive
-                ? [BoxShadow(color: AppColors.primary.withValues(alpha: 0.4), blurRadius: 16, offset: const Offset(0, 4))]
-                : null,
-          ),
-          child: Icon(icon, color: isActive ? Colors.white : theme.colorScheme.onSurfaceVariant, size: 22),
-        ),
-      );
-    }
-
-    return GestureDetector(
-      onTap: () => onTap(index),
-      behavior: HitTestBehavior.opaque,
-      child: SizedBox(
-        width: 60,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              icon,
-              color: isActive ? AppColors.primary : theme.colorScheme.onSurfaceVariant,
-              size: 22,
-            ),
-            const SizedBox(height: 4),
-            Text(
-              label,
-              style: theme.textTheme.labelSmall?.copyWith(
-                color: isActive ? AppColors.primary : theme.colorScheme.onSurfaceVariant,
-                fontSize: 10,
-                fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
-              ),
-            ),
-            const SizedBox(height: 3),
-            // 1.4 — Animated active dot indicator
-            AnimatedContainer(
-              duration: const Duration(milliseconds: 250),
-              curve: Curves.easeInOut,
-              height: 3,
-              width: isActive ? 20 : 0,
-              decoration: BoxDecoration(
-                color: AppColors.primary,
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
   }
 }
