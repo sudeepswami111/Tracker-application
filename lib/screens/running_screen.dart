@@ -9,6 +9,9 @@ import 'package:provider/provider.dart';
 import '../services/routing_service.dart';
 import '../services/places_service.dart';
 import '../providers/running_provider.dart';
+import '../theme/app_colors.dart';
+import '../theme/app_spacing.dart';
+import '../widgets/live_run_metric_panel.dart';
 
 final List<Map<String, String>> kTiles = [
   {'name': 'OSM Standard', 'url': 'https://tile.openstreetmap.org/{z}/{x}/{y}.png'},
@@ -171,232 +174,191 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
   @override
   Widget build(BuildContext context) {
     final url = kTiles[_tileIdx]['url']!;
-    final mapH = _isFullscreen ? MediaQuery.of(context).size.height : 320.0;
+    final theme = Theme.of(context);
+    final size = MediaQuery.of(context).size;
+    final isDark = theme.brightness == Brightness.dark;
 
-    return SingleChildScrollView(padding: _isFullscreen ? EdgeInsets.zero : const EdgeInsets.symmetric(horizontal: 16), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      if (!_isFullscreen) ...[
-        const SizedBox(height: 8),
-        const Text('Running Tracker', style: TextStyle(fontSize: 28, fontWeight: FontWeight.w900)),
-        const SizedBox(height: 4),
-        Text('Track your runs with real-time GPS', style: TextStyle(color: Colors.grey[500], fontSize: 13)),
-        const SizedBox(height: 16),
-        // Route planning inputs
-        PlaceAutocompleteField(
-          controller: _startCtrl,
-          hint: 'Starting Point',
-          icon: Icons.my_location,
-          iconColor: Colors.green,
-          onSelected: (s) {
-            setState(() { _routeStart = s.location; });
-          },
-        ),
-        const SizedBox(height: 8),
-        PlaceAutocompleteField(
-          controller: _destCtrl,
-          hint: 'Destination',
-          icon: Icons.flag,
-          iconColor: Colors.red,
-          onSelected: (s) {
-            setState(() { _routeDest = s.location; });
-          },
-        ),
-        const SizedBox(height: 10),
-        Row(children: [
-          Expanded(child: SizedBox(height: 42, child: ElevatedButton.icon(
-            onPressed: _isSearching ? null : _searchRoute,
-            icon: _isSearching ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)) : const Icon(Icons.search, size: 18),
-            label: Text(_isSearching ? 'Searching...' : 'Search Route', style: const TextStyle(fontSize: 13)),
-            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF6C5CE7), foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
-          ))),
-          if (_routes.isNotEmpty) ...[const SizedBox(width: 8),
-            SizedBox(height: 42, child: OutlinedButton(onPressed: _clearRoute, style: OutlinedButton.styleFrom(shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))), child: const Text('Clear', style: TextStyle(fontSize: 13))))],
-        ]),
-        const SizedBox(height: 10),
-        // Route choices
-        if (_routes.isNotEmpty) SizedBox(height: 40, child: ListView.separated(scrollDirection: Axis.horizontal, itemCount: _routes.length,
-          separatorBuilder: (_, _) => const SizedBox(width: 8),
-          itemBuilder: (_, i) { final r = _routes[i]; return ChoiceChip(
-            label: Text('${r.distanceKm.toStringAsFixed(1)} km · ${r.durationMin.toStringAsFixed(0)} min', style: TextStyle(fontSize: 11, color: r.isSelected ? Colors.white : null)),
-            selected: r.isSelected, onSelected: (_) => _selectRoute(i),
-            selectedColor: const Color(0xFF6C5CE7),
-            avatar: Icon(i == 0 ? Icons.bolt : Icons.alt_route, size: 14, color: r.isSelected ? Colors.white : null),
-          ); })),
-        if (_routes.isNotEmpty) const SizedBox(height: 10),
-      ],
-      // MAP
-      ClipRRect(borderRadius: BorderRadius.circular(_isFullscreen ? 0 : 20), child: SizedBox(height: mapH, child: Stack(children: [
-        FlutterMap(mapController: _mapCtrl, options: MapOptions(
-          initialCenter: _curPos ?? const LatLng(20.5937, 78.9629),
-          initialZoom: _zoom, maxZoom: 19, minZoom: 3,
-          onPositionChanged: (cam, gesture) {
-            if (gesture && _follow) setState(() => _follow = false);
-            _zoom = cam.zoom ?? _zoom;
-          },
-          onTap: (_, latLng) => _onMapTap(latLng),
-        ),
-          children: [
-            TileLayer(urlTemplate: url, userAgentPackageName: 'com.lifepulse.app', maxZoom: 19),
-            // Planned routes
-            if (_routes.isNotEmpty) PolylineLayer(polylines: [
-              ..._routes.where((r) => !r.isSelected).map((r) => Polyline(points: r.points, strokeWidth: 4, color: Colors.grey.withValues(alpha: 0.5))),
-              ..._routes.where((r) => r.isSelected).map((r) => Polyline(points: r.points, strokeWidth: 6, color: const Color(0xFF00D4FF), borderStrokeWidth: 2, borderColor: Colors.black.withValues(alpha: 0.3))),
-            ]),
-            // GPS path
-            if (_gpsRoute.length > 1) PolylineLayer(polylines: [Polyline(points: _gpsRoute, strokeWidth: 5, color: const Color(0xFF39FF14), borderStrokeWidth: 2, borderColor: Colors.black.withValues(alpha: 0.4))]),
-            // Feature 5: Saved routes drawn as dimmed polylines
-            if (context.watch<RunningProvider>().savedRoutes.isNotEmpty)
-              PolylineLayer(polylines: [
-                ...context.read<RunningProvider>().savedRoutes.asMap().entries.map((e) {
-                  final sel = e.key == _highlightedRouteIdx;
-                  final pts = e.value.points.map((p) => LatLng(p.latitude, p.longitude)).toList();
-                  return Polyline(points: pts, strokeWidth: sel ? 4 : 2.5,
-                    color: sel ? const Color(0xFF6C5CE7).withValues(alpha: 0.7) : Colors.grey.withValues(alpha: 0.35));
-                }),
-              ]),
-            // Landmark markers
-            if (_landmarks.isNotEmpty) MarkerLayer(markers: [
-              ..._landmarks.map((lm) => Marker(
-                point: lm.location, width: 40, height: 40,
-                child: GestureDetector(
-                  onTap: () => _showLandmarkDetail(lm),
-                  child: Container(
-                    decoration: BoxDecoration(
-                      color: lm.color.withValues(alpha: 0.9),
-                      shape: BoxShape.circle,
-                      border: Border.all(color: Colors.white, width: 2),
-                      boxShadow: [BoxShadow(color: lm.color.withValues(alpha: 0.5), blurRadius: 8)],
+    final isRunning = _state == RunState.running || _state == RunState.paused;
+    final mapHeight = isRunning ? size.height * 0.6 : 280.0; // 220px + extra for safe area/padding
+
+    return Scaffold(
+      backgroundColor: isDark ? AppColors.backgroundDeep : AppColors.lightBg,
+      body: Stack(
+        children: [
+          // ── MAIN CONTENT ──
+          Column(
+            children: [
+              // 1. Map Section
+              AnimatedContainer(
+                duration: const Duration(milliseconds: 400),
+                curve: Curves.easeInOutCubic,
+                height: mapHeight,
+                width: double.infinity,
+                child: Stack(
+                  children: [
+                    FlutterMap(
+                      mapController: _mapCtrl,
+                      options: MapOptions(
+                        initialCenter: _curPos ?? const LatLng(20.5937, 78.9629),
+                        initialZoom: _zoom,
+                        maxZoom: 19,
+                        minZoom: 3,
+                        onPositionChanged: (cam, gesture) {
+                          if (gesture && _follow) setState(() => _follow = false);
+                          _zoom = cam.zoom ?? _zoom;
+                        },
+                        onTap: (_, latLng) => _onMapTap(latLng),
+                      ),
+                      children: [
+                        TileLayer(urlTemplate: url, userAgentPackageName: 'com.lifepulse.app', maxZoom: 19),
+                        // Planned routes
+                        if (_routes.isNotEmpty) PolylineLayer(polylines: [
+                          ..._routes.where((r) => !r.isSelected).map((r) => Polyline(points: r.points, strokeWidth: 4, color: Colors.grey.withValues(alpha: 0.5))),
+                          ..._routes.where((r) => r.isSelected).map((r) => Polyline(points: r.points, strokeWidth: 6, color: AppColors.voltCyan, borderStrokeWidth: 2, borderColor: Colors.black.withValues(alpha: 0.3))),
+                        ]),
+                        // GPS path
+                        if (_gpsRoute.length > 1) PolylineLayer(polylines: [Polyline(points: _gpsRoute, strokeWidth: 5, color: AppColors.voltCyan, borderStrokeWidth: 2, borderColor: Colors.black.withValues(alpha: 0.4))]),
+                        // Tapped point marker
+                        if (_tappedPoint != null) MarkerLayer(markers: [
+                          Marker(point: _tappedPoint!, width: 36, height: 36, child: Container(decoration: BoxDecoration(color: AppColors.pulseRed, shape: BoxShape.circle, border: Border.all(color: Colors.white, width: 2.5), boxShadow: [BoxShadow(color: AppColors.pulseRed.withValues(alpha: 0.4), blurRadius: 10)]), child: const Icon(Icons.place, size: 18, color: Colors.white))),
+                        ]),
+                        // Active markers
+                        MarkerLayer(markers: [
+                          if (_routeStart != null) Marker(point: _routeStart!, width: 28, height: 28, child: Container(decoration: BoxDecoration(color: Colors.green, shape: BoxShape.circle, border: Border.all(color: Colors.white, width: 2)), child: const Icon(Icons.my_location, size: 14, color: Colors.white))),
+                          if (_routeDest != null) Marker(point: _routeDest!, width: 28, height: 28, child: Container(decoration: BoxDecoration(color: AppColors.pulseRed, shape: BoxShape.circle, border: Border.all(color: Colors.white, width: 2)), child: const Icon(Icons.flag, size: 14, color: Colors.white))),
+                          if (_startPos != null && _state == RunState.running) Marker(point: _startPos!, width: 24, height: 24, child: Container(decoration: BoxDecoration(color: Colors.green, shape: BoxShape.circle, border: Border.all(color: Colors.white, width: 2.5)))),
+                          if (_curPos != null) Marker(point: _curPos!, width: 48, height: 48, child: AnimatedBuilder(animation: _pulseAnim, builder: (_, c) => Transform.scale(scale: _state == RunState.running ? _pulseAnim.value : 1.0, child: c),
+                            child: Stack(alignment: Alignment.center, children: [
+                              Container(width: 48, height: 48, decoration: BoxDecoration(shape: BoxShape.circle, color: AppColors.voltCyan.withValues(alpha: 0.15))),
+                              Container(width: 18, height: 18, decoration: BoxDecoration(shape: BoxShape.circle, color: AppColors.voltCyan, border: Border.all(color: Colors.white, width: 2.5), boxShadow: [BoxShadow(color: AppColors.voltCyan.withValues(alpha: 0.6), blurRadius: 10, spreadRadius: 2)])),
+                            ]))),
+                        ]),
+                      ],
                     ),
-                    child: Icon(lm.icon, size: 18, color: Colors.white),
-                  ),
-                ),
-              )),
-            ]),
-            // Tapped point marker
-            if (_tappedPoint != null) MarkerLayer(markers: [
-              Marker(
-                point: _tappedPoint!, width: 36, height: 36,
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFFF6B6B),
-                    shape: BoxShape.circle,
-                    border: Border.all(color: Colors.white, width: 2.5),
-                    boxShadow: [BoxShadow(color: Colors.red.withValues(alpha: 0.4), blurRadius: 10)],
-                  ),
-                  child: const Icon(Icons.place, size: 18, color: Colors.white),
+                    // Map Controls Overlays
+                    Positioned(top: 48, left: 16, child: _mapBtn(Icons.layers, () => setState(() => _showStyles = !_showStyles))),
+                    Positioned(bottom: 24, right: 16, child: _mapBtn(_follow ? Icons.my_location : Icons.location_searching, () { if (_curPos != null) { setState(() => _follow = true); _mapCtrl.move(_curPos!, _zoom); } }, color: _follow ? AppColors.voltCyan : null)),
+                    Positioned(right: 16, top: 48, child: Column(children: [
+                      _mapBtn(Icons.add, () { _zoom = min(_zoom + 1, 19); _mapCtrl.move(_mapCtrl.camera.center, _zoom); }),
+                      const SizedBox(height: 8),
+                      _mapBtn(Icons.remove, () { _zoom = max(_zoom - 1, 3); _mapCtrl.move(_mapCtrl.camera.center, _zoom); }),
+                    ])),
+                    // Style Picker
+                    if (_showStyles) Positioned(top: 48, left: 64, child: Container(padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(color: Colors.black.withValues(alpha: 0.85), borderRadius: BorderRadius.circular(12), border: Border.all(color: Colors.white12)),
+                      child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: kTiles.asMap().entries.map((e) {
+                        final sel = e.key == _tileIdx;
+                        return GestureDetector(onTap: () => setState(() { _tileIdx = e.key; _showStyles = false; }),
+                          child: Container(padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6), margin: const EdgeInsets.only(bottom: 2),
+                            decoration: BoxDecoration(color: sel ? AppColors.voltCyan.withValues(alpha: 0.15) : Colors.transparent, borderRadius: BorderRadius.circular(8)),
+                            child: Text(e.value['name']!, style: TextStyle(color: sel ? AppColors.voltCyan : Colors.white70, fontSize: 12))));
+                      }).toList()))),
+                  ],
                 ),
               ),
-            ]),
-            MarkerLayer(markers: [
-              if (_routeStart != null) Marker(point: _routeStart!, width: 28, height: 28, child: Container(decoration: BoxDecoration(color: Colors.green, shape: BoxShape.circle, border: Border.all(color: Colors.white, width: 2)), child: const Icon(Icons.my_location, size: 14, color: Colors.white))),
-              if (_routeDest != null) Marker(point: _routeDest!, width: 28, height: 28, child: Container(decoration: BoxDecoration(color: Colors.red, shape: BoxShape.circle, border: Border.all(color: Colors.white, width: 2)), child: const Icon(Icons.flag, size: 14, color: Colors.white))),
-              if (_startPos != null && _state == RunState.running) Marker(point: _startPos!, width: 24, height: 24, child: Container(decoration: BoxDecoration(color: Colors.green, shape: BoxShape.circle, border: Border.all(color: Colors.white, width: 2.5)))),
-              if (_curPos != null) Marker(point: _curPos!, width: 48, height: 48, child: AnimatedBuilder(animation: _pulseAnim, builder: (_, c) => Transform.scale(scale: _state == RunState.running ? _pulseAnim.value : 1.0, child: c),
-                child: Stack(alignment: Alignment.center, children: [
-                  Container(width: 48, height: 48, decoration: BoxDecoration(shape: BoxShape.circle, color: const Color(0xFF00E5FF).withValues(alpha: 0.15))),
-                  Container(width: 18, height: 18, decoration: BoxDecoration(shape: BoxShape.circle, color: const Color(0xFF00E5FF), border: Border.all(color: Colors.white, width: 2.5), boxShadow: [BoxShadow(color: const Color(0xFF00E5FF).withValues(alpha: 0.6), blurRadius: 10, spreadRadius: 2)])),
-                ]))),
-            ]),
-          ]),
-        // Fullscreen toggle
-        Positioned(top: 12, right: 12, child: _mapBtn(_isFullscreen ? Icons.fullscreen_exit : Icons.fullscreen, _toggleFullscreen)),
-        // Layers
-        Positioned(top: 12, left: 12, child: _mapBtn(Icons.layers, () => setState(() => _showStyles = !_showStyles))),
-        // Feature 5: My Routes button
-        Positioned(top: 56, right: 12, child: _mapBtn(Icons.route, _showSavedRoutes, color: const Color(0xFF6C5CE7))),
-        // Recenter
-        Positioned(bottom: 12, right: 12, child: _mapBtn(_follow ? Icons.my_location : Icons.location_searching, () { if (_curPos != null) { setState(() => _follow = true); _mapCtrl.move(_curPos!, _zoom); } }, color: _follow ? const Color(0xFF00E5FF) : null)),
-        // Zoom
-        Positioned(right: 12, top: 60, child: Column(children: [
-          _mapBtn(Icons.add, () { _zoom = min(_zoom + 1, 19); _mapCtrl.move(_mapCtrl.camera.center, _zoom); }),
-          const SizedBox(height: 6),
-          _mapBtn(Icons.remove, () { _zoom = max(_zoom - 1, 3); _mapCtrl.move(_mapCtrl.camera.center, _zoom); }),
-        ])),
-        // Style picker
-        if (_showStyles) Positioned(top: 12, left: 56, child: Container(padding: const EdgeInsets.all(8),
-          decoration: BoxDecoration(color: Colors.black.withValues(alpha: 0.85), borderRadius: BorderRadius.circular(12), border: Border.all(color: Colors.white12)),
-          child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: kTiles.asMap().entries.map((e) {
-            final sel = e.key == _tileIdx;
-            return GestureDetector(onTap: () => setState(() { _tileIdx = e.key; _showStyles = false; }),
-              child: Container(padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6), margin: const EdgeInsets.only(bottom: 2),
-                decoration: BoxDecoration(color: sel ? const Color(0xFF00E5FF).withValues(alpha: 0.15) : Colors.transparent, borderRadius: BorderRadius.circular(8)),
-                child: Text(e.value['name']!, style: TextStyle(color: sel ? const Color(0xFF00E5FF) : Colors.white70, fontSize: 12))));
-          }).toList()))),
-        // Stats overlay in fullscreen
-        if (_isFullscreen && _state != RunState.idle && _state != RunState.planning) Positioned(top: 60, left: 12, right: 70, child: Container(padding: const EdgeInsets.all(10),
-          decoration: BoxDecoration(color: Colors.black.withValues(alpha: 0.7), borderRadius: BorderRadius.circular(16)),
-          child: Row(mainAxisAlignment: MainAxisAlignment.spaceAround, children: [
-            _miniStat(_fmtDur(_durSecs), 'TIME'), _miniStat(_distKm.toStringAsFixed(2), 'KM'),
-            _miniStat(_fmtPace(_paceMin), 'PACE'), _miniStat(_speedKmh.toStringAsFixed(1), 'KM/H'),
-          ]))),
-        // Attribution
-        Positioned(bottom: 4, left: 8, child: Container(padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-          decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.7), borderRadius: BorderRadius.circular(4)),
-          child: const Text('© OpenStreetMap', style: TextStyle(fontSize: 8, color: Colors.black54)))),
-      ]))),
-      if (!_isFullscreen) ...[
-        const SizedBox(height: 12),
-        // Landmark loading indicator
-        if (_loadingLandmarks)
-          const Center(child: Padding(
-            padding: EdgeInsets.symmetric(vertical: 8),
-            child: Row(mainAxisSize: MainAxisSize.min, children: [
-              SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF00E5FF))),
-              SizedBox(width: 8),
-              Text('Fetching nearby places...', style: TextStyle(color: Colors.grey, fontSize: 12)),
-            ]),
-          )),
-        // Landmark chips
-        if (_landmarks.isNotEmpty && !_loadingLandmarks) ...[
-          const SizedBox(height: 4),
-          SizedBox(height: 36, child: ListView.separated(
-            scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: 2),
-            itemCount: _landmarks.length,
-            separatorBuilder: (_, _) => const SizedBox(width: 6),
-            itemBuilder: (_, i) {
-              final lm = _landmarks[i];
-              return GestureDetector(
-                onTap: () => _showLandmarkDetail(lm),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: lm.color.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: lm.color.withValues(alpha: 0.4)),
-                  ),
-                  child: Row(mainAxisSize: MainAxisSize.min, children: [
-                    Icon(lm.icon, size: 13, color: lm.color),
-                    const SizedBox(width: 5),
-                    Text(lm.name, style: TextStyle(fontSize: 11, color: lm.color, fontWeight: FontWeight.w600), maxLines: 1),
-                  ]),
-                ),
-              );
-            },
-          )),
-          const SizedBox(height: 8),
+
+              // 2. Bottom Section (Pre-run UI or Active UI)
+              Expanded(
+                child: isRunning
+                    ? Container(color: Colors.transparent) // Space filled by overlapping panel
+                    : _buildPreRunUI(theme, isDark),
+              ),
+            ],
+          ),
+
+          // ── OVERLAYS ──
+          
+          // Live Run Metric Panel (overlays bottom 40%)
+          if (isRunning)
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: 0,
+              child: LiveRunMetricPanel(
+                pace: _fmtPace(_paceMin),
+                distance: _distKm.toStringAsFixed(2),
+                bpm: 142, // Mock BPM for UI spec
+                duration: _fmtDur(_durSecs),
+                elevationData: const [0, 5, 12, 10, 25, 30, 28, 45, 40, 35, 15, 0], // Mock elevation
+              ),
+            ),
+
+          // Floating Pause/End Button in Active Run
+          if (isRunning)
+            Positioned(
+              top: 48,
+              right: 72,
+              child: _buildActiveControls(),
+            ),
         ],
-        // Stats panel
-        Container(padding: const EdgeInsets.all(14), decoration: BoxDecoration(color: Theme.of(context).brightness == Brightness.dark ? Colors.white.withValues(alpha: 0.06) : Colors.black.withValues(alpha: 0.04), borderRadius: BorderRadius.circular(18)),
-          child: Row(mainAxisAlignment: MainAxisAlignment.spaceAround, children: [
-            _stat(_distKm.toStringAsFixed(2), 'km'), _divider(), _stat(_fmtPace(_paceMin), 'min/km'), _divider(), _stat(_fmtDur(_durSecs), 'time'), _divider(), _stat('$_calories', 'kcal'),
-          ])),
-        const SizedBox(height: 14),
-        // Controls
-        Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-          if (_state == RunState.idle || _state == RunState.planning) _startButton()
-          else if (_state == RunState.running) ...[_ctrlBtn(Icons.pause, 'Pause', const Color(0xFFFF9F43), _pauseRun), const SizedBox(width: 16), _ctrlBtn(Icons.stop, 'Stop', const Color(0xFFFF6B6B), _finishRun)]
-          else if (_state == RunState.paused) ...[_ctrlBtn(Icons.play_arrow, 'Resume', const Color(0xFF00E5FF), _resumeRun), const SizedBox(width: 16), _ctrlBtn(Icons.stop, 'Stop', const Color(0xFFFF6B6B), _finishRun)],
-        ]),
-        const SizedBox(height: 14),
-        // Speed card
-        Container(padding: const EdgeInsets.all(16), decoration: BoxDecoration(color: Theme.of(context).brightness == Brightness.dark ? Colors.white.withValues(alpha: 0.06) : Colors.black.withValues(alpha: 0.04), borderRadius: BorderRadius.circular(18)),
-          child: Row(children: [const Icon(Icons.speed, color: Color(0xFF00E5FF), size: 20), const SizedBox(width: 10),
-            Text('${_speedKmh.toStringAsFixed(1)} km/h', style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: Color(0xFF00E5FF))),
-            const Spacer(), Text('Current Speed', style: TextStyle(color: Colors.grey[500], fontSize: 12)),
-          ])),
-        const SizedBox(height: 100),
-      ],
-    ]));
+      ),
+    );
+  }
+
+  Widget _buildPreRunUI(ThemeData theme, bool isDark) {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(AppSpacing.screenMargin),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const SizedBox(height: AppSpacing.md),
+          Text('Plan Your Route', style: theme.textTheme.headlineLarge),
+          const SizedBox(height: AppSpacing.md),
+          // Route inputs
+          _routeInput(_startCtrl, 'Starting Point', Icons.my_location, Colors.green, isDark),
+          const SizedBox(height: AppSpacing.sm),
+          _routeInput(_destCtrl, 'Destination', Icons.flag, AppColors.pulseRed, isDark),
+          const SizedBox(height: AppSpacing.md),
+          Row(children: [
+            Expanded(child: SizedBox(height: 48, child: ElevatedButton.icon(
+              onPressed: _isSearching ? null : _searchRoute,
+              icon: _isSearching ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)) : const Icon(Icons.search, size: 20),
+              label: Text(_isSearching ? 'Searching...' : 'Find Route', style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+              style: ElevatedButton.styleFrom(backgroundColor: AppColors.irisViolet, foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14))),
+            ))),
+            if (_routes.isNotEmpty) ...[const SizedBox(width: 12),
+              SizedBox(height: 48, child: OutlinedButton(onPressed: _clearRoute, style: OutlinedButton.styleFrom(shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)), side: BorderSide(color: AppColors.borderSubtle)), child: Text('Clear', style: TextStyle(fontSize: 14, color: AppColors.textPrimary))))],
+          ]),
+          const SizedBox(height: AppSpacing.lg),
+          // Start CTA
+          SizedBox(
+            width: double.infinity,
+            height: 64,
+            child: ElevatedButton(
+              onPressed: _startRun,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.pulseRed,
+                elevation: 0,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppSpacing.pillRadius)),
+              ),
+              child: const Text('Start Run', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, letterSpacing: 1.2)),
+            ),
+          ),
+          const SizedBox(height: AppSpacing.navHeight + 20), // Nav clearance
+        ],
+      ),
+    );
+  }
+
+  Widget _buildActiveControls() {
+    return GestureDetector(
+      onLongPress: _finishRun,
+      onTap: _state == RunState.running ? _pauseRun : _resumeRun,
+      child: Container(
+        width: 52,
+        height: 52,
+        decoration: BoxDecoration(
+          color: Colors.black.withValues(alpha: 0.6),
+          shape: BoxShape.circle,
+          border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
+        ),
+        child: Icon(
+          _state == RunState.running ? Icons.pause : Icons.play_arrow,
+          color: Colors.white,
+          size: 28,
+        ),
+      ),
+    );
   }
 
   // ── Map tap → fetch nearby landmarks ──────────────────────────────────────
@@ -481,9 +443,9 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
     decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.9), shape: BoxShape.circle, boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.15), blurRadius: 6)]),
     child: Icon(icon, size: 18, color: color ?? Colors.black87)));
 
-  Widget _routeInput(TextEditingController ctrl, String hint, IconData icon, Color c) => Container(
-    decoration: BoxDecoration(color: Theme.of(context).brightness == Brightness.dark ? Colors.white.withValues(alpha: 0.06) : Colors.white, borderRadius: BorderRadius.circular(14),
-      border: Border.all(color: Theme.of(context).brightness == Brightness.dark ? Colors.white.withValues(alpha: 0.08) : Colors.black.withValues(alpha: 0.08))),
+  Widget _routeInput(TextEditingController ctrl, String hint, IconData icon, Color c, bool isDark) => Container(
+    decoration: BoxDecoration(color: isDark ? AppColors.surfaceElevated : Colors.white, borderRadius: BorderRadius.circular(14),
+      border: Border.all(color: isDark ? Colors.white.withValues(alpha: 0.08) : Colors.black.withValues(alpha: 0.08))),
     child: TextField(controller: ctrl, style: const TextStyle(fontSize: 13), decoration: InputDecoration(hintText: hint, hintStyle: TextStyle(color: Colors.grey[400], fontSize: 13),
       prefixIcon: Icon(icon, size: 18, color: c), border: InputBorder.none, contentPadding: const EdgeInsets.symmetric(vertical: 12))));
 

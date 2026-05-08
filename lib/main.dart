@@ -61,6 +61,15 @@ class LifePulseApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return Consumer<ThemeProvider>(
       builder: (context, themeProvider, _) {
+        final isDark = themeProvider.isDark;
+        // Sync status bar icon brightness with theme
+        SystemChrome.setSystemUIOverlayStyle(
+          SystemUiOverlayStyle(
+            statusBarColor: Colors.transparent,
+            statusBarIconBrightness: isDark ? Brightness.light : Brightness.dark,
+            systemNavigationBarColor: Colors.transparent,
+          ),
+        );
         return MaterialApp(
           navigatorKey: navigatorKey,
           title: 'LifePulse',

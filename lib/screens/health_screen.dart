@@ -7,6 +7,8 @@ import '../theme/app_colors.dart';
 import '../widgets/watch_connect_banner.dart';
 import '../widgets/watch_dashboard.dart';
 import '../providers/watch_metrics_provider.dart';
+import '../widgets/week_strip_calendar.dart';
+import '../theme/app_spacing.dart';
 
 class HealthScreen extends StatefulWidget {
   const HealthScreen({super.key});
@@ -32,11 +34,22 @@ class _HealthScreenState extends State<HealthScreen> {
           const SizedBox(height: 4),
           Text('Track your vitals and wellness metrics',
               style: theme.textTheme.bodySmall),
-          const SizedBox(height: 20),
+          const SizedBox(height: AppSpacing.lg),
+
+          // ── Week Strip Calendar ──
+          WeekStripCalendar(
+            days: List.generate(7, (i) => DayModel(
+              date: DateTime.now().subtract(Duration(days: 3 - i)),
+              state: i == 3 ? DayState.today : (i < 3 ? DayState.completed : DayState.defaultState),
+              moduleType: i % 3 == 0 ? ModuleType.fitness : ModuleType.none,
+            )),
+            onDaySelected: (date) {},
+          ),
+          const SizedBox(height: AppSpacing.lg),
 
           // ── Watch Connection Banner (always visible) ──
           const WatchConnectBanner(),
-          const SizedBox(height: 16),
+          const SizedBox(height: AppSpacing.md),
 
           // ── Conditional UI ──
           AnimatedSwitcher(

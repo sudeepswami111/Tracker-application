@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../services/chat_service.dart';
+import '../theme/app_colors.dart';
 import 'chat_screen.dart';
 
 class ChatInboxScreen extends StatefulWidget {
@@ -14,38 +15,58 @@ class _ChatInboxScreenState extends State<ChatInboxScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
     return Scaffold(
-      backgroundColor: const Color(0xFF0F172A), // Tailored for your Dark Mode theme
+      backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppBar(
-        title: const Text("Lifepulse Inbox", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
+        title: Text(
+          "LifePulse Inbox",
+          style: theme.textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.bold),
+        ),
         backgroundColor: Colors.transparent,
         elevation: 0,
-        iconTheme: const IconThemeData(color: Colors.white),
       ),
       body: Column(
         children: [
           // 1. Quick-Start Private Coach Banner
-          _buildCoachBanner(),
-          const Padding(
-            padding: EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+          _buildCoachBanner(theme),
+
+          // Section header
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
             child: Align(
-              alignment: Alignment.centerLeft, 
-              child: Text("CHANNELS", style: TextStyle(color: Colors.grey, fontWeight: FontWeight.bold))
+              alignment: Alignment.centerLeft,
+              child: Text(
+                "CHANNELS",
+                style: theme.textTheme.labelSmall?.copyWith(
+                  letterSpacing: 1.5,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
             ),
           ),
+
           // 2. Streamed Channels List
           Expanded(
             child: StreamBuilder<List<Map<String, dynamic>>>(
               stream: _chatService.getChannelsStream(),
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const Center(child: CircularProgressIndicator(color: Colors.cyanAccent));
+                  return Center(
+                    child: CircularProgressIndicator(color: theme.colorScheme.primary),
+                  );
                 }
                 if (!snapshot.hasData || snapshot.data!.isEmpty) {
-                  return const Center(child: Text("No channels available", style: TextStyle(color: Colors.white70)));
+                  return Center(
+                    child: Text(
+                      "No channels available",
+                      style: theme.textTheme.bodyMedium,
+                    ),
+                  );
                 }
 
-                // Filter logic: Show if public, OR if private and user is a member
                 final channels = snapshot.data!.where((ch) {
                   if (ch['is_private'] == false) return true;
                   final members = List<String>.from(ch['member_ids'] ?? []);
@@ -53,26 +74,56 @@ class _ChatInboxScreenState extends State<ChatInboxScreen> {
                 }).toList();
 
                 return ListView.builder(
+                  padding: const EdgeInsets.only(bottom: 100),
                   itemCount: channels.length,
                   itemBuilder: (context, index) {
                     final ch = channels[index];
                     final isPrivate = ch['is_private'] ?? false;
 
-                    return Card(
-                      color: const Color(0xFF1E293B),
+                    return Container(
                       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-                      child: ListTile(
-                        leading: CircleAvatar(
-                          backgroundColor: isPrivate ? Colors.purple : Colors.cyan,
-                          child: Icon(isPrivate ? Icons.support_agent : Icons.public, color: Colors.white),
+                      decoration: BoxDecoration(
+                        color: isDark
+                            ? AppColors.surfaceElevated
+                            : AppColors.lightSurface,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(
+                          color: isDark
+                              ? Colors.white.withValues(alpha: 0.06)
+                              : Colors.black.withValues(alpha: 0.06),
                         ),
-                        title: Text(ch['name'] ?? 'Unnamed Channel', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                        subtitle: Text(isPrivate ? "Private 1-on-1 Help" : "Public Community Chat", style: const TextStyle(color: Colors.grey)),
-                        trailing: const Icon(Icons.chevron_right, color: Colors.white30),
+                      ),
+                      child: ListTile(
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                        leading: CircleAvatar(
+                          backgroundColor: isPrivate
+                              ? AppColors.irisViolet.withValues(alpha: 0.2)
+                              : AppColors.voltCyan.withValues(alpha: 0.2),
+                          child: Icon(
+                            isPrivate ? Icons.support_agent : Icons.public,
+                            color: isPrivate ? AppColors.irisViolet : AppColors.voltCyan,
+                          ),
+                        ),
+                        title: Text(
+                          ch['name'] ?? 'Unnamed Channel',
+                          style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold),
+                        ),
+                        subtitle: Text(
+                          isPrivate ? "Private 1-on-1 Help" : "Public Community Chat",
+                          style: theme.textTheme.bodySmall,
+                        ),
+                        trailing: Icon(
+                          Icons.chevron_right,
+                          color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.4),
+                        ),
                         onTap: () => Navigator.push(
                           context,
                           MaterialPageRoute(
-                            builder: (_) => ChatScreen(channelId: ch['id'], channelName: ch['name'], isPrivate: isPrivate),
+                            builder: (_) => ChatScreen(
+                              channelId: ch['id'],
+                              channelName: ch['name'],
+                              isPrivate: isPrivate,
+                            ),
                           ),
                         ),
                       ),
@@ -87,13 +138,24 @@ class _ChatInboxScreenState extends State<ChatInboxScreen> {
     );
   }
 
-  Widget _buildCoachBanner() {
+  Widget _buildCoachBanner(ThemeData theme) {
     return Container(
       margin: const EdgeInsets.all(16),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(colors: [Colors.purple, Colors.blueAccent]),
+        gradient: const LinearGradient(
+          colors: [AppColors.irisViolet, Color(0xFF6366F1)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
         borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.irisViolet.withValues(alpha: 0.3),
+            blurRadius: 16,
+            offset: const Offset(0, 6),
+          ),
+        ],
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -102,27 +164,45 @@ class _ChatInboxScreenState extends State<ChatInboxScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: const [
-                Text("Need Personalized Advice?", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15)),
+                Text(
+                  "Need Personalized Advice?",
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 15,
+                  ),
+                ),
                 SizedBox(height: 4),
-                Text("Talk 1-on-1 with a health coach.", style: TextStyle(color: Colors.white70, fontSize: 12)),
+                Text(
+                  "Talk 1-on-1 with a health coach.",
+                  style: TextStyle(color: Colors.white70, fontSize: 12),
+                ),
               ],
             ),
           ),
           const SizedBox(width: 8),
           ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.white, foregroundColor: Colors.purple),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.white,
+              foregroundColor: AppColors.irisViolet,
+              elevation: 0,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            ),
             onPressed: () async {
               try {
-                // Simulate launching a chat with a specific coach
                 final channelId = await _chatService.createPrivateChannel(
-                  "Coach Sarah (Nutrition)", 
-                  "00000000-0000-0000-0000-111111111111" // Simulated coach user ID
+                  "Coach Sarah (Nutrition)",
+                  "00000000-0000-0000-0000-111111111111",
                 );
                 if (mounted) {
                   Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (_) => ChatScreen(channelId: channelId, channelName: "Coach Sarah (Nutrition)", isPrivate: true),
+                      builder: (_) => ChatScreen(
+                        channelId: channelId,
+                        channelName: "Coach Sarah (Nutrition)",
+                        isPrivate: true,
+                      ),
                     ),
                   );
                 }
@@ -135,7 +215,7 @@ class _ChatInboxScreenState extends State<ChatInboxScreen> {
               }
             },
             child: const Text("Chat Now"),
-          )
+          ),
         ],
       ),
     );

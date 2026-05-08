@@ -39,59 +39,59 @@ class GlassNavBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final bottomPadding = MediaQuery.of(context).padding.bottom;
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    final bottomPadding = MediaQuery.of(context).padding.bottom;
-
-    return SizedBox(
-      height: 72 + bottomPadding,
-      child: Stack(
-        clipBehavior: Clip.none,
-        alignment: Alignment.topCenter,
-        children: [
-          // ── Glass Container ──────────────────────────────────────────────
-          Positioned.fill(
-            child: ClipRRect(
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
-              child: BackdropFilter(
-                filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
-                child: Container(
-                  padding: EdgeInsets.only(bottom: bottomPadding),
-                  decoration: BoxDecoration(
-                    color: isDark
-                        ? const Color(0xFF111B33).withValues(alpha: 0.85)
-                        : Colors.white.withValues(alpha: 0.90),
-                    borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
-                    border: Border(
-                      top: BorderSide(
+    return Padding(
+      // Floating offset
+      padding: EdgeInsets.only(
+        left: 20,
+        right: 20,
+        bottom: bottomPadding + 16,
+      ),
+      child: SizedBox(
+        height: 64,
+        child: Stack(
+          clipBehavior: Clip.none,
+          alignment: Alignment.center,
+          children: [
+            // ── Glass Container ──────────────────────────────────────────────
+            Positioned.fill(
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(32),
+                child: BackdropFilter(
+                  filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+                  child: Container(
+                    decoration: BoxDecoration(
+                      // Dark: near-transparent white glass
+                      // Light: opaque white card with subtle border
+                      color: isDark
+                          ? Colors.white.withValues(alpha: 0.04)
+                          : Colors.white.withValues(alpha: 0.88),
+                      borderRadius: BorderRadius.circular(32),
+                      border: Border.all(
                         color: isDark
-                            ? Colors.white.withValues(alpha: 0.1)
-                            : Colors.black.withValues(alpha: 0.08),
+                            ? Colors.white.withValues(alpha: 0.08)
+                            : Colors.black.withValues(alpha: 0.07),
                         width: 1,
                       ),
-                    ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.18),
-                          blurRadius: 32,
-                          offset: const Offset(0, 8),
-                        ),
-                        BoxShadow(
-                          color: AppColors.primary.withValues(alpha: 0.06),
-                          blurRadius: 24,
-                          spreadRadius: -2,
-                        ),
-                      ],
+                      boxShadow: isDark
+                          ? []
+                          : [
+                              BoxShadow(
+                                color: Colors.black.withValues(alpha: 0.08),
+                                blurRadius: 20,
+                                offset: const Offset(0, 4),
+                              ),
+                            ],
                     ),
                   ),
                 ),
               ),
             ),
 
-          // ── Nav Items Row ────────────────────────────────────────────────
-          Positioned.fill(
-            bottom: bottomPadding,
-            child: Row(
+            // ── Nav Items Row ────────────────────────────────────────────────
+            Row(
               children: [
                 // Left half: Dashboard, Health
                 Expanded(
@@ -115,7 +115,7 @@ class GlassNavBar extends StatelessWidget {
                   ),
                 ),
                 // Center gap for floating button
-                const SizedBox(width: 68),
+                const SizedBox(width: 72),
                 // Right half: Chat, Study
                 Expanded(
                   child: Row(
@@ -139,17 +139,17 @@ class GlassNavBar extends StatelessWidget {
                 ),
               ],
             ),
-          ),
 
-          // ── Floating Center Button ───────────────────────────────────────
-          Positioned(
-            top: -16,
-            child: _FloatingCenterButton(
-              isActive: currentIndex == 2,
-              onTap: () => onTap(2),
+            // ── Floating Center Button ───────────────────────────────────────
+            Positioned(
+              top: -16,
+              child: _FloatingCenterButton(
+                isActive: currentIndex == 2,
+                onTap: () => onTap(2),
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -175,7 +175,6 @@ class _NavTab extends StatefulWidget {
 class _NavTabState extends State<_NavTab> with SingleTickerProviderStateMixin {
   late final AnimationController _controller;
   late final Animation<double> _scale;
-  late final Animation<double> _pillWidth;
 
   @override
   void initState() {
@@ -188,9 +187,6 @@ class _NavTabState extends State<_NavTab> with SingleTickerProviderStateMixin {
     );
     _scale = Tween<double>(begin: 1.0, end: 0.88).animate(
       CurvedAnimation(parent: _controller, curve: Curves.easeIn),
-    );
-    _pillWidth = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeOut),
     );
   }
 
@@ -209,11 +205,20 @@ class _NavTabState extends State<_NavTab> with SingleTickerProviderStateMixin {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final activeColor = AppColors.primaryLight;
-    final inactiveColor = isDark
-        ? Colors.white.withValues(alpha: 0.45)
-        : Colors.black.withValues(alpha: 0.45);
+    // Specific module accent colors based on design spec
+    Color getAccentColor() {
+      switch (widget.destination.index) {
+        case 1:
+          return AppColors.pulseRed; // Health
+        case 4:
+          return AppColors.irisViolet; // Study
+        default:
+          return AppColors.voltCyan; // Home/Chat default
+      }
+    }
+
+    final activeColor = getAccentColor();
+    final inactiveColor = Theme.of(context).colorScheme.onSurfaceVariant;
 
     return GestureDetector(
       onTapDown: _onTapDown,
@@ -225,62 +230,61 @@ class _NavTabState extends State<_NavTab> with SingleTickerProviderStateMixin {
           scale: _scale,
           child: Container(
             color: Colors.transparent, // Ensures full tap area
-            height: 60,
+            height: 64,
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                // Icon with subtle background pill when active
+                // Icon + Optional Label inside pill
                 AnimatedContainer(
                   duration: const Duration(milliseconds: 250),
                   curve: Curves.easeOutCubic,
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  padding: EdgeInsets.symmetric(
+                    horizontal: widget.isActive ? 12 : 8, 
+                    vertical: 8
+                  ),
                   decoration: BoxDecoration(
                     color: widget.isActive
-                        ? activeColor.withValues(alpha: 0.14)
+                        ? activeColor.withValues(alpha: 0.15)
                         : Colors.transparent,
-                    borderRadius: BorderRadius.circular(14),
+                    borderRadius: BorderRadius.circular(16),
                   ),
-                  child: Icon(
-                    widget.destination.icon,
-                    size: 22,
-                    color: widget.isActive ? activeColor : inactiveColor,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        widget.destination.icon,
+                        size: 20,
+                        color: widget.isActive ? activeColor : inactiveColor,
+                      ),
+                      if (widget.isActive) ...[
+                        const SizedBox(width: 6),
+                        Flexible(
+                          child: Text(
+                            widget.destination.label,
+                            maxLines: 1,
+                            overflow: TextOverflow.clip,
+                            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                              color: activeColor,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                      ]
+                    ],
                   ),
                 ),
-                const SizedBox(height: 3),
-                // Label
-                AnimatedDefaultTextStyle(
+                const SizedBox(height: 4),
+                // Small filled circle beneath icon when active
+                AnimatedOpacity(
+                  opacity: widget.isActive ? 1.0 : 0.0,
                   duration: const Duration(milliseconds: 200),
-                  style: TextStyle(
-                    fontSize: 10,
-                    fontWeight: widget.isActive ? FontWeight.w700 : FontWeight.w500,
-                    color: widget.isActive ? activeColor : inactiveColor,
-                    letterSpacing: 0.2,
-                  ),
-                  child: Text(
-                    widget.destination.label,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-                const SizedBox(height: 3),
-                // Active dot
-                AnimatedContainer(
-                  duration: const Duration(milliseconds: 250),
-                  curve: Curves.easeOutCubic,
-                  height: 3,
-                  width: widget.isActive ? 18 : 0,
-                  decoration: BoxDecoration(
-                    color: activeColor,
-                    borderRadius: BorderRadius.circular(2),
-                    boxShadow: widget.isActive
-                        ? [
-                            BoxShadow(
-                              color: activeColor.withValues(alpha: 0.5),
-                              blurRadius: 6,
-                              spreadRadius: 0,
-                            )
-                          ]
-                        : [],
+                  child: Container(
+                    height: 4,
+                    width: 4,
+                    decoration: BoxDecoration(
+                      color: activeColor,
+                      shape: BoxShape.circle,
+                    ),
                   ),
                 ),
               ],
@@ -339,21 +343,14 @@ class _FloatingCenterButtonState extends State<_FloatingCenterButton>
 
   @override
   Widget build(BuildContext context) {
+    // Center button represents "Running" so it gets Volt Cyan / Pulse Red combo
     final gradient = widget.isActive
-        ? const LinearGradient(
-            colors: [Color(0xFF8B7CF6), Color(0xFF6C5CE7)],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          )
-        : const LinearGradient(
-            colors: [Color(0xFFFF7B7B), Color(0xFFE84393)],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          );
+        ? AppColors.gradientCyan
+        : AppColors.gradientCoral;
 
     final glowColor = widget.isActive
-        ? AppColors.primary.withValues(alpha: 0.35)
-        : AppColors.coral.withValues(alpha: 0.35);
+        ? AppColors.voltCyan.withValues(alpha: 0.35)
+        : AppColors.pulseRed.withValues(alpha: 0.35);
 
     return GestureDetector(
       onTapDown: _onTapDown,
@@ -371,13 +368,13 @@ class _FloatingCenterButtonState extends State<_FloatingCenterButton>
               boxShadow: [
                 BoxShadow(
                   color: glowColor,
-                  blurRadius: 18,
+                  blurRadius: 24,
                   spreadRadius: 2,
-                  offset: const Offset(0, 4),
+                  offset: const Offset(0, 6),
                 ),
               ],
               border: Border.all(
-                color: Colors.white.withValues(alpha: 0.18),
+                color: Colors.white.withValues(alpha: 0.2),
                 width: 1.5,
               ),
             ),

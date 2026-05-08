@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../services/chat_service.dart';
 import '../providers/app_provider.dart';
+import '../theme/app_colors.dart';
 
 class ChatScreen extends StatefulWidget {
   final String channelId;
@@ -28,20 +29,25 @@ class _ChatScreenState extends State<ChatScreen> {
   @override
   void initState() {
     super.initState();
-    // Cache stream reference locally in initState to avoid performance lag and rebuilds
     _messageStream = _chatService.getMessagesStream(widget.channelId);
+  }
+
+  @override
+  void dispose() {
+    _messageController.dispose();
+    _scrollController.dispose();
+    super.dispose();
   }
 
   void _send() {
     if (_messageController.text.trim().isNotEmpty) {
       final app = context.read<AppProvider>();
       _chatService.sendMessage(
-        widget.channelId, 
+        widget.channelId,
         _messageController.text,
         senderNameOverride: app.userName.isNotEmpty ? app.userName : 'Sudeep',
       );
       _messageController.clear();
-      // Smooth scroll to bottom on send
       Future.delayed(const Duration(milliseconds: 100), () {
         if (_scrollController.hasClients) {
           _scrollController.animateTo(
@@ -56,41 +62,54 @@ class _ChatScreenState extends State<ChatScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
     return Scaffold(
-      backgroundColor: const Color(0xFF0F172A),
+      backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppBar(
+        backgroundColor: theme.colorScheme.surface,
+        elevation: 0,
+        iconTheme: theme.appBarTheme.iconTheme,
         title: Row(
           children: [
-            Text(widget.channelName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Colors.white)),
+            Text(
+              widget.channelName,
+              style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+            ),
             if (widget.isPrivate) ...[
               const SizedBox(width: 6),
-              const Icon(Icons.verified, color: Colors.blue, size: 16), // Certified coach badge
+              const Icon(Icons.verified, color: Colors.blue, size: 16),
             ]
           ],
         ),
-        backgroundColor: const Color(0xFF1E293B),
-        elevation: 0,
-        iconTheme: const IconThemeData(color: Colors.white),
       ),
       body: Column(
         children: [
-          // Message History Panel
+          // Divider under app bar
+          Divider(height: 1, color: theme.colorScheme.outline.withValues(alpha: 0.2)),
+
+          // Message History
           Expanded(
             child: StreamBuilder<List<Map<String, dynamic>>>(
               stream: _messageStream,
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const Center(child: CircularProgressIndicator(color: Colors.cyanAccent));
+                  return Center(
+                    child: CircularProgressIndicator(color: theme.colorScheme.primary),
+                  );
                 }
                 if (!snapshot.hasData || snapshot.data!.isEmpty) {
-                  return const Center(
-                    child: Text("Say hello to start the conversation! 👋", style: TextStyle(color: Colors.grey)),
+                  return Center(
+                    child: Text(
+                      "Say hello to start the conversation! 👋",
+                      style: theme.textTheme.bodyMedium,
+                    ),
                   );
                 }
 
                 final messages = snapshot.data!;
 
-                // Auto scroll to bottom when new messages arrive
                 WidgetsBinding.instance.addPostFrameCallback((_) {
                   if (_scrollController.hasClients) {
                     _scrollController.animateTo(
@@ -108,22 +127,37 @@ class _ChatScreenState extends State<ChatScreen> {
                   itemBuilder: (context, index) {
                     final msg = messages[index];
                     final bool isMe = msg['sender_id'] == _chatService.currentUserId;
-
-                    return _buildChatBubble(msg, isMe);
+                    return _buildChatBubble(msg, isMe, theme, isDark);
                   },
                 );
               },
             ),
           ),
-          
-          // Bottom Message Input Container
-          _buildInputArea(),
+
+          // Input Area
+          _buildInputArea(theme, isDark),
         ],
       ),
     );
   }
 
-  Widget _buildChatBubble(Map<String, dynamic> msg, bool isMe) {
+  Widget _buildChatBubble(
+    Map<String, dynamic> msg,
+    bool isMe,
+    ThemeData theme,
+    bool isDark,
+  ) {
+    // Sent = primary accent; received = elevated surface
+    final bubbleColor = isMe
+        ? theme.colorScheme.primary
+        : (isDark
+            ? AppColors.surfaceElevated
+            : AppColors.lightSurfaceContainer);
+
+    final textColor = isMe
+        ? Colors.white
+        : theme.colorScheme.onSurface;
+
     return Align(
       alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
       child: Container(
@@ -131,7 +165,7 @@ class _ChatScreenState extends State<ChatScreen> {
         padding: const EdgeInsets.all(12),
         constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.75),
         decoration: BoxDecoration(
-          color: isMe ? const Color(0xFF3B82F6) : const Color(0xFF334155),
+          color: bubbleColor,
           borderRadius: BorderRadius.only(
             topLeft: const Radius.circular(16),
             topRight: const Radius.circular(16),
@@ -145,12 +179,18 @@ class _ChatScreenState extends State<ChatScreen> {
             if (!isMe)
               Text(
                 msg['sender_name'] ?? 'User',
-                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Colors.cyanAccent),
+                style: theme.textTheme.labelSmall?.copyWith(
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.voltCyan,
+                ),
               ),
             const SizedBox(height: 3),
             Text(
               msg['content'] ?? '',
-              style: const TextStyle(color: Colors.white, fontSize: 14),
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: textColor,
+                fontSize: 14,
+              ),
             ),
           ],
         ),
@@ -158,35 +198,49 @@ class _ChatScreenState extends State<ChatScreen> {
     );
   }
 
-  Widget _buildInputArea() {
+  Widget _buildInputArea(ThemeData theme, bool isDark) {
     return Container(
       padding: const EdgeInsets.all(12),
-      color: const Color(0xFF1E293B),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surface,
+        border: Border(
+          top: BorderSide(
+            color: theme.colorScheme.outline.withValues(alpha: 0.2),
+          ),
+        ),
+      ),
       child: SafeArea(
         child: Row(
           children: [
             Expanded(
               child: TextField(
                 controller: _messageController,
-                style: const TextStyle(color: Colors.white),
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: theme.colorScheme.onSurface,
+                ),
+                onSubmitted: (_) => _send(),
                 decoration: InputDecoration(
                   hintText: "Type a message...",
-                  hintStyle: const TextStyle(color: Colors.white30),
+                  hintStyle: theme.textTheme.bodyMedium?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
+                  ),
                   filled: true,
-                  fillColor: const Color(0xFF0F172A),
+                  fillColor: isDark
+                      ? AppColors.backgroundDeep
+                      : AppColors.lightSurfaceContainer,
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(24),
                     borderSide: BorderSide.none,
                   ),
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                 ),
               ),
             ),
             const SizedBox(width: 8),
             CircleAvatar(
-              backgroundColor: const Color(0xFF3B82F6),
+              backgroundColor: theme.colorScheme.primary,
               child: IconButton(
-                icon: const Icon(Icons.send, color: Colors.white),
+                icon: const Icon(Icons.send, color: Colors.white, size: 20),
                 onPressed: _send,
               ),
             ),

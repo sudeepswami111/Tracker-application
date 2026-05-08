@@ -97,7 +97,7 @@ class _StudyScreenState extends State<StudyScreen> {
             child: Text('${app.focusSessionsCompleted} done', style: theme.textTheme.labelSmall?.copyWith(color: AppColors.primary, fontWeight: FontWeight.w700))),
         ]),
         const SizedBox(height: 20),
-        ProgressRing(size: 160, strokeWidth: 8, progress: timerProg, color: app.focusTimerRunning ? AppColors.primary : AppColors.darkOutline, label: _fmt(_timerSeconds), sublabel: app.focusTimerRunning ? 'Focus time' : 'Ready', fontSize: 28),
+        ProgressRing(size: 160, strokeWidth: 8, progress: timerProg, color: app.focusTimerRunning ? AppColors.primary : theme.colorScheme.outline, label: _fmt(_timerSeconds), sublabel: app.focusTimerRunning ? 'Focus time' : 'Ready', fontSize: 28),
         const SizedBox(height: 20),
         Row(mainAxisAlignment: MainAxisAlignment.center, children: [
           ElevatedButton.icon(onPressed: () => _toggleTimer(app), icon: Icon(app.focusTimerRunning ? LucideIcons.pause : LucideIcons.play, size: 16), label: Text(app.focusTimerRunning ? 'Pause' : 'Start')),
