@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import '../providers/app_provider.dart';
-import '../widgets/glass_card.dart';
+
 import '../theme/app_colors.dart';
 import '../widgets/watch_connect_banner.dart';
 import '../widgets/watch_dashboard.dart';
