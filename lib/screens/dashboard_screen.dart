@@ -12,6 +12,7 @@ import '../widgets/metric_ring_card.dart';
 import '../widgets/streak_badge.dart';
 import '../widgets/add_plan_sheet.dart';
 import '../widgets/view_all_plans_sheet.dart';
+import '../widgets/daily_quote_spark.dart';
 import 'chat_screen.dart';
 
 class DashboardScreen extends StatelessWidget {
@@ -105,22 +106,7 @@ class DashboardScreen extends StatelessWidget {
             ),
           ],
         ),
-        SizedBox(
-          width: 48,
-          height: 48,
-          child: Stack(
-            alignment: Alignment.center,
-            children: [
-              CircularProgressIndicator(
-                value: 0.75,
-                strokeWidth: 4,
-                backgroundColor: theme.colorScheme.surfaceContainerHighest,
-                valueColor: const AlwaysStoppedAnimation(AppColors.irisViolet),
-              ),
-              const Icon(LucideIcons.target, size: 16, color: AppColors.irisViolet),
-            ],
-          ),
-        ),
+        const DailyQuoteSparkButton(),
       ],
     );
   }
