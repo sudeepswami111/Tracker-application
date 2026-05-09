@@ -7,8 +7,9 @@ class DailyPlanTile extends StatelessWidget {
   final String durationOrReps;
   final String kcal;
   final String imageUrl;
-  final VoidCallback onStart;
-  final VoidCallback onReplace;
+  final VoidCallback? onStart;
+  final VoidCallback? onReplace;
+  final VoidCallback? onDelete;
 
   const DailyPlanTile({
     super.key,
@@ -16,8 +17,9 @@ class DailyPlanTile extends StatelessWidget {
     required this.durationOrReps,
     required this.kcal,
     required this.imageUrl,
-    required this.onStart,
-    required this.onReplace,
+    this.onStart,
+    this.onReplace,
+    this.onDelete,
   });
 
   @override
@@ -96,22 +98,25 @@ class DailyPlanTile extends StatelessWidget {
           // Bottom CTA Row
           Row(
             children: [
-              Expanded(
-                child: TextButton(
-                  onPressed: onReplace,
-                  style: TextButton.styleFrom(
-                    foregroundColor: AppColors.textSecondary,
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      side: const BorderSide(color: AppColors.borderSubtle),
+              if (onReplace != null || onDelete != null) ...[
+                Expanded(
+                  child: TextButton(
+                    onPressed: onDelete ?? onReplace,
+                    style: TextButton.styleFrom(
+                      foregroundColor: onDelete != null ? AppColors.pulseRed : AppColors.textSecondary,
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        side: BorderSide(color: onDelete != null ? AppColors.pulseRed.withValues(alpha: 0.5) : AppColors.borderSubtle),
+                      ),
                     ),
+                    child: Text(onDelete != null ? 'Delete' : 'Replace', style: const TextStyle(fontWeight: FontWeight.w600)),
                   ),
-                  child: const Text('Replace', style: TextStyle(fontWeight: FontWeight.w600)),
                 ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
+                const SizedBox(width: 12),
+              ],
+              if (onStart != null)
+                Expanded(
                 child: ElevatedButton(
                   onPressed: onStart,
                   style: ElevatedButton.styleFrom(

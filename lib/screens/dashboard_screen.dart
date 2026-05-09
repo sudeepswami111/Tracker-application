@@ -10,6 +10,8 @@ import '../widgets/animated_card_enter.dart';
 import '../widgets/daily_plan_tile.dart';
 import '../widgets/metric_ring_card.dart';
 import '../widgets/streak_badge.dart';
+import '../widgets/add_plan_sheet.dart';
+import '../widgets/view_all_plans_sheet.dart';
 import 'chat_screen.dart';
 
 class DashboardScreen extends StatelessWidget {
@@ -176,13 +178,23 @@ class DashboardScreen extends StatelessWidget {
                   icon: const Icon(LucideIcons.plus, size: 20),
                   color: AppColors.voltCyan,
                   onPressed: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Add plan feature coming soon!')),
+                    showModalBottomSheet(
+                      context: context,
+                      isScrollControlled: true,
+                      backgroundColor: Colors.transparent,
+                      builder: (context) => const AddPlanSheet(),
                     );
                   },
                 ),
                 TextButton(
-                  onPressed: () {},
+                  onPressed: () {
+                    showModalBottomSheet(
+                      context: context,
+                      isScrollControlled: true,
+                      backgroundColor: Colors.transparent,
+                      builder: (context) => const ViewAllPlansSheet(),
+                    );
+                  },
                   child: Text(
                     'View All',
                     style: theme.textTheme.labelSmall?.copyWith(
@@ -195,21 +207,52 @@ class DashboardScreen extends StatelessWidget {
           ],
         ),
         const SizedBox(height: AppSpacing.md),
-        DailyPlanTile(
-          activityName: 'Morning Run 5K',
-          durationOrReps: '30 min',
-          kcal: '320 kcal',
-          imageUrl:
-              'https://images.unsplash.com/photo-1552674605-db6ffd4facb5?auto=format&fit=crop&w=150&q=80',
-          onStart: () {
-            app.setTabIndex(2);
-          },
-          onReplace: () {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Plan replaced successfully!')),
-            );
-          },
-        ),
+        if (app.dailyPlans.isEmpty)
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(AppSpacing.lg),
+            decoration: BoxDecoration(
+              color: theme.colorScheme.surface,
+              borderRadius: BorderRadius.circular(AppSpacing.cardRadius),
+              border: Border.all(
+                color: isDark
+                    ? Colors.white.withValues(alpha: 0.06)
+                    : Colors.black.withValues(alpha: 0.06),
+              ),
+            ),
+            child: Column(
+              children: [
+                Icon(LucideIcons.calendarPlus, size: 32, color: AppColors.textSecondary),
+                const SizedBox(height: AppSpacing.sm),
+                Text(
+                  'No plans yet',
+                  style: theme.textTheme.titleMedium?.copyWith(color: AppColors.textPrimary),
+                ),
+                Text(
+                  'Tap + to create your first plan',
+                  style: theme.textTheme.bodyMedium?.copyWith(color: AppColors.textSecondary),
+                ),
+              ],
+            ),
+          )
+        else
+          DailyPlanTile(
+            activityName: app.dailyPlans.first.title,
+            durationOrReps: app.dailyPlans.first.duration,
+            kcal: app.dailyPlans.first.kcal,
+            imageUrl: app.dailyPlans.first.imageUrl,
+            onStart: () {
+              app.setTabIndex(2);
+            },
+            onReplace: () {
+              showModalBottomSheet(
+                context: context,
+                isScrollControlled: true,
+                backgroundColor: Colors.transparent,
+                builder: (context) => const AddPlanSheet(),
+              );
+            },
+          ),
       ],
     );
   }

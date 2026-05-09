@@ -57,6 +57,38 @@ class DailySnapshot {
       );
 }
 
+class DailyPlan {
+  final String id;
+  final String title;
+  final String duration;
+  final String kcal;
+  final String imageUrl;
+
+  DailyPlan({
+    required this.id,
+    required this.title,
+    required this.duration,
+    required this.kcal,
+    required this.imageUrl,
+  });
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'title': title,
+        'duration': duration,
+        'kcal': kcal,
+        'imageUrl': imageUrl,
+      };
+
+  factory DailyPlan.fromJson(Map<String, dynamic> json) => DailyPlan(
+        id: json['id'] as String,
+        title: json['title'] as String,
+        duration: json['duration'] as String,
+        kcal: json['kcal'] as String,
+        imageUrl: json['imageUrl'] as String,
+      );
+}
+
 // ──── Feature 4 — Challenge Model ────
 class ChallengeModel {
   final String title;
@@ -236,6 +268,29 @@ class AppProvider extends ChangeNotifier {
 
   List<Map<String, dynamic>> dailyGoals = [];
 
+  // ──── Daily Plans ────
+  List<DailyPlan> dailyPlans = [
+    DailyPlan(
+      id: 'default_1',
+      title: 'Morning Run 5K',
+      duration: '30 min',
+      kcal: '320 kcal',
+      imageUrl: 'https://images.unsplash.com/photo-1552674605-db6ffd4facb5?auto=format&fit=crop&w=150&q=80',
+    ),
+  ];
+
+  void addDailyPlan(DailyPlan plan) {
+    dailyPlans.add(plan);
+    _saveData();
+    notifyListeners();
+  }
+
+  void removeDailyPlan(String id) {
+    dailyPlans.removeWhere((p) => p.id == id);
+    _saveData();
+    notifyListeners();
+  }
+
   bool hasUnreadNotifications = true;
   List<Map<String, dynamic>> notifications = [
     {
@@ -364,6 +419,16 @@ class AppProvider extends ChangeNotifier {
     currentStreak = prefs.getInt('currentStreak') ?? 1;
     isStreakPending = prefs.getBool('isStreakPending') ?? false;
     lastActivityDate = prefs.getString('lastActivityDate') ?? '';
+    
+    // Load Daily Plans
+    final plansJson = prefs.getString('dailyPlans');
+    if (plansJson != null) {
+      try {
+        final decoded = jsonDecode(plansJson) as List<dynamic>;
+        dailyPlans = decoded.map((e) => DailyPlan.fromJson(e as Map<String, dynamic>)).toList();
+      } catch (_) {}
+    }
+
     // 2.2 — Detect midnight and reset if new day
     _checkDailyReset();
     checkStreakStatus();
@@ -433,6 +498,11 @@ class AppProvider extends ChangeNotifier {
     prefs.setInt('currentStreak', currentStreak);
     prefs.setBool('isStreakPending', isStreakPending);
     prefs.setString('lastActivityDate', lastActivityDate);
+    
+    // Save Daily Plans
+    final plansEncoded = jsonEncode(dailyPlans.map((p) => p.toJson()).toList());
+    prefs.setString('dailyPlans', plansEncoded);
+
     // Feature 3 — fire smart nudges after every save
     NotificationService.scheduleSmartNudges(this);
   }
