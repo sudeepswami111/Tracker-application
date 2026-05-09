@@ -165,7 +165,63 @@ class AppProvider extends ChangeNotifier {
   List<Map<String, dynamic>> milestones = [];
 
   // ──── Streaks ────
-  final Map<String, int> streaks = {};
+  int currentStreak = 1;
+  bool isStreakPending = false;
+  String lastActivityDate = '';
+
+  void recordActivity() {
+    String today = _todayStr();
+    if (lastActivityDate == today) return;
+
+    if (lastActivityDate.isEmpty) {
+      currentStreak = 1;
+    } else {
+      DateTime todayDate = DateTime.parse(today);
+      DateTime lastActive = DateTime.parse(lastActivityDate);
+      int diffDays = todayDate.difference(lastActive).inDays;
+
+      if (diffDays == 1) {
+        currentStreak++;
+      } else if (diffDays == 2) {
+        currentStreak += 2;
+      } else {
+        currentStreak = 1;
+      }
+    }
+    lastActivityDate = today;
+    isStreakPending = false;
+    _saveData();
+    notifyListeners();
+  }
+
+  void checkStreakStatus() {
+    String today = _todayStr();
+    if (lastActivityDate.isEmpty) {
+      currentStreak = 1;
+      isStreakPending = false;
+      return;
+    }
+
+    DateTime todayDate = DateTime.parse(today);
+    DateTime lastActive = DateTime.parse(lastActivityDate);
+    int diffDays = todayDate.difference(lastActive).inDays;
+
+    if (diffDays == 0 || diffDays == 1) {
+      isStreakPending = false;
+    } else if (diffDays == 2) {
+      isStreakPending = true;
+    } else {
+      currentStreak = 1;
+      isStreakPending = false;
+    }
+  }
+
+  // ──── Navigation ────
+  int currentTabIndex = 0;
+  void setTabIndex(int index) {
+    currentTabIndex = index;
+    notifyListeners();
+  }
 
   // ──── Weekly Chart Data ────
   List<Map<String, dynamic>> get weeklyData {
@@ -267,7 +323,7 @@ class AppProvider extends ChangeNotifier {
       if (heartRate == 0) heartRate = 60;
       final rng = Random();
       heartRate = (heartRate + rng.nextInt(7) - 3).clamp(55, 100);
-      steps += rng.nextInt(5);
+      // steps += rng.nextInt(5); // Removed demo steps
       notifyListeners();
       _saveData();
     });
@@ -305,8 +361,12 @@ class AppProvider extends ChangeNotifier {
         history = [];
       }
     }
+    currentStreak = prefs.getInt('currentStreak') ?? 1;
+    isStreakPending = prefs.getBool('isStreakPending') ?? false;
+    lastActivityDate = prefs.getString('lastActivityDate') ?? '';
     // 2.2 — Detect midnight and reset if new day
     _checkDailyReset();
+    checkStreakStatus();
     notifyListeners();
   }
 
@@ -370,6 +430,9 @@ class AppProvider extends ChangeNotifier {
     prefs.setInt('waterGlasses', waterGlasses);
     prefs.setDouble('waterIntake', waterIntake);
     prefs.setDouble('studyHrs', studyHrs);
+    prefs.setInt('currentStreak', currentStreak);
+    prefs.setBool('isStreakPending', isStreakPending);
+    prefs.setString('lastActivityDate', lastActivityDate);
     // Feature 3 — fire smart nudges after every save
     NotificationService.scheduleSmartNudges(this);
   }
@@ -503,6 +566,7 @@ class AppProvider extends ChangeNotifier {
 
   // ──── Actions ────
   void addWater() {
+    recordActivity();
     if (waterGlasses < 12) {
       waterGlasses++;
       waterIntake = double.parse((waterIntake + 0.25).toStringAsFixed(2));
@@ -546,6 +610,7 @@ class AppProvider extends ChangeNotifier {
   }
 
   void addWorkout(Map<String, dynamic> workout) {
+    recordActivity();
     workouts.insert(0, workout);
     todayCalories += workout['calories'] as int;
     todayDuration += workout['duration'] as int;
@@ -555,6 +620,7 @@ class AppProvider extends ChangeNotifier {
   }
 
   void addStudySession(Map<String, dynamic> session) {
+    recordActivity();
     studySessions.add(session);
     totalStudyMinutes += session['duration'] as int;
     _saveData();

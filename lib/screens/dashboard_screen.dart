@@ -3,12 +3,14 @@ import 'package:lucide_icons/lucide_icons.dart';
 import 'package:provider/provider.dart';
 
 import '../providers/app_provider.dart';
+import '../providers/watch_metrics_provider.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_spacing.dart';
 import '../widgets/animated_card_enter.dart';
 import '../widgets/daily_plan_tile.dart';
 import '../widgets/metric_ring_card.dart';
 import '../widgets/streak_badge.dart';
+import 'chat_screen.dart';
 
 class DashboardScreen extends StatelessWidget {
   const DashboardScreen({super.key});
@@ -18,10 +20,6 @@ class DashboardScreen extends StatelessWidget {
     final app = context.watch<AppProvider>();
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
-
-    final longestStreak = app.streaks.isEmpty
-        ? 0
-        : app.streaks.values.reduce((a, b) => a > b ? a : b);
 
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
@@ -40,7 +38,7 @@ class DashboardScreen extends StatelessWidget {
               // 1. Streak Row
               AnimatedCardEnter(
                 index: 0,
-                child: _buildStreakRow(theme, longestStreak),
+                child: _buildStreakRow(theme, app),
               ),
               const SizedBox(height: AppSpacing.xl),
 
@@ -61,21 +59,21 @@ class DashboardScreen extends StatelessWidget {
               // 3. Quick Stats Strip
               AnimatedCardEnter(
                 index: 2,
-                child: _buildQuickStats(theme, app, isDark),
+                child: _buildQuickStats(theme, app, isDark, context),
               ),
               const SizedBox(height: AppSpacing.xl),
 
               // 4. Today's Plan
               AnimatedCardEnter(
                 index: 3,
-                child: _buildTodaysPlan(theme, isDark),
+                child: _buildTodaysPlan(theme, isDark, app, context),
               ),
               const SizedBox(height: AppSpacing.xl),
 
               // 5. Community Teaser
               AnimatedCardEnter(
                 index: 4,
-                child: _buildCommunityTeaser(theme, isDark),
+                child: _buildCommunityTeaser(theme, isDark, context),
               ),
             ],
           ),
@@ -84,17 +82,17 @@ class DashboardScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildStreakRow(ThemeData theme, int streakCount) {
+  Widget _buildStreakRow(ThemeData theme, AppProvider app) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
         Row(
           children: [
             StreakBadge(
-              count: streakCount,
-              isActive: streakCount > 0,
-              icon: LucideIcons.flame,
-              activeColor: AppColors.solarAmber,
+              count: app.currentStreak,
+              isActive: app.currentStreak > 0,
+              icon: app.isStreakPending ? LucideIcons.hourglass : LucideIcons.flame,
+              activeColor: app.isStreakPending ? AppColors.borderSubtle : AppColors.solarAmber,
             ),
             const SizedBox(width: AppSpacing.sm),
             StreakBadge(
@@ -125,17 +123,20 @@ class DashboardScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildQuickStats(ThemeData theme, AppProvider app, bool isDark) {
+  Widget _buildQuickStats(ThemeData theme, AppProvider app, bool isDark, BuildContext context) {
+    final watchProvider = context.watch<WatchMetricsProvider>();
+    final isConnected = watchProvider.isConnected;
+
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
       clipBehavior: Clip.none,
       child: Row(
         children: [
           _QuickStatPill(
-            icon: LucideIcons.heartPulse,
+            icon: isConnected ? LucideIcons.heartPulse : LucideIcons.lock,
             label: 'Heart Rate',
-            value: '72 bpm',
-            color: AppColors.pulseRed,
+            value: isConnected ? '${watchProvider.pulse > 0 ? watchProvider.pulse : 72} bpm' : '---',
+            color: isConnected ? AppColors.pulseRed : (isDark ? Colors.white38 : Colors.black38),
             theme: theme,
             isDark: isDark,
           ),
@@ -150,10 +151,10 @@ class DashboardScreen extends StatelessWidget {
           ),
           const SizedBox(width: AppSpacing.md),
           _QuickStatPill(
-            icon: LucideIcons.moon,
+            icon: isConnected ? LucideIcons.moon : LucideIcons.lock,
             label: 'Sleep Score',
-            value: '85',
-            color: AppColors.irisViolet,
+            value: isConnected ? '85' : '---',
+            color: isConnected ? AppColors.irisViolet : (isDark ? Colors.white38 : Colors.black38),
             theme: theme,
             isDark: isDark,
           ),
@@ -162,21 +163,34 @@ class DashboardScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildTodaysPlan(ThemeData theme, bool isDark) {
+  Widget _buildTodaysPlan(ThemeData theme, bool isDark, AppProvider app, BuildContext context) {
     return Column(
       children: [
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             Text("Today's Plan", style: theme.textTheme.headlineLarge),
-            TextButton(
-              onPressed: () {},
-              child: Text(
-                'View All',
-                style: theme.textTheme.labelSmall?.copyWith(
+            Row(
+              children: [
+                IconButton(
+                  icon: const Icon(LucideIcons.plus, size: 20),
                   color: AppColors.voltCyan,
+                  onPressed: () {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Add plan feature coming soon!')),
+                    );
+                  },
                 ),
-              ),
+                TextButton(
+                  onPressed: () {},
+                  child: Text(
+                    'View All',
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      color: AppColors.voltCyan,
+                    ),
+                  ),
+                ),
+              ],
             ),
           ],
         ),
@@ -187,14 +201,20 @@ class DashboardScreen extends StatelessWidget {
           kcal: '320 kcal',
           imageUrl:
               'https://images.unsplash.com/photo-1552674605-db6ffd4facb5?auto=format&fit=crop&w=150&q=80',
-          onStart: () {},
-          onReplace: () {},
+          onStart: () {
+            app.setTabIndex(2);
+          },
+          onReplace: () {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Plan replaced successfully!')),
+            );
+          },
         ),
       ],
     );
   }
 
-  Widget _buildCommunityTeaser(ThemeData theme, bool isDark) {
+  Widget _buildCommunityTeaser(ThemeData theme, bool isDark, BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -244,7 +264,13 @@ class DashboardScreen extends StatelessWidget {
         SizedBox(
           width: double.infinity,
           child: OutlinedButton(
-            onPressed: () {},
+            onPressed: () {
+              Navigator.push(context, MaterialPageRoute(builder: (_) => const ChatScreen(
+                channelId: 'community_general',
+                channelName: 'General Community',
+                isPrivate: false,
+              )));
+            },
             style: OutlinedButton.styleFrom(
               padding: const EdgeInsets.symmetric(vertical: 14),
               side: BorderSide(

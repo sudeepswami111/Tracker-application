@@ -26,7 +26,6 @@ class AppShell extends StatefulWidget {
 }
 
 class _AppShellState extends State<AppShell> {
-  int _currentIndex = 0;
   bool _isMapFullscreen = false;
 
   @override
@@ -46,6 +45,13 @@ class _AppShellState extends State<AppShell> {
     const StudyScreen(),
   ];
 
+  String _getGreeting() {
+    final hour = DateTime.now().hour;
+    if (hour < 12) return 'Good morning';
+    if (hour < 17) return 'Good afternoon';
+    return 'Good evening';
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -58,21 +64,23 @@ class _AppShellState extends State<AppShell> {
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              'Good morning, ${app.userName} 👋',
-              style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text(
+                '${_getGreeting()}, ${app.userName} 👋',
+                style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+              ),
             ),
-            Text(
-              "Here's your progress today",
-              style: theme.textTheme.bodySmall,
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text(
+                "Ready to crush your goals?",
+                style: theme.textTheme.bodySmall,
+              ),
             ),
           ],
         ),
         actions: [
-          IconButton(
-            icon: Icon(isDark ? LucideIcons.sun : LucideIcons.moon, size: 20),
-            onPressed: themeProvider.toggleTheme,
-          ),
           Stack(
             children: [
               IconButton(icon: const Icon(LucideIcons.bell, size: 20), onPressed: () {
@@ -153,16 +161,16 @@ class _AppShellState extends State<AppShell> {
               );
             },
             child: KeyedSubtree(
-              key: ValueKey<int>(_currentIndex),
-              child: _screens[_currentIndex],
+              key: ValueKey<int>(app.currentTabIndex),
+              child: _screens[app.currentTabIndex],
             ),
           ),
           if (!_isMapFullscreen)
             Align(
               alignment: Alignment.bottomCenter,
               child: GlassNavBar(
-                currentIndex: _currentIndex,
-                onTap: _onTap,
+                currentIndex: app.currentTabIndex,
+                onTap: (index) => app.setTabIndex(index),
               ),
             ),
         ],
@@ -170,7 +178,4 @@ class _AppShellState extends State<AppShell> {
     );
   }
 
-  void _onTap(int index) {
-    setState(() => _currentIndex = index);
-  }
 }
