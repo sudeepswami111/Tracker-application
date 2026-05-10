@@ -100,7 +100,7 @@ class DashboardScreen extends StatelessWidget {
             ),
             const SizedBox(width: AppSpacing.sm),
             StreakBadge(
-              count: 4,
+              count: DateTime.now().day,
               isActive: true,
               icon: LucideIcons.calendarCheck,
               activeColor: AppColors.voltCyan,
@@ -304,11 +304,7 @@ class DashboardScreen extends StatelessWidget {
           width: double.infinity,
           child: OutlinedButton(
             onPressed: () {
-              Navigator.push(context, MaterialPageRoute(builder: (_) => const ChatScreen(
-                channelId: 'community_general',
-                channelName: 'General Community',
-                isPrivate: false,
-              )));
+              context.read<AppProvider>().setTabIndex(3);
             },
             style: OutlinedButton.styleFrom(
               padding: const EdgeInsets.symmetric(vertical: 14),

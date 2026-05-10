@@ -145,21 +145,6 @@ class _RingPainter extends CustomPainter {
       ..strokeWidth = strokeWidth
       ..strokeCap = StrokeCap.round;
 
-    final activePaint = Paint()
-      ..color = activeColor
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = strokeWidth
-      ..strokeCap = StrokeCap.round
-      ..shader = SweepGradient(
-        colors: [
-          activeColor.withValues(alpha: 0.5),
-          activeColor,
-        ],
-        startAngle: -pi / 2,
-        endAngle: (-pi / 2) + (2 * pi * progress),
-        transform: const GradientRotation(-pi / 2),
-      ).createShader(Rect.fromCircle(center: center, radius: radius));
-
     canvas.drawArc(
       Rect.fromCircle(center: center, radius: radius),
       0,
@@ -168,13 +153,29 @@ class _RingPainter extends CustomPainter {
       bgPaint,
     );
 
-    canvas.drawArc(
-      Rect.fromCircle(center: center, radius: radius),
-      -pi / 2,
-      2 * pi * progress,
-      false,
-      activePaint,
-    );
+    if (progress > 0.001) {
+      final activePaint = Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = strokeWidth
+        ..strokeCap = StrokeCap.round
+        ..shader = SweepGradient(
+          colors: [
+            activeColor.withValues(alpha: 0.5),
+            activeColor,
+          ],
+          startAngle: 0.0,
+          endAngle: 2 * pi * progress,
+          transform: const GradientRotation(-pi / 2),
+        ).createShader(Rect.fromCircle(center: center, radius: radius));
+
+      canvas.drawArc(
+        Rect.fromCircle(center: center, radius: radius),
+        -pi / 2,
+        2 * pi * progress,
+        false,
+        activePaint,
+      );
+    }
   }
 
   @override
