@@ -11,8 +11,8 @@ import '../widgets/daily_plan_tile.dart';
 import '../widgets/metric_ring_card.dart';
 import '../widgets/streak_badge.dart';
 import '../widgets/add_plan_sheet.dart';
+import '../widgets/dashboard_fun_widgets.dart';
 import '../widgets/view_all_plans_sheet.dart';
-import '../widgets/daily_quote_spark.dart';
 import 'chat_screen.dart';
 
 class DashboardScreen extends StatelessWidget {
@@ -45,9 +45,10 @@ class DashboardScreen extends StatelessWidget {
               ),
               const SizedBox(height: AppSpacing.xl),
 
+
               // 2. Primary Hero Card (Metric Ring)
               AnimatedCardEnter(
-                index: 1,
+                index: 2,
                 child: MetricRingCard(
                   progress: app.steps / app.stepsGoal,
                   value: app.steps.toString(),
@@ -61,21 +62,21 @@ class DashboardScreen extends StatelessWidget {
 
               // 3. Quick Stats Strip
               AnimatedCardEnter(
-                index: 2,
+                index: 3,
                 child: _buildQuickStats(theme, app, isDark, context),
               ),
               const SizedBox(height: AppSpacing.xl),
 
               // 4. Today's Plan
               AnimatedCardEnter(
-                index: 3,
+                index: 4,
                 child: _buildTodaysPlan(theme, isDark, app, context),
               ),
               const SizedBox(height: AppSpacing.xl),
 
               // 5. Community Teaser
               AnimatedCardEnter(
-                index: 4,
+                index: 5,
                 child: _buildCommunityTeaser(theme, isDark, context),
               ),
             ],
@@ -106,7 +107,7 @@ class DashboardScreen extends StatelessWidget {
             ),
           ],
         ),
-        const DailyQuoteSparkButton(),
+        const DailyQuoteSpark(),
       ],
     );
   }
@@ -120,6 +121,15 @@ class DashboardScreen extends StatelessWidget {
       clipBehavior: Clip.none,
       child: Row(
         children: [
+          _QuickStatPill(
+            icon: LucideIcons.cloudSun,
+            label: 'Weather',
+            value: '72° Sunny',
+            color: AppColors.solarAmber,
+            theme: theme,
+            isDark: isDark,
+          ),
+          const SizedBox(width: AppSpacing.md),
           _QuickStatPill(
             icon: isConnected ? LucideIcons.heartPulse : LucideIcons.lock,
             label: 'Heart Rate',
