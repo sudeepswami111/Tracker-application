@@ -207,12 +207,14 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
     final isDark = theme.brightness == Brightness.dark;
     
     // Map URL
-    const mapUrl = 'https://a.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}@2x.png';
+    final mapUrl = isDark 
+        ? 'https://a.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}@2x.png'
+        : 'https://a.basemaps.cartocdn.com/light_all/{z}/{x}/{y}@2x.png';
 
     final isRunningPhase = _state == RunState.running || _state == RunState.paused || _state == RunState.countdown;
 
     return Scaffold(
-      backgroundColor: AppColors.backgroundDeep,
+      backgroundColor: theme.scaffoldBackgroundColor,
       body: Stack(
         children: [
           // ── 1. MAP BACKGROUND ──
@@ -246,7 +248,11 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
                   },
                 ),
                 children: [
-                  TileLayer(urlTemplate: mapUrl, maxZoom: 19),
+                  TileLayer(
+                    urlTemplate: mapUrl, 
+                    userAgentPackageName: 'com.example.lifepulse',
+                    maxZoom: 19,
+                  ),
                   
                   // Pre-run Route Suggestion (Cyan)
                   if (!isRunningPhase)
@@ -364,12 +370,12 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
             if (_state == RunState.paused)
               Positioned.fill(
                 child: Container(
-                  color: Colors.black.withValues(alpha: 0.5),
+                  color: isDark ? Colors.black.withValues(alpha: 0.7) : Colors.white.withValues(alpha: 0.8),
                   child: Center(
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Text('PAUSED', style: TextStyle(color: Colors.white, fontSize: 32, fontWeight: FontWeight.w900, letterSpacing: 4)),
+                        Text('PAUSED', style: TextStyle(color: theme.colorScheme.onSurface, fontSize: 32, fontWeight: FontWeight.w900, letterSpacing: 4)),
                         const SizedBox(height: 32),
                         Row(
                           mainAxisAlignment: MainAxisAlignment.center,
@@ -390,7 +396,7 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
           if (_state == RunState.countdown)
             Positioned.fill(
               child: Container(
-                color: AppColors.backgroundDeep.withValues(alpha: 0.85),
+                color: theme.scaffoldBackgroundColor.withValues(alpha: 0.85),
                 child: Center(
                   child: TweenAnimationBuilder<double>(
                     key: ValueKey(_countdown),
@@ -402,8 +408,8 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
                         scale: scale,
                         child: Text(
                           _countdown.toString(),
-                          style: const TextStyle(
-                            color: Colors.white,
+                          style: TextStyle(
+                            color: theme.colorScheme.onSurface,
                             fontSize: 120,
                             fontWeight: FontWeight.w900,
                             height: 1,
@@ -430,9 +436,9 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             children: [
-              _infoPill('Distance', '5.2 km'),
-              _infoPill('Est. Time', '28:40'),
-              _infoPill('Elevation', '42 m'),
+              _infoPill('Distance', '5.2 km', isDark),
+              _infoPill('Est. Time', '28:40', isDark),
+              _infoPill('Elevation', '42 m', isDark),
             ],
           ),
           const SizedBox(height: AppSpacing.xl),
@@ -442,10 +448,10 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
             scrollDirection: Axis.horizontal,
             child: Row(
               children: [
-                _typeChip('Outdoor Run', Icons.directions_run),
-                _typeChip('Treadmill', Icons.fitness_center),
-                _typeChip('Trail Run', Icons.park),
-                _typeChip('Cycling', Icons.directions_bike),
+                _typeChip('Outdoor Run', Icons.directions_run, isDark),
+                _typeChip('Treadmill', Icons.fitness_center, isDark),
+                _typeChip('Trail Run', Icons.park, isDark),
+                _typeChip('Cycling', Icons.directions_bike, isDark),
               ],
             ),
           ),
@@ -454,9 +460,9 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
           // Target pace / distance input row
           Row(
             children: [
-              Expanded(child: _ghostInput('Target Pace', '5:30 /km')),
+              Expanded(child: _ghostInput('Target Pace', '5:30 /km', isDark)),
               const SizedBox(width: 16),
-              Expanded(child: _ghostInput('Distance', '5.0 km')),
+              Expanded(child: _ghostInput('Distance', '5.0 km', isDark)),
             ],
           ),
           const SizedBox(height: AppSpacing.xl),
@@ -521,25 +527,29 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
     );
   }
 
-  Widget _infoPill(String label, String value) {
+  Widget _infoPill(String label, String value, bool isDark) {
+    final surfaceColor = isDark ? Colors.white : Colors.black;
+    final textColor = isDark ? Colors.white : Colors.black;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.05),
+        color: surfaceColor.withValues(alpha: 0.05),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+        border: Border.all(color: surfaceColor.withValues(alpha: 0.1)),
       ),
       child: Column(
         children: [
-          Text(value, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 14)),
-          Text(label, style: const TextStyle(color: Colors.white54, fontSize: 10)),
+          Text(value, style: TextStyle(color: textColor, fontWeight: FontWeight.w700, fontSize: 14)),
+          Text(label, style: TextStyle(color: textColor.withValues(alpha: 0.54), fontSize: 10)),
         ],
       ),
     );
   }
 
-  Widget _typeChip(String label, IconData icon) {
+  Widget _typeChip(String label, IconData icon, bool isDark) {
     final isActive = _selectedRunType == label;
+    final textColor = isDark ? Colors.white : Colors.black;
+    final surfaceColor = isDark ? Colors.white : Colors.black;
     return GestureDetector(
       onTap: () => setState(() => _selectedRunType = label),
       child: AnimatedContainer(
@@ -549,33 +559,35 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
         decoration: BoxDecoration(
           color: isActive ? AppColors.pulseRed : Colors.transparent,
           borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: isActive ? AppColors.pulseRed : Colors.white.withValues(alpha: 0.2)),
+          border: Border.all(color: isActive ? AppColors.pulseRed : surfaceColor.withValues(alpha: 0.2)),
         ),
         child: Row(
           children: [
-            Icon(icon, size: 16, color: isActive ? Colors.white : Colors.white70),
+            Icon(icon, size: 16, color: isActive ? Colors.white : textColor.withValues(alpha: 0.7)),
             const SizedBox(width: 8),
-            Text(label, style: TextStyle(color: isActive ? Colors.white : Colors.white70, fontWeight: FontWeight.w600, fontSize: 13)),
+            Text(label, style: TextStyle(color: isActive ? Colors.white : textColor.withValues(alpha: 0.7), fontWeight: FontWeight.w600, fontSize: 13)),
           ],
         ),
       ),
     );
   }
 
-  Widget _ghostInput(String label, String value) {
+  Widget _ghostInput(String label, String value, bool isDark) {
+    final textColor = isDark ? Colors.white : Colors.black;
+    final surfaceColor = isDark ? Colors.white : Colors.black;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
         color: Colors.transparent,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
+        border: Border.all(color: surfaceColor.withValues(alpha: 0.2)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(label, style: const TextStyle(color: Colors.white54, fontSize: 11)),
+          Text(label, style: TextStyle(color: textColor.withValues(alpha: 0.54), fontSize: 11)),
           const SizedBox(height: 4),
-          Text(value, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 16)),
+          Text(value, style: TextStyle(color: textColor, fontWeight: FontWeight.w700, fontSize: 16)),
         ],
       ),
     );
@@ -639,6 +651,12 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
   }
 
   void _showSummary() {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final mapUrl = isDark 
+        ? 'https://a.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}@2x.png'
+        : 'https://a.basemaps.cartocdn.com/light_all/{z}/{x}/{y}@2x.png';
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -646,9 +664,9 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
       builder: (_) => Container(
         height: MediaQuery.of(context).size.height * 0.9,
         padding: const EdgeInsets.all(24),
-        decoration: const BoxDecoration(
-          color: AppColors.backgroundDeep,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
+        decoration: BoxDecoration(
+          color: theme.scaffoldBackgroundColor,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -659,7 +677,7 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
             Container(
               height: 200,
               width: double.infinity,
-              decoration: BoxDecoration(borderRadius: BorderRadius.circular(16), color: Colors.white10),
+              decoration: BoxDecoration(borderRadius: BorderRadius.circular(16), color: (isDark ? Colors.white : Colors.black).withValues(alpha: 0.1)),
               clipBehavior: Clip.antiAlias,
               child: IgnorePointer(
                 child: FlutterMap(
@@ -668,7 +686,10 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
                     initialZoom: 15,
                   ),
                   children: [
-                    TileLayer(urlTemplate: 'https://a.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}@2x.png'),
+                    TileLayer(
+                      urlTemplate: mapUrl,
+                      userAgentPackageName: 'com.example.lifepulse',
+                    ),
                     if (_gpsRoute.isNotEmpty)
                       PolylineLayer(polylines: [
                         Polyline(points: _gpsRoute, strokeWidth: 4, color: AppColors.voltCyan),
@@ -686,10 +707,10 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
                 mainAxisSpacing: 16,
                 childAspectRatio: 1.5,
                 children: [
-                  _statCard('Distance', '${_distKm.toStringAsFixed(2)} km', AppColors.voltCyan),
-                  _statCard('Duration', _fmtDur(_durSecs), Colors.white),
-                  _statCard('Avg Pace', '${_fmtPace(_paceMin)} /km', AppColors.solarAmber),
-                  _statCard('Calories', '$_calories', AppColors.pulseRed),
+                  _statCard('Distance', '${_distKm.toStringAsFixed(2)} km', AppColors.voltCyan, isDark),
+                  _statCard('Duration', _fmtDur(_durSecs), isDark ? Colors.white : Colors.black, isDark),
+                  _statCard('Avg Pace', '${_fmtPace(_paceMin)} /km', AppColors.solarAmber, isDark),
+                  _statCard('Calories', '$_calories', AppColors.pulseRed, isDark),
                 ],
               ),
             ),
@@ -740,13 +761,13 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
     );
   }
 
-  Widget _statCard(String label, String value, Color color) {
+  Widget _statCard(String label, String value, Color color, bool isDark) {
     return GlassCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Text(label, style: const TextStyle(color: Colors.white54, fontSize: 12, fontWeight: FontWeight.w600)),
+          Text(label, style: TextStyle(color: (isDark ? Colors.white : Colors.black).withValues(alpha: 0.54), fontSize: 12, fontWeight: FontWeight.w600)),
           const SizedBox(height: 8),
           Text(value, style: TextStyle(color: color, fontSize: 20, fontWeight: FontWeight.w900)),
         ],
