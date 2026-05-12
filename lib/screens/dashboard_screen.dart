@@ -46,9 +46,16 @@ class DashboardScreen extends StatelessWidget {
               const SizedBox(height: AppSpacing.xl),
 
 
-              // 2. Primary Hero Card (Metric Ring)
+              // 2. Health Stats Strip (Heart Rate, Active Mins, Sleep Score)
               AnimatedCardEnter(
                 index: 2,
+                child: _buildHealthStats(theme, app, isDark, context),
+              ),
+              const SizedBox(height: AppSpacing.xl),
+
+              // 3. Primary Hero Card (Metric Ring - Today's Activity)
+              AnimatedCardEnter(
+                index: 3,
                 child: MetricRingCard(
                   progress: app.steps / app.stepsGoal,
                   value: app.steps.toString(),
@@ -60,10 +67,10 @@ class DashboardScreen extends StatelessWidget {
               ),
               const SizedBox(height: AppSpacing.xl),
 
-              // 3. Quick Stats Strip
+              // 3.5 Weather Stat (Kept in its original position below activity)
               AnimatedCardEnter(
-                index: 3,
-                child: _buildQuickStats(theme, app, isDark, context),
+                index: 4,
+                child: _buildWeatherStat(theme, app, isDark),
               ),
               const SizedBox(height: AppSpacing.xl),
 
@@ -112,7 +119,7 @@ class DashboardScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildQuickStats(ThemeData theme, AppProvider app, bool isDark, BuildContext context) {
+  Widget _buildHealthStats(ThemeData theme, AppProvider app, bool isDark, BuildContext context) {
     final watchProvider = context.watch<WatchMetricsProvider>();
     final isConnected = watchProvider.isConnected;
 
@@ -121,15 +128,6 @@ class DashboardScreen extends StatelessWidget {
       clipBehavior: Clip.none,
       child: Row(
         children: [
-          _QuickStatPill(
-            icon: LucideIcons.cloudSun,
-            label: 'Weather',
-            value: '72° Sunny',
-            color: AppColors.solarAmber,
-            theme: theme,
-            isDark: isDark,
-          ),
-          const SizedBox(width: AppSpacing.md),
           _QuickStatPill(
             icon: isConnected ? LucideIcons.heartPulse : LucideIcons.lock,
             label: 'Heart Rate',
@@ -153,6 +151,25 @@ class DashboardScreen extends StatelessWidget {
             label: 'Sleep Score',
             value: isConnected ? '85' : '---',
             color: isConnected ? AppColors.irisViolet : (isDark ? Colors.white38 : Colors.black38),
+            theme: theme,
+            isDark: isDark,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildWeatherStat(ThemeData theme, AppProvider app, bool isDark) {
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      clipBehavior: Clip.none,
+      child: Row(
+        children: [
+          _QuickStatPill(
+            icon: LucideIcons.cloudSun,
+            label: 'Weather',
+            value: '72° Sunny',
+            color: AppColors.solarAmber,
             theme: theme,
             isDark: isDark,
           ),
