@@ -115,10 +115,31 @@ class ChallengeModel {
   }
 }
 
+class PrefsKeys {
+  static const userName = 'userName';
+  static const profileImagePath = 'profileImagePath';
+  static const isMetric = 'isMetric';
+  static const steps = 'steps';
+  static const distance = 'distance';
+  static const waterGlasses = 'waterGlasses';
+  static const waterIntake = 'waterIntake';
+  static const calories = 'calories';
+  static const sleepHours = 'sleepHours';
+  static const studyHrs = 'studyHrs';
+  static const dailyHistory = 'dailyHistory';
+  static const currentStreak = 'currentStreak';
+  static const streakFreezes = 'streakFreezes';
+  static const isStreakPending = 'isStreakPending';
+  static const lastActivityDate = 'lastActivityDate';
+  static const dailyPlans = 'dailyPlans';
+  static const lastSavedDate = 'lastSavedDate';
+}
+
 class AppProvider extends ChangeNotifier {
   final SharedPreferences prefs;
+  DateTime Function() clock;
 
-  AppProvider(this.prefs) {
+  AppProvider(this.prefs, {this.clock = DateTime.now}) {
     _loadData();
   }
   // ──── User ────
@@ -198,53 +219,82 @@ class AppProvider extends ChangeNotifier {
 
   // ──── Streaks ────
   int currentStreak = 1;
+  int streakFreezes = 0;
   bool isStreakPending = false;
   String lastActivityDate = '';
 
-  void recordActivity() {
-    String today = _todayStr();
-    if (lastActivityDate == today) return;
-
+  void updateStreak() {
+    final today = DateUtils.dateOnly(clock());
     if (lastActivityDate.isEmpty) {
       currentStreak = 1;
-    } else {
-      DateTime todayDate = DateTime.parse(today);
-      DateTime lastActive = DateTime.parse(lastActivityDate);
-      int diffDays = todayDate.difference(lastActive).inDays;
-
-      if (diffDays == 1) {
-        currentStreak++;
-      } else if (diffDays == 2) {
-        currentStreak += 2;
-      } else {
-        currentStreak = 1;
-      }
+      lastActivityDate = today.toIso8601String();
+      isStreakPending = false;
+      _saveData();
+      notifyListeners();
+      return;
     }
-    lastActivityDate = today;
+
+    final lastActive = DateUtils.dateOnly(DateTime.parse(lastActivityDate));
+    final diffDays = today.difference(lastActive).inDays;
+
+    if (diffDays == 0) return; // Idempotent: already updated today
+
+    if (diffDays == 1) {
+      currentStreak++;
+    } else if (diffDays == 2 && streakFreezes > 0) {
+      streakFreezes--;
+      currentStreak++; // Saved by freeze
+    } else if (diffDays >= 2) {
+      if (currentStreak > 1) {
+        _showStreakResetSnackbar();
+      }
+      currentStreak = 1;
+    }
+
+    lastActivityDate = today.toIso8601String();
     isStreakPending = false;
     _saveData();
     notifyListeners();
   }
 
+  void recordActivity() {
+    updateStreak();
+  }
+
   void checkStreakStatus() {
-    String today = _todayStr();
+    final today = DateUtils.dateOnly(clock());
     if (lastActivityDate.isEmpty) {
-      currentStreak = 1;
       isStreakPending = false;
       return;
     }
 
-    DateTime todayDate = DateTime.parse(today);
-    DateTime lastActive = DateTime.parse(lastActivityDate);
-    int diffDays = todayDate.difference(lastActive).inDays;
+    final lastActive = DateUtils.dateOnly(DateTime.parse(lastActivityDate));
+    final diffDays = today.difference(lastActive).inDays;
 
-    if (diffDays == 0 || diffDays == 1) {
+    if (diffDays == 0) {
       isStreakPending = false;
-    } else if (diffDays == 2) {
-      isStreakPending = true;
-    } else {
-      currentStreak = 1;
+    } else if (diffDays == 1) {
+      isStreakPending = true; // Pending for today
+    } else if (diffDays == 2 && streakFreezes > 0) {
+      isStreakPending = true; // Still pending, can be saved by freeze
+    } else if (diffDays >= 2) {
+      if (currentStreak > 1) {
+        _showStreakResetSnackbar();
+      }
+      currentStreak = 0;
       isStreakPending = false;
+    }
+  }
+
+  void _showStreakResetSnackbar() {
+    final context = navigatorKey.currentContext;
+    if (context != null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Oops! You missed a day. Your streak has been reset.'),
+          backgroundColor: Colors.redAccent,
+        ),
+      );
     }
   }
 
@@ -392,18 +442,18 @@ class AppProvider extends ChangeNotifier {
   }
 
   void _loadData() {
-    userName = prefs.getString('userName') ?? 'User';
-    profileImagePath = prefs.getString('profileImagePath') ?? '';
-    isMetric = prefs.getBool('isMetric') ?? true;
-    steps = prefs.getInt('steps') ?? 0;
-    distance = prefs.getDouble('distance') ?? 0.0;
-    waterGlasses = prefs.getInt('waterGlasses') ?? 0;
-    waterIntake = prefs.getDouble('waterIntake') ?? 0.0;
-    calories = prefs.getInt('calories') ?? 0;
-    sleepHours = prefs.getDouble('sleepHours') ?? 0.0;
-    studyHrs = prefs.getDouble('studyHrs') ?? 0.0;
+    userName = prefs.getString(PrefsKeys.userName) ?? 'User';
+    profileImagePath = prefs.getString(PrefsKeys.profileImagePath) ?? '';
+    isMetric = prefs.getBool(PrefsKeys.isMetric) ?? true;
+    steps = prefs.getInt(PrefsKeys.steps) ?? 0;
+    distance = prefs.getDouble(PrefsKeys.distance) ?? 0.0;
+    waterGlasses = prefs.getInt(PrefsKeys.waterGlasses) ?? 0;
+    waterIntake = prefs.getDouble(PrefsKeys.waterIntake) ?? 0.0;
+    calories = prefs.getInt(PrefsKeys.calories) ?? 0;
+    sleepHours = prefs.getDouble(PrefsKeys.sleepHours) ?? 0.0;
+    studyHrs = prefs.getDouble(PrefsKeys.studyHrs) ?? 0.0;
     // 2.1 — Load history
-    final histJson = prefs.getString('dailyHistory');
+    final histJson = prefs.getString(PrefsKeys.dailyHistory);
     if (histJson != null) {
       try {
         final decoded = jsonDecode(histJson) as List<dynamic>;
@@ -416,12 +466,13 @@ class AppProvider extends ChangeNotifier {
         history = [];
       }
     }
-    currentStreak = prefs.getInt('currentStreak') ?? 1;
-    isStreakPending = prefs.getBool('isStreakPending') ?? false;
-    lastActivityDate = prefs.getString('lastActivityDate') ?? '';
+    currentStreak = prefs.getInt(PrefsKeys.currentStreak) ?? 1;
+    streakFreezes = prefs.getInt(PrefsKeys.streakFreezes) ?? 0;
+    isStreakPending = prefs.getBool(PrefsKeys.isStreakPending) ?? false;
+    lastActivityDate = prefs.getString(PrefsKeys.lastActivityDate) ?? '';
     
     // Load Daily Plans
-    final plansJson = prefs.getString('dailyPlans');
+    final plansJson = prefs.getString(PrefsKeys.dailyPlans);
     if (plansJson != null) {
       try {
         final decoded = jsonDecode(plansJson) as List<dynamic>;
@@ -437,13 +488,13 @@ class AppProvider extends ChangeNotifier {
 
   // ──── 2.2 Midnight Detection ────
   String _todayStr() {
-    final now = DateTime.now();
+    final now = clock();
     return '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
   }
 
   void _checkDailyReset() {
     final today = _todayStr();
-    final lastSaved = prefs.getString('lastSavedDate') ?? '';
+    final lastSaved = prefs.getString(PrefsKeys.lastSavedDate) ?? '';
     if (lastSaved == today) return; // same day, no reset needed
 
     // Snapshot yesterday's data before reset
@@ -463,7 +514,7 @@ class AppProvider extends ChangeNotifier {
       // Persist history (keep last 90 days)
       if (history.length > 90) history = history.sublist(0, 90);
       final encoded = jsonEncode(history.map((s) => s.toJson()).toList());
-      prefs.setString('dailyHistory', encoded);
+      prefs.setString(PrefsKeys.dailyHistory, encoded);
     }
 
     // Reset daily counters
@@ -479,29 +530,30 @@ class AppProvider extends ChangeNotifier {
     todayExercises = 0;
     workouts = [];
 
-    prefs.setString('lastSavedDate', today);
+    prefs.setString(PrefsKeys.lastSavedDate, today);
     _saveData();
     notifyListeners();
   }
 
   void _saveData() {
-    prefs.setString('userName', userName);
-    prefs.setString('profileImagePath', profileImagePath);
-    prefs.setBool('isMetric', isMetric);
-    prefs.setInt('steps', steps);
-    prefs.setInt('calories', calories);
-    prefs.setDouble('distance', distance);
-    prefs.setDouble('sleepHours', sleepHours);
-    prefs.setInt('waterGlasses', waterGlasses);
-    prefs.setDouble('waterIntake', waterIntake);
-    prefs.setDouble('studyHrs', studyHrs);
-    prefs.setInt('currentStreak', currentStreak);
-    prefs.setBool('isStreakPending', isStreakPending);
-    prefs.setString('lastActivityDate', lastActivityDate);
+    prefs.setString(PrefsKeys.userName, userName);
+    prefs.setString(PrefsKeys.profileImagePath, profileImagePath);
+    prefs.setBool(PrefsKeys.isMetric, isMetric);
+    prefs.setInt(PrefsKeys.steps, steps);
+    prefs.setInt(PrefsKeys.calories, calories);
+    prefs.setDouble(PrefsKeys.distance, distance);
+    prefs.setDouble(PrefsKeys.sleepHours, sleepHours);
+    prefs.setInt(PrefsKeys.waterGlasses, waterGlasses);
+    prefs.setDouble(PrefsKeys.waterIntake, waterIntake);
+    prefs.setDouble(PrefsKeys.studyHrs, studyHrs);
+    prefs.setInt(PrefsKeys.currentStreak, currentStreak);
+    prefs.setInt(PrefsKeys.streakFreezes, streakFreezes);
+    prefs.setBool(PrefsKeys.isStreakPending, isStreakPending);
+    prefs.setString(PrefsKeys.lastActivityDate, lastActivityDate);
     
     // Save Daily Plans
     final plansEncoded = jsonEncode(dailyPlans.map((p) => p.toJson()).toList());
-    prefs.setString('dailyPlans', plansEncoded);
+    prefs.setString(PrefsKeys.dailyPlans, plansEncoded);
 
     // Feature 3 — fire smart nudges after every save
     NotificationService.scheduleSmartNudges(this);
