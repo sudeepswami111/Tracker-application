@@ -12,6 +12,7 @@ import '../widgets/metric_ring_card.dart';
 import '../widgets/streak_badge.dart';
 import '../widgets/add_plan_sheet.dart';
 import '../widgets/dashboard_fun_widgets.dart';
+import '../widgets/dashboard_weather_card.dart';
 import '../widgets/view_all_plans_sheet.dart';
 import 'chat_screen.dart';
 
@@ -67,10 +68,10 @@ class DashboardScreen extends StatelessWidget {
               ),
               const SizedBox(height: AppSpacing.xl),
 
-              // 3.5 Weather Stat (Kept in its original position below activity)
+              // 3.5 Rich Weather Integration (Under activity as requested)
               AnimatedCardEnter(
                 index: 4,
-                child: _buildWeatherStat(theme, app, isDark),
+                child: const DashboardWeatherCard(),
               ),
               const SizedBox(height: AppSpacing.xl),
 
@@ -159,24 +160,7 @@ class DashboardScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildWeatherStat(ThemeData theme, AppProvider app, bool isDark) {
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      clipBehavior: Clip.none,
-      child: Row(
-        children: [
-          _QuickStatPill(
-            icon: LucideIcons.cloudSun,
-            label: 'Weather',
-            value: '72° Sunny',
-            color: AppColors.solarAmber,
-            theme: theme,
-            isDark: isDark,
-          ),
-        ],
-      ),
-    );
-  }
+
 
   Widget _buildTodaysPlan(ThemeData theme, bool isDark, AppProvider app, BuildContext context) {
     return Column(

@@ -12,6 +12,9 @@ import '../theme/app_colors.dart';
 import '../theme/app_spacing.dart';
 import '../widgets/live_run_metric_panel.dart';
 import '../widgets/glass_card.dart';
+import '../providers/weather_provider.dart';
+import '../models/weather_model.dart';
+import 'package:provider/provider.dart';
 
 enum RunState { planning, countdown, running, paused, finished }
 
@@ -281,8 +284,8 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
                     if (_curPos != null)
                       Marker(
                         point: _curPos!,
-                        width: 48,
-                        height: 48,
+                        width: 100,
+                        height: 100,
                         child: AnimatedBuilder(
                           animation: _pulseAnim,
                           builder: (_, c) => Transform.scale(
@@ -292,6 +295,35 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
                           child: Stack(
                             alignment: Alignment.center,
                             children: [
+                              // Weather Overlay Label (Floating above dot)
+                              Positioned(
+                                top: 0,
+                                child: Consumer<WeatherProvider>(
+                                  builder: (context, weather, _) {
+                                    if (!weather.hasData) return const SizedBox.shrink();
+                                    return Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                      decoration: BoxDecoration(
+                                        color: Colors.black.withValues(alpha: 0.6),
+                                        borderRadius: BorderRadius.circular(12),
+                                        border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
+                                      ),
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Text(weather.data!.current.emoji, style: const TextStyle(fontSize: 12)),
+                                          const SizedBox(width: 4),
+                                          Text(
+                                            '${weather.data!.current.tempC.round()}°',
+                                            style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+                                          ),
+                                        ],
+                                      ),
+                                    );
+                                  },
+                                ),
+                              ),
+                              // The Dot
                               Container(
                                 width: 48,
                                 height: 48,
@@ -339,6 +371,25 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
               top: MediaQuery.of(context).padding.top + 16,
               right: 16,
               child: _buildFloatingPauseBtn(),
+            ),
+
+            // Live Weather Stats (Wind & UV) during active run
+            Positioned(
+              top: MediaQuery.of(context).padding.top + 16,
+              left: 16,
+              child: Consumer<WeatherProvider>(
+                builder: (context, weather, _) {
+                  if (!weather.hasData) return const SizedBox.shrink();
+                  final current = weather.data!.current;
+                  return Row(
+                    children: [
+                      _weatherMiniChip(LucideIcons.wind, '${current.windSpeedKmh.round()} km/h', isDark),
+                      const SizedBox(width: 8),
+                      _weatherMiniChip(LucideIcons.sun, 'UV ${current.uvIndex}', isDark),
+                    ],
+                  );
+                },
+              ),
             ),
 
             // Mini Elevation Strip (Anchored above metric panel)
@@ -432,6 +483,43 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // ── Weather & Activity Suggestion ──
+          Consumer<WeatherProvider>(
+            builder: (context, weather, _) {
+              if (!weather.hasData) return const SizedBox.shrink();
+              final current = weather.data!.current;
+              return Container(
+                margin: const EdgeInsets.only(bottom: AppSpacing.lg),
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: AppColors.solarAmber.withValues(alpha: 0.08),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: AppColors.solarAmber.withValues(alpha: 0.2)),
+                ),
+                child: Row(
+                  children: [
+                    Text(current.emoji, style: const TextStyle(fontSize: 24)),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            '${current.tempC.round()}°C • ${current.conditionLabel}',
+                            style: TextStyle(color: theme.colorScheme.onSurface, fontWeight: FontWeight.bold, fontSize: 13),
+                          ),
+                          Text(
+                            current.activitySuggestion,
+                            style: TextStyle(color: theme.colorScheme.onSurface.withValues(alpha: 0.7), fontSize: 11),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
           // Route info pill row
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
@@ -646,6 +734,30 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
           const SizedBox(height: 12),
           Text(label, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800, letterSpacing: 1.5)),
         ],
+      ),
+    );
+  }
+
+  Widget _weatherMiniChip(IconData icon, String label, bool isDark) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(12),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          decoration: BoxDecoration(
+            color: Colors.black.withValues(alpha: 0.4),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, size: 14, color: Colors.white),
+              const SizedBox(width: 6),
+              Text(label, style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold)),
+            ],
+          ),
+        ),
       ),
     );
   }
