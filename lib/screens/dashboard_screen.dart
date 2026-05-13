@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 
 import '../providers/app_provider.dart';
 import '../providers/watch_metrics_provider.dart';
+import '../providers/step_tracker_provider.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_spacing.dart';
 import '../widgets/animated_card_enter.dart';
@@ -12,8 +13,8 @@ import '../widgets/metric_ring_card.dart';
 import '../widgets/streak_badge.dart';
 import '../widgets/add_plan_sheet.dart';
 import '../widgets/dashboard_fun_widgets.dart';
-import '../widgets/dashboard_weather_card.dart';
 import '../widgets/view_all_plans_sheet.dart';
+import '../widgets/weather_widgets.dart';
 import 'chat_screen.dart';
 
 class DashboardScreen extends StatelessWidget {
@@ -57,21 +58,35 @@ class DashboardScreen extends StatelessWidget {
               // 3. Primary Hero Card (Metric Ring - Today's Activity)
               AnimatedCardEnter(
                 index: 3,
-                child: MetricRingCard(
-                  progress: app.steps / app.stepsGoal,
-                  value: app.steps.toString(),
-                  unit: 'STEPS',
-                  label: "Today's Activity",
-                  ringColor: AppColors.voltCyan,
-                  icon: LucideIcons.footprints,
+                child: Consumer<StepTrackerProvider>(
+                  builder: (context, stepTracker, child) {
+                    if (!stepTracker.isAvailable && !stepTracker.isLoading) {
+                      return MetricRingCard(
+                        progress: 0,
+                        value: 'N/A',
+                        unit: 'UNSUPPORTED',
+                        label: "Today's Activity",
+                        ringColor: AppColors.textSecondary,
+                        icon: LucideIcons.footprints,
+                      );
+                    }
+                    return MetricRingCard(
+                      progress: stepTracker.progress,
+                      value: stepTracker.steps.toString(),
+                      unit: 'STEPS',
+                      label: "Today's Activity",
+                      ringColor: AppColors.voltCyan,
+                      icon: LucideIcons.footprints,
+                    );
+                  },
                 ),
               ),
               const SizedBox(height: AppSpacing.xl),
 
-              // 3.5 Rich Weather Integration (Under activity as requested)
+              // 3.5 Weather Integration (DashboardWeatherSection)
               AnimatedCardEnter(
                 index: 4,
-                child: const DashboardWeatherCard(),
+                child: const DashboardWeatherSection(),
               ),
               const SizedBox(height: AppSpacing.xl),
 
@@ -138,13 +153,15 @@ class DashboardScreen extends StatelessWidget {
             isDark: isDark,
           ),
           const SizedBox(width: AppSpacing.md),
-          _QuickStatPill(
-            icon: LucideIcons.activity,
-            label: 'Active Mins',
-            value: '45 m',
-            color: AppColors.voltCyan,
-            theme: theme,
-            isDark: isDark,
+          Consumer<StepTrackerProvider>(
+            builder: (context, stepTracker, _) => _QuickStatPill(
+              icon: LucideIcons.activity,
+              label: 'Active Mins',
+              value: '${stepTracker.activeMinutes} m',
+              color: AppColors.voltCyan,
+              theme: theme,
+              isDark: isDark,
+            ),
           ),
           const SizedBox(width: AppSpacing.md),
           _QuickStatPill(
@@ -159,7 +176,6 @@ class DashboardScreen extends StatelessWidget {
       ),
     );
   }
-
 
 
   Widget _buildTodaysPlan(ThemeData theme, bool isDark, AppProvider app, BuildContext context) {

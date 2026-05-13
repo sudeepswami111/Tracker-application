@@ -12,9 +12,9 @@ import '../theme/app_colors.dart';
 import '../theme/app_spacing.dart';
 import '../widgets/live_run_metric_panel.dart';
 import '../widgets/glass_card.dart';
-import '../providers/weather_provider.dart';
-import '../models/weather_model.dart';
 import 'package:provider/provider.dart';
+import '../providers/weather_provider.dart';
+import 'package:intl/intl.dart';
 
 enum RunState { planning, countdown, running, paused, finished }
 
@@ -215,6 +215,7 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
         : 'https://a.basemaps.cartocdn.com/light_all/{z}/{x}/{y}@2x.png';
 
     final isRunningPhase = _state == RunState.running || _state == RunState.paused || _state == RunState.countdown;
+    final weather = context.watch<WeatherProvider>().weather;
 
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
@@ -284,8 +285,8 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
                     if (_curPos != null)
                       Marker(
                         point: _curPos!,
-                        width: 100,
-                        height: 100,
+                        width: 48,
+                        height: 48,
                         child: AnimatedBuilder(
                           animation: _pulseAnim,
                           builder: (_, c) => Transform.scale(
@@ -295,35 +296,6 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
                           child: Stack(
                             alignment: Alignment.center,
                             children: [
-                              // Weather Overlay Label (Floating above dot)
-                              Positioned(
-                                top: 0,
-                                child: Consumer<WeatherProvider>(
-                                  builder: (context, weather, _) {
-                                    if (!weather.hasData) return const SizedBox.shrink();
-                                    return Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                      decoration: BoxDecoration(
-                                        color: Colors.black.withValues(alpha: 0.6),
-                                        borderRadius: BorderRadius.circular(12),
-                                        border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
-                                      ),
-                                      child: Row(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          Text(weather.data!.current.emoji, style: const TextStyle(fontSize: 12)),
-                                          const SizedBox(width: 4),
-                                          Text(
-                                            '${weather.data!.current.tempC.round()}°',
-                                            style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
-                                          ),
-                                        ],
-                                      ),
-                                    );
-                                  },
-                                ),
-                              ),
-                              // The Dot
                               Container(
                                 width: 48,
                                 height: 48,
@@ -357,6 +329,29 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
             ),
           ),
 
+          // ── MAP WEATHER OVERLAY ──
+          if (isRunningPhase && weather != null)
+            Positioned(
+              top: MediaQuery.of(context).padding.top + 16,
+              left: 16,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                decoration: BoxDecoration(
+                  color: isDark ? Colors.black.withValues(alpha: 0.6) : Colors.white.withValues(alpha: 0.8),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: AppColors.voltCyan.withValues(alpha: 0.3)),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(weather.condition.toLowerCase().contains('rain') ? LucideIcons.cloudRain : LucideIcons.cloudSun, size: 16, color: AppColors.voltCyan),
+                    const SizedBox(width: 8),
+                    Text('${weather.currentTemp.round()}°C', style: TextStyle(color: isDark ? Colors.white : Colors.black, fontWeight: FontWeight.bold)),
+                  ],
+                ),
+              ),
+            ),
+
           // ── 2. PRE-RUN UI ──
           if (_state == RunState.planning)
             Positioned.fill(
@@ -373,33 +368,29 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
               child: _buildFloatingPauseBtn(),
             ),
 
-            // Live Weather Stats (Wind & UV) during active run
-            Positioned(
-              top: MediaQuery.of(context).padding.top + 16,
-              left: 16,
-              child: Consumer<WeatherProvider>(
-                builder: (context, weather, _) {
-                  if (!weather.hasData) return const SizedBox.shrink();
-                  final current = weather.data!.current;
-                  return Row(
-                    children: [
-                      _weatherMiniChip(LucideIcons.wind, '${current.windSpeedKmh.round()} km/h', isDark),
-                      const SizedBox(width: 8),
-                      _weatherMiniChip(LucideIcons.sun, 'UV ${current.uvIndex}', isDark),
-                    ],
-                  );
-                },
-              ),
-            ),
-
             // Mini Elevation Strip (Anchored above metric panel)
             Positioned(
               left: 16,
               right: 16,
               bottom: size.height * 0.4, // Right above the metric panel
-              child: ElevationStripWidget(
-                data: const [0, 5, 12, 10, 25, 30, 28, 45, 40, 35, 15, 0], // Mock elevation
-                theme: theme,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  if (weather != null)
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        _smallWeatherBadge(LucideIcons.wind, '${weather.windSpeed} km/h', isDark),
+                        const SizedBox(width: 8),
+                        _smallWeatherBadge(LucideIcons.sun, 'UV ${weather.uvIndex}', isDark),
+                      ],
+                    ),
+                  const SizedBox(height: 8),
+                  ElevationStripWidget(
+                    data: const [0, 5, 12, 10, 25, 30, 28, 45, 40, 35, 15, 0], // Mock elevation
+                    theme: theme,
+                  ),
+                ],
               ),
             ),
 
@@ -483,43 +474,6 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // ── Weather & Activity Suggestion ──
-          Consumer<WeatherProvider>(
-            builder: (context, weather, _) {
-              if (!weather.hasData) return const SizedBox.shrink();
-              final current = weather.data!.current;
-              return Container(
-                margin: const EdgeInsets.only(bottom: AppSpacing.lg),
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: AppColors.solarAmber.withValues(alpha: 0.08),
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: AppColors.solarAmber.withValues(alpha: 0.2)),
-                ),
-                child: Row(
-                  children: [
-                    Text(current.emoji, style: const TextStyle(fontSize: 24)),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            '${current.tempC.round()}°C • ${current.conditionLabel}',
-                            style: TextStyle(color: theme.colorScheme.onSurface, fontWeight: FontWeight.bold, fontSize: 13),
-                          ),
-                          Text(
-                            current.activitySuggestion,
-                            style: TextStyle(color: theme.colorScheme.onSurface.withValues(alpha: 0.7), fontSize: 11),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              );
-            },
-          ),
           // Route info pill row
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
@@ -554,6 +508,42 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
             ],
           ),
           const SizedBox(height: AppSpacing.xl),
+
+          // Hourly Weather Carousel
+          if (context.watch<WeatherProvider>().weather != null) ...[
+            Text('Hourly Forecast', style: TextStyle(color: isDark ? Colors.white : Colors.black, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 8),
+            SizedBox(
+              height: 100,
+              child: ListView.builder(
+                scrollDirection: Axis.horizontal,
+                itemCount: context.watch<WeatherProvider>().weather!.hourly.length,
+                itemBuilder: (context, index) {
+                  final h = context.watch<WeatherProvider>().weather!.hourly[index];
+                  return Container(
+                    margin: const EdgeInsets.only(right: 12),
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: (isDark ? Colors.white : Colors.black).withValues(alpha: 0.05),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: (isDark ? Colors.white : Colors.black).withValues(alpha: 0.1)),
+                    ),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(DateFormat('HH:mm').format(h.time), style: TextStyle(color: (isDark ? Colors.white : Colors.black).withValues(alpha: 0.7), fontSize: 12)),
+                        const SizedBox(height: 4),
+                        Icon(h.condition.toLowerCase().contains('rain') ? LucideIcons.cloudRain : LucideIcons.sun, size: 20, color: AppColors.solarAmber),
+                        const SizedBox(height: 4),
+                        Text('${h.temp.round()}°', style: TextStyle(color: isDark ? Colors.white : Colors.black, fontWeight: FontWeight.bold)),
+                      ],
+                    ),
+                  );
+                },
+              ),
+            ),
+            const SizedBox(height: AppSpacing.xl),
+          ],
 
           // Music / audio cue row
           Container(
@@ -681,6 +671,25 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
     );
   }
 
+  Widget _smallWeatherBadge(IconData icon, String value, bool isDark) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: isDark ? Colors.black.withValues(alpha: 0.6) : Colors.white.withValues(alpha: 0.8),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.voltCyan.withValues(alpha: 0.3)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 14, color: AppColors.voltCyan),
+          const SizedBox(width: 4),
+          Text(value, style: TextStyle(color: isDark ? Colors.white : Colors.black, fontSize: 12, fontWeight: FontWeight.bold)),
+        ],
+      ),
+    );
+  }
+
   Widget _buildFloatingPauseBtn() {
     return GestureDetector(
       onLongPress: () {
@@ -734,30 +743,6 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
           const SizedBox(height: 12),
           Text(label, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800, letterSpacing: 1.5)),
         ],
-      ),
-    );
-  }
-
-  Widget _weatherMiniChip(IconData icon, String label, bool isDark) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(12),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-          decoration: BoxDecoration(
-            color: Colors.black.withValues(alpha: 0.4),
-            border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(icon, size: 14, color: Colors.white),
-              const SizedBox(width: 6),
-              Text(label, style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold)),
-            ],
-          ),
-        ),
       ),
     );
   }

@@ -1,174 +1,125 @@
-class WeatherCondition {
-  final double tempC;
-  final double tempMax;
-  final double tempMin;
+class WeatherModel {
+  final double currentTemp;
   final int weatherCode;
-  final double windSpeedKmh;
-  final int uvIndex;
-  final int humidity;
-  final double precipitation;
+  final int aqi;
+  final double windSpeed;
+  final double uvIndex;
+  final List<HourlyForecast> hourly;
+  final List<DailyForecast> daily;
+  final DateTime lastFetched;
 
-  const WeatherCondition({
-    required this.tempC,
-    required this.tempMax,
-    required this.tempMin,
+  WeatherModel({
+    required this.currentTemp,
     required this.weatherCode,
-    required this.windSpeedKmh,
+    required this.aqi,
+    required this.windSpeed,
     required this.uvIndex,
-    required this.humidity,
-    required this.precipitation,
+    required this.hourly,
+    required this.daily,
+    required this.lastFetched,
   });
 
-  String get conditionLabel {
-    if (weatherCode == 0) return 'Clear Sky';
-    if (weatherCode <= 2) return 'Partly Cloudy';
-    if (weatherCode == 3) return 'Overcast';
-    if (weatherCode <= 49) return 'Foggy';
-    if (weatherCode <= 59) return 'Drizzle';
-    if (weatherCode <= 69) return 'Rain';
-    if (weatherCode <= 79) return 'Snowfall';
-    if (weatherCode <= 84) return 'Rain Showers';
-    if (weatherCode <= 99) return 'Thunderstorm';
+  String get condition => _getConditionFromCode(weatherCode);
+  bool get isUnsafe => aqi > 150 || windSpeed > 40 || currentTemp > 40 || currentTemp < -10;
+  
+  String get suggestion {
+    if (isUnsafe) return 'Unsafe conditions! Stay indoors.';
+    if (currentTemp > 30) return 'Too hot — try swimming or indoor gym.';
+    if (weatherCode >= 60 && weatherCode <= 69) return 'Rainy — great day for yoga or indoor cycling.';
+    if (weatherCode >= 71) return 'Snowy — dress warm if you go out!';
+    return 'Great day for a run!';
+  }
+
+  static String _getConditionFromCode(int code) {
+    if (code == 0) return 'Clear';
+    if (code == 1 || code == 2 || code == 3) return 'Cloudy';
+    if (code >= 45 && code <= 48) return 'Foggy';
+    if (code >= 51 && code <= 69) return 'Rainy';
+    if (code >= 71 && code <= 77) return 'Snow';
+    if (code >= 80 && code <= 82) return 'Showers';
+    if (code >= 95 && code <= 99) return 'Thunderstorm';
     return 'Unknown';
   }
 
-  /// Returns a Unicode emoji for the weather
-  String get emoji {
-    if (weatherCode == 0) return '☀️';
-    if (weatherCode <= 2) return '⛅';
-    if (weatherCode == 3) return '☁️';
-    if (weatherCode <= 49) return '🌫️';
-    if (weatherCode <= 59) return '🌦️';
-    if (weatherCode <= 69) return '🌧️';
-    if (weatherCode <= 79) return '❄️';
-    if (weatherCode <= 84) return '🌦️';
-    if (weatherCode <= 99) return '⛈️';
-    return '🌡️';
-  }
-
-  bool get isUnsafeForOutdoor =>
-      weatherCode >= 80 || uvIndex >= 9 || windSpeedKmh > 50 || tempC > 38 || tempC < 0;
-
-  bool get isGoodForRun =>
-      !isUnsafeForOutdoor && tempC >= 10 && tempC <= 28 && weatherCode <= 3;
-
-  String get activitySuggestion {
-    if (weatherCode >= 80) return '⛈️ Storm alert — stay indoors today';
-    if (tempC > 38) return '🥵 Too hot — try swimming or indoor yoga';
-    if (tempC < 5) return '🥶 Too cold — consider an indoor workout';
-    if (uvIndex >= 9) return '☀️ Extreme UV — run early morning or evening';
-    if (windSpeedKmh > 40) return '💨 High winds — skip cycling today';
-    if (weatherCode >= 60 && weatherCode < 80) return '🌧️ Rainy day — great for indoor training';
-    if (isGoodForRun) return '🏃 Great day for a run outside!';
-    return '👍 Decent weather — any activity works';
-  }
-
   Map<String, dynamic> toJson() => {
-        'tempC': tempC,
-        'tempMax': tempMax,
-        'tempMin': tempMin,
+        'currentTemp': currentTemp,
         'weatherCode': weatherCode,
-        'windSpeedKmh': windSpeedKmh,
+        'aqi': aqi,
+        'windSpeed': windSpeed,
         'uvIndex': uvIndex,
-        'humidity': humidity,
-        'precipitation': precipitation,
+        'hourly': hourly.map((e) => e.toJson()).toList(),
+        'daily': daily.map((e) => e.toJson()).toList(),
+        'lastFetched': lastFetched.toIso8601String(),
       };
 
-  factory WeatherCondition.fromJson(Map<String, dynamic> json) => WeatherCondition(
-        tempC: (json['tempC'] as num).toDouble(),
-        tempMax: (json['tempMax'] as num).toDouble(),
-        tempMin: (json['tempMin'] as num).toDouble(),
-        weatherCode: (json['weatherCode'] as num).toInt(),
-        windSpeedKmh: (json['windSpeedKmh'] as num).toDouble(),
-        uvIndex: (json['uvIndex'] as num).toInt(),
-        humidity: (json['humidity'] as num).toInt(),
-        precipitation: (json['precipitation'] as num).toDouble(),
+  factory WeatherModel.fromJson(Map<String, dynamic> json) => WeatherModel(
+        currentTemp: (json['currentTemp'] as num).toDouble(),
+        weatherCode: json['weatherCode'] as int,
+        aqi: json['aqi'] as int,
+        windSpeed: (json['windSpeed'] as num).toDouble(),
+        uvIndex: (json['uvIndex'] as num).toDouble(),
+        hourly: (json['hourly'] as List).map((e) => HourlyForecast.fromJson(Map<String, dynamic>.from(e))).toList(),
+        daily: (json['daily'] as List).map((e) => DailyForecast.fromJson(Map<String, dynamic>.from(e))).toList(),
+        lastFetched: DateTime.parse(json['lastFetched'] as String),
       );
 }
 
-class DayForecast {
-  final String date; // yyyy-MM-dd
-  final double tempMax;
-  final double tempMin;
+class HourlyForecast {
+  final DateTime time;
+  final double temp;
   final int weatherCode;
-  final double precipitation;
+  final double uvIndex;
 
-  const DayForecast({
-    required this.date,
-    required this.tempMax,
-    required this.tempMin,
+  HourlyForecast({
+    required this.time,
+    required this.temp,
     required this.weatherCode,
-    required this.precipitation,
+    required this.uvIndex,
   });
 
-  String get emoji {
-    if (weatherCode == 0) return '☀️';
-    if (weatherCode <= 2) return '⛅';
-    if (weatherCode == 3) return '☁️';
-    if (weatherCode <= 49) return '🌫️';
-    if (weatherCode <= 59) return '🌦️';
-    if (weatherCode <= 69) return '🌧️';
-    if (weatherCode <= 79) return '❄️';
-    if (weatherCode <= 84) return '🌦️';
-    if (weatherCode <= 99) return '⛈️';
-    return '🌡️';
-  }
-
-  String get dayName {
-    final d = DateTime.parse(date);
-    const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-    return days[d.weekday - 1];
-  }
+  String get condition => WeatherModel._getConditionFromCode(weatherCode);
 
   Map<String, dynamic> toJson() => {
-        'date': date,
-        'tempMax': tempMax,
-        'tempMin': tempMin,
+        'time': time.toIso8601String(),
+        'temp': temp,
         'weatherCode': weatherCode,
-        'precipitation': precipitation,
+        'uvIndex': uvIndex,
       };
 
-  factory DayForecast.fromJson(Map<String, dynamic> json) => DayForecast(
-        date: json['date'] as String,
-        tempMax: (json['tempMax'] as num).toDouble(),
-        tempMin: (json['tempMin'] as num).toDouble(),
-        weatherCode: (json['weatherCode'] as num).toInt(),
-        precipitation: (json['precipitation'] as num).toDouble(),
+  factory HourlyForecast.fromJson(Map<String, dynamic> json) => HourlyForecast(
+        time: DateTime.parse(json['time'] as String),
+        temp: (json['temp'] as num).toDouble(),
+        weatherCode: json['weatherCode'] as int,
+        uvIndex: (json['uvIndex'] as num).toDouble(),
       );
 }
 
-class WeatherData {
-  final WeatherCondition current;
-  final List<DayForecast> forecast;
-  final DateTime fetchedAt;
-  final double lat;
-  final double lon;
+class DailyForecast {
+  final DateTime date;
+  final double maxTemp;
+  final double minTemp;
+  final int weatherCode;
 
-  const WeatherData({
-    required this.current,
-    required this.forecast,
-    required this.fetchedAt,
-    required this.lat,
-    required this.lon,
+  DailyForecast({
+    required this.date,
+    required this.maxTemp,
+    required this.minTemp,
+    required this.weatherCode,
   });
 
-  bool get isStale => DateTime.now().difference(fetchedAt).inMinutes >= 30;
+  String get condition => WeatherModel._getConditionFromCode(weatherCode);
 
   Map<String, dynamic> toJson() => {
-        'current': current.toJson(),
-        'forecast': forecast.map((f) => f.toJson()).toList(),
-        'fetchedAt': fetchedAt.toIso8601String(),
-        'lat': lat,
-        'lon': lon,
+        'date': date.toIso8601String(),
+        'maxTemp': maxTemp,
+        'minTemp': minTemp,
+        'weatherCode': weatherCode,
       };
 
-  factory WeatherData.fromJson(Map<String, dynamic> json) => WeatherData(
-        current: WeatherCondition.fromJson(json['current'] as Map<String, dynamic>),
-        forecast: (json['forecast'] as List<dynamic>)
-            .map((e) => DayForecast.fromJson(e as Map<String, dynamic>))
-            .toList(),
-        fetchedAt: DateTime.parse(json['fetchedAt'] as String),
-        lat: (json['lat'] as num).toDouble(),
-        lon: (json['lon'] as num).toDouble(),
+  factory DailyForecast.fromJson(Map<String, dynamic> json) => DailyForecast(
+        date: DateTime.parse(json['date'] as String),
+        maxTemp: (json['maxTemp'] as num).toDouble(),
+        minTemp: (json['minTemp'] as num).toDouble(),
+        weatherCode: json['weatherCode'] as int,
       );
 }

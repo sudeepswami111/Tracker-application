@@ -14,7 +14,7 @@ import 'providers/running_provider.dart';
 import 'providers/watch_metrics_provider.dart';
 import 'providers/auth_provider.dart';
 import 'providers/weather_provider.dart';
-import 'services/weather_service.dart';
+import 'providers/step_tracker_provider.dart';
 import 'theme/app_theme.dart';
 import 'app.dart';
 import 'screens/login_screen.dart';
@@ -26,7 +26,6 @@ final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Hive.initFlutter();
-  await WeatherService.init();
   final prefs = await SharedPreferences.getInstance();
   await NotificationService.init();
 
@@ -52,6 +51,7 @@ void main() async {
         ChangeNotifierProvider(create: (_) => WatchMetricsProvider()),
         ChangeNotifierProvider(create: (_) => AuthProvider()),
         ChangeNotifierProvider(create: (_) => WeatherProvider()),
+        ChangeNotifierProvider(create: (_) => StepTrackerProvider()),
       ],
       child: const LifePulseApp(),
     ),
