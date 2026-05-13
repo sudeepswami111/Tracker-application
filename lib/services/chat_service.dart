@@ -1,4 +1,6 @@
+import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../models/chat_models.dart';
 
 class ChatService {
   final _supabase = Supabase.instance.client;
@@ -6,7 +8,7 @@ class ChatService {
   String get currentUserId => _supabase.auth.currentUser?.id ?? '';
   String get currentUserName => _supabase.auth.currentUser?.email?.split('@')[0] ?? 'User';
 
-  // Fetch all channels the user has access to
+  // ── Community channels (existing) ─────────────────────────────────
   Stream<List<Map<String, dynamic>>> getChannelsStream() {
     return _supabase
         .from('channels')
@@ -14,7 +16,6 @@ class ChatService {
         .order('created_at', ascending: false);
   }
 
-  // Stream messages for a specific channel in real-time
   Stream<List<Map<String, dynamic>>> getMessagesStream(String channelId) {
     return _supabase
         .from('messages')
@@ -23,7 +24,6 @@ class ChatService {
         .order('created_at', ascending: true);
   }
 
-  // Send a new message
   Future<void> sendMessage(String channelId, String content, {String? senderNameOverride}) async {
     if (content.trim().isEmpty) return;
     await _supabase.from('messages').insert({
@@ -34,20 +34,15 @@ class ChatService {
     });
   }
 
-  // Helper: Create a private 1-on-1 coaching chat
   Future<String> createPrivateChannel(String coachName, String coachId) async {
-    // Check if channel already exists
     final response = await _supabase
         .from('channels')
         .select()
         .eq('is_private', true)
         .contains('member_ids', [currentUserId, coachId]);
 
-    if (response.isNotEmpty) {
-      return response.first['id'] as String;
-    }
+    if (response.isNotEmpty) return response.first['id'] as String;
 
-    // Create a new channel if it doesn't exist
     final newChannel = await _supabase.from('channels').insert({
       'name': coachName,
       'is_private': true,
@@ -55,5 +50,114 @@ class ChatService {
     }).select().single();
 
     return newChannel['id'] as String;
+  }
+
+  // ──────────────────────────────────────────────────────────────────
+  // 8. GET MY CHATS (1-on-1 DMs after accepted friend requests)
+  //    Mirrors JS getMyChats() exactly — explicit FK names,
+  //    maps to friend = user1 if user2 is me, else user2.
+  // ──────────────────────────────────────────────────────────────────
+  Future<List<ChatRoom>> getMyChats() async {
+    final userId = currentUserId;
+    if (userId.isEmpty) return [];
+
+    try {
+      if (kDebugMode) print('getMyChats() for userId: $userId');
+
+      final data = await _supabase
+          .from('chats')
+          .select('''
+            id,
+            user1_id,
+            user2_id,
+            created_at,
+            user1:profiles!chats_user1_id_fkey (
+              id,
+              full_name,
+              username,
+              avatar_url
+            ),
+            user2:profiles!chats_user2_id_fkey (
+              id,
+              full_name,
+              username,
+              avatar_url
+            )
+          ''')
+          .or('user1_id.eq.$userId,user2_id.eq.$userId')
+          .order('created_at', ascending: false);
+
+      if (kDebugMode) print('✅ Chats loaded: ${(data as List).length}');
+
+      return (data as List)
+          .map((e) => ChatRoom.fromJson(e as Map<String, dynamic>, userId))
+          .toList();
+    } catch (e) {
+      if (kDebugMode) print('getMyChats error: $e');
+      return [];
+    }
+  }
+
+  // ──────────────────────────────────────────────────────────────────
+  // 9. SEND DM MESSAGE  (mirrors JS sendMessage exactly)
+  // ──────────────────────────────────────────────────────────────────
+  Future<void> sendDM(String chatId, String message) async {
+    if (message.trim().isEmpty) return;
+    try {
+      await _supabase.from('messages').insert({
+        'chat_id': chatId,
+        'sender_id': currentUserId,
+        'message': message.trim(),
+      });
+    } catch (e) {
+      if (kDebugMode) print('sendDM error: $e');
+      rethrow;
+    }
+  }
+
+  // ──────────────────────────────────────────────────────────────────
+  // 10. LIVE CHAT MESSAGES  (mirrors JS useEffect realtime)
+  //    Dart uses .stream() which is equivalent to the JS:
+  //    supabase.channel(`chat-${chatId}`)
+  //      .on('postgres_changes', { event: 'INSERT', table: 'messages',
+  //           filter: `chat_id=eq.${chatId}` }, ...)
+  //      .subscribe()
+  // ──────────────────────────────────────────────────────────────────
+  Stream<List<ChatMessage>> getDMMessagesStream(String chatId) {
+    return _supabase
+        .from('messages')
+        .stream(primaryKey: ['id'])
+        .eq('chat_id', chatId)
+        .order('created_at', ascending: true)
+        .map((rows) => rows
+            .map(ChatMessage.fromJson)
+            .toList());
+  }
+
+  // Manual realtime channel (for granular control, matches JS useEffect pattern)
+  RealtimeChannel subscribeToChat(
+    String chatId, {
+    required void Function(ChatMessage msg) onNewMessage,
+  }) {
+    return _supabase
+        .channel('chat-$chatId')                   // channel(`chat-${chatId}`)
+        .onPostgresChanges(
+          event: PostgresChangeEvent.insert,        // event: 'INSERT'
+          schema: 'public',
+          table: 'messages',
+          filter: PostgresChangeFilter(
+            type: PostgresChangeFilterType.eq,
+            column: 'chat_id',                      // filter: chat_id=eq.${chatId}
+            value: chatId,
+          ),
+          callback: (payload) {
+            if (kDebugMode) print('New DM: ${payload.newRecord}');
+            final msg = ChatMessage.fromJson(payload.newRecord);
+            onNewMessage(msg);                      // setMessages(prev => [...prev, payload.new])
+          },
+        )
+        .subscribe((status, [error]) {
+          if (kDebugMode) print('Chat realtime status: $status ${error ?? ""}');
+        });
   }
 }

@@ -149,35 +149,52 @@ class FriendService {
 
   // ──────────────────────────────────────────────────────────────────
   // 3. ACCEPT FRIEND REQUEST
+  //    Mirrors JS: sort user IDs, update status, insert friendship,
+  //    insert chat room — 23505 (unique violation) ignored on both.
   // ──────────────────────────────────────────────────────────────────
   Future<bool> acceptFriendRequest(String requestId) async {
     try {
-      // Get the request
       final req = await _client
           .from('friend_requests')
           .select()
           .eq('id', requestId)
           .single();
 
-      final senderId = req['sender_id'] as String;
-      final receiverId = req['receiver_id'] as String;
+      final user1 = req['sender_id'] as String;
+      final user2 = req['receiver_id'] as String;
 
-      // Ensure user1_id < user2_id to prevent duplicate pairs
-      final user1 = senderId.compareTo(receiverId) < 0 ? senderId : receiverId;
-      final user2 = senderId.compareTo(receiverId) < 0 ? receiverId : senderId;
+      // Sort exactly like JS: [user1, user2].sort()
+      final sorted = [user1, user2]..sort();
+      final sortedUser1 = sorted[0];
+      final sortedUser2 = sorted[1];
 
-      // Update request status
+      // 1. Update request status → accepted
       await _client
           .from('friend_requests')
           .update({'status': 'accepted'})
           .eq('id', requestId);
 
-      // Create friendship (upsert to avoid duplicates)
-      await _client.from('friendships').upsert({
-        'user1_id': user1,
-        'user2_id': user2,
-      }, onConflict: 'user1_id,user2_id');
+      // 2. Create friendship (ignore 23505 duplicate)
+      try {
+        await _client.from('friendships').insert({
+          'user1_id': sortedUser1,
+          'user2_id': sortedUser2,
+        });
+      } catch (e) {
+        if (!e.toString().contains('23505')) rethrow;
+      }
 
+      // 3. Create chat room (ignore 23505 duplicate)
+      try {
+        await _client.from('chats').insert({
+          'user1_id': sortedUser1,
+          'user2_id': sortedUser2,
+        });
+      } catch (e) {
+        if (!e.toString().contains('23505')) rethrow;
+      }
+
+      if (kDebugMode) print('✅ Friend request accepted, friendship + chat created');
       return true;
     } catch (e) {
       if (kDebugMode) print('acceptFriendRequest error: $e');
@@ -186,7 +203,7 @@ class FriendService {
   }
 
   // ──────────────────────────────────────────────────────────────────
-  // 4. REJECT FRIEND REQUEST
+  // 4. REJECT FRIEND REQUEST  (mirrors JS exactly)
   // ──────────────────────────────────────────────────────────────────
   Future<bool> rejectFriendRequest(String requestId) async {
     try {
@@ -194,6 +211,7 @@ class FriendService {
           .from('friend_requests')
           .update({'status': 'rejected'})
           .eq('id', requestId);
+      if (kDebugMode) print('✅ Friend request rejected: $requestId');
       return true;
     } catch (e) {
       if (kDebugMode) print('rejectFriendRequest error: $e');

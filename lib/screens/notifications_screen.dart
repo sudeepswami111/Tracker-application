@@ -3,6 +3,8 @@ import 'package:flutter/services.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:provider/provider.dart';
 import '../providers/app_provider.dart';
+import '../providers/friend_provider.dart';
+import '../models/friend_models.dart';
 import '../theme/app_colors.dart';
 
 class NotificationsScreen extends StatefulWidget {
@@ -76,6 +78,18 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       ),
       body: Column(
         children: [
+          // ── Incoming Friend Requests ──
+          Consumer<FriendProvider>(
+            builder: (context, friends, _) {
+              if (friends.incomingRequests.isEmpty) return const SizedBox.shrink();
+              return _IncomingRequestsSection(
+                requests: friends.incomingRequests,
+                isDark: isDark,
+                theme: theme,
+              );
+            },
+          ),
+
           // ── Filter Tabs ──
           SizedBox(
             height: 48,
@@ -316,6 +330,157 @@ class _NotificationRow extends StatelessWidget {
             ],
           ],
         ),
+      ),
+    );
+  }
+}
+
+// ── Incoming Friend Requests Section ──────────────────────────────────────────
+class _IncomingRequestsSection extends StatelessWidget {
+  final List<FriendRequest> requests;
+  final bool isDark;
+  final ThemeData theme;
+
+  const _IncomingRequestsSection({
+    required this.requests,
+    required this.isDark,
+    required this.theme,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final friends = context.read<FriendProvider>();
+    return Container(
+      margin: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+      decoration: BoxDecoration(
+        color: AppColors.irisViolet.withValues(alpha: 0.06),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: AppColors.irisViolet.withValues(alpha: 0.2)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 14, 16, 8),
+            child: Row(
+              children: [
+                const Icon(LucideIcons.userPlus, color: AppColors.irisViolet, size: 16),
+                const SizedBox(width: 8),
+                Text(
+                  'Friend Requests  •  ${requests.length}',
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    color: AppColors.irisViolet,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          ...requests.map((req) {
+            final p = req.senderProfile;
+            final name = p?.fullName.isNotEmpty == true ? p!.fullName : p?.username ?? 'Unknown';
+            final initials = name.trim().split(' ').map((e) => e[0]).take(2).join().toUpperCase();
+
+            return Padding(
+              padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+              child: Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: isDark ? const Color(0xFF1A1A2E) : Colors.white,
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(
+                    color: isDark
+                        ? Colors.white.withValues(alpha: 0.06)
+                        : Colors.black.withValues(alpha: 0.05),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    // Avatar
+                    CircleAvatar(
+                      radius: 22,
+                      backgroundColor: AppColors.irisViolet.withValues(alpha: 0.15),
+                      backgroundImage: p?.avatarUrl != null && p!.avatarUrl!.isNotEmpty
+                          ? NetworkImage(p.avatarUrl!)
+                          : null,
+                      child: p?.avatarUrl == null || p!.avatarUrl!.isEmpty
+                          ? Text(initials,
+                              style: const TextStyle(
+                                  color: AppColors.irisViolet,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 13))
+                          : null,
+                    ),
+                    const SizedBox(width: 12),
+                    // Info
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(name,
+                              style: theme.textTheme.titleSmall
+                                  ?.copyWith(fontWeight: FontWeight.bold)),
+                          if (p?.fitnessGoal != null)
+                            Text(
+                              p!.fitnessGoal!,
+                              style: theme.textTheme.bodySmall
+                                  ?.copyWith(color: AppColors.textSecondary),
+                            ),
+                        ],
+                      ),
+                    ),
+                    // Reject
+                    GestureDetector(
+                      onTap: () {
+                        HapticFeedback.lightImpact();
+                        friends.rejectRequest(req.id);
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: AppColors.coral.withValues(alpha: 0.1),
+                          shape: BoxShape.circle,
+                          border: Border.all(color: AppColors.coral.withValues(alpha: 0.2)),
+                        ),
+                        child: const Icon(LucideIcons.x, size: 14, color: AppColors.coral),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    // Accept
+                    GestureDetector(
+                      onTap: () {
+                        HapticFeedback.mediumImpact();
+                        friends.acceptRequest(req.id);
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text('You are now friends with $name! 🎉'),
+                            backgroundColor: AppColors.irisViolet,
+                            behavior: SnackBarBehavior.floating,
+                          ),
+                        );
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: AppColors.voltCyan,
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: const Text(
+                          'Accept',
+                          style: TextStyle(
+                            color: Colors.black,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          }),
+        ],
       ),
     );
   }
