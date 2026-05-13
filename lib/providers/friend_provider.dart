@@ -29,6 +29,14 @@ class FriendProvider extends ChangeNotifier {
   // ─── Load everything ──────────────────────────────────────────────
   Future<void> init() async {
     final uid = _userId;
+
+    if (kDebugMode) {
+      print('═══════════════════════════════════════════');
+      print('FriendProvider.init()');
+      print('Current user ID: ${uid ?? "⚠️ NULL — not logged in!"}');
+      print('═══════════════════════════════════════════');
+    }
+
     if (uid == null) return;
 
     _state = FriendProviderState.loading;
@@ -107,21 +115,15 @@ class FriendProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  // ─── Realtime subscription ───────────────────────────────────────
+  // ─── Realtime subscription (mirrors JS useEffect cleanup pattern) ──
   void _subscribeRealtime(String uid) {
     _realtimeChannel?.unsubscribe();
-    _realtimeChannel = _service.subscribeToFriendRequests(
+    _realtimeChannel = _service.subscribeToIncomingRequests(
       uid,
-      onNew: (request) {
-        _incomingRequests.insert(0, request);
+      onAnyChange: () async {
+        // Equivalent to JS: loadIncomingRequests()
+        _incomingRequests = await _service.getIncomingRequests(uid);
         notifyListeners();
-      },
-      onUpdate: (request) {
-        final idx = _incomingRequests.indexWhere((r) => r.id == request.id);
-        if (idx >= 0) {
-          _incomingRequests[idx] = request;
-          notifyListeners();
-        }
       },
     );
   }

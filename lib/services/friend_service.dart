@@ -219,62 +219,92 @@ class FriendService {
 
   // ──────────────────────────────────────────────────────────────────
   // 6. GET INCOMING FRIEND REQUESTS
+  //    Uses explicit FK name !friend_requests_sender_id_fkey to match
+  //    the JS reference query and avoid Supabase join ambiguity.
   // ──────────────────────────────────────────────────────────────────
   Future<List<FriendRequest>> getIncomingRequests(String userId) async {
     try {
+      // ── Verify the correct receiver_id is being used ─────────────
+      if (kDebugMode) {
+        print('┌─────────────────────────────────────────────');
+        print('│ getIncomingRequests()');
+        print('│ Logged-in user (receiver_id): $userId');
+        print('│ Querying: friend_requests WHERE receiver_id = $userId AND status = pending');
+        print('└─────────────────────────────────────────────');
+      }
+
       final res = await _client
           .from('friend_requests')
-          .select('*, sender:sender_id(id, username, full_name, avatar_url, fitness_goal)')
-          .eq('receiver_id', userId)
+          .select('''
+            *,
+            sender:profiles!friend_requests_sender_id_fkey(
+              id,
+              full_name,
+              avatar_url,
+              fitness_goal
+            )
+          ''')
+          .eq('receiver_id', userId)   // ← must match the logged-in user's ID
           .eq('status', 'pending')
           .order('created_at', ascending: false);
+
+      if (kDebugMode) {
+        print('✅ Incoming requests count: ${(res as List).length}');
+        for (final r in res) {
+          print('  → id=${r['id']} sender=${r['sender']?['full_name']} status=${r['status']}');
+        }
+      }
+
       return (res as List)
           .map((e) => FriendRequest.fromJson(e as Map<String, dynamic>))
           .toList();
     } catch (e) {
-      if (kDebugMode) print('getIncomingRequests error: $e');
+      if (kDebugMode) print('❌ getIncomingRequests error: $e');
       return [];
     }
   }
 
   // ──────────────────────────────────────────────────────────────────
-  // 7. REALTIME: SUBSCRIBE TO FRIEND REQUESTS
+  // 7. REALTIME: SUBSCRIBE TO INCOMING FRIEND REQUESTS
+  //
+  //    Dart equivalent of:
+  //    supabase
+  //      .channel(`incoming-requests-${userId}`)
+  //      .on('postgres_changes', { event: '*', table: 'friend_requests',
+  //           filter: `receiver_id=eq.${userId}` }, payload => {
+  //        loadIncomingRequests();
+  //      })
+  //      .subscribe();
+  //
+  //    onAnyChange → called on INSERT, UPDATE, DELETE
+  //    (equivalent to JS payload => loadIncomingRequests())
   // ──────────────────────────────────────────────────────────────────
-  RealtimeChannel subscribeToFriendRequests(
+  RealtimeChannel subscribeToIncomingRequests(
     String userId, {
-    required void Function(FriendRequest request) onNew,
-    required void Function(FriendRequest request) onUpdate,
+    required void Function() onAnyChange,
   }) {
+    if (kDebugMode) {
+      print('Realtime: subscribing to incoming-requests-$userId');
+    }
+
     return _client
-        .channel('friend_requests_$userId')
+        .channel('incoming-requests-$userId')   // matches JS channel name exactly
         .onPostgresChanges(
-          event: PostgresChangeEvent.insert,
+          event: PostgresChangeEvent.all,         // event: '*'
           schema: 'public',
           table: 'friend_requests',
           filter: PostgresChangeFilter(
             type: PostgresChangeFilterType.eq,
-            column: 'receiver_id',
+            column: 'receiver_id',               // filter: receiver_id=eq.${userId}
             value: userId,
           ),
           callback: (payload) {
-            final req = FriendRequest.fromJson(payload.newRecord);
-            onNew(req);
+            if (kDebugMode) print('Realtime: incoming request change: ${payload.eventType} → ${payload.newRecord}');
+            onAnyChange();                        // → loadIncomingRequests()
           },
         )
-        .onPostgresChanges(
-          event: PostgresChangeEvent.update,
-          schema: 'public',
-          table: 'friend_requests',
-          filter: PostgresChangeFilter(
-            type: PostgresChangeFilterType.eq,
-            column: 'sender_id',
-            value: userId,
-          ),
-          callback: (payload) {
-            final req = FriendRequest.fromJson(payload.newRecord);
-            onUpdate(req);
-          },
-        )
-        .subscribe();
+        .subscribe((status, [error]) {
+          if (kDebugMode) print('Realtime status: $status ${error ?? ""}');
+        });
   }
 }
