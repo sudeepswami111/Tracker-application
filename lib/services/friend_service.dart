@@ -14,8 +14,8 @@ class FriendService {
   // ──────────────────────────────────────────────────────────────────
   Future<List<FriendSuggestion>> getFriendSuggestions(String userId) async {
     try {
-      // ── Run all 4 queries in parallel for speed ───────────────────
-      final results = await Future.wait([
+      // ── Run all 5 queries in parallel for speed ───────────────────
+      final results = await Future.wait<dynamic>([
         _client.from('profiles').select().eq('id', userId).maybeSingle(),
         _client.from('profiles').select().neq('id', userId),
         _client
