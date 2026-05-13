@@ -16,6 +16,7 @@ import '../widgets/dashboard_fun_widgets.dart';
 import '../widgets/view_all_plans_sheet.dart';
 import '../widgets/weather_widgets.dart';
 import 'chat_screen.dart';
+import '../widgets/friend_suggestions_card.dart';
 
 class DashboardScreen extends StatelessWidget {
   const DashboardScreen({super.key});
@@ -97,9 +98,16 @@ class DashboardScreen extends StatelessWidget {
               ),
               const SizedBox(height: AppSpacing.xl),
 
-              // 5. Community Teaser
+              // 5. Friend Suggestions
               AnimatedCardEnter(
                 index: 5,
+                child: const FriendSuggestionsCard(),
+              ),
+              const SizedBox(height: AppSpacing.xl),
+
+              // 6. Community Teaser
+              AnimatedCardEnter(
+                index: 6,
                 child: _buildCommunityTeaser(theme, isDark, context),
               ),
             ],

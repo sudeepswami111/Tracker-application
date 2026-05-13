@@ -15,6 +15,7 @@ import 'providers/watch_metrics_provider.dart';
 import 'providers/auth_provider.dart';
 import 'providers/weather_provider.dart';
 import 'providers/step_tracker_provider.dart';
+import 'providers/friend_provider.dart';
 import 'theme/app_theme.dart';
 import 'app.dart';
 import 'screens/login_screen.dart';
@@ -52,6 +53,7 @@ void main() async {
         ChangeNotifierProvider(create: (_) => AuthProvider()),
         ChangeNotifierProvider(create: (_) => WeatherProvider()),
         ChangeNotifierProvider(create: (_) => StepTrackerProvider()),
+        ChangeNotifierProvider(create: (_) => FriendProvider()),
       ],
       child: const LifePulseApp(),
     ),

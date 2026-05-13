@@ -45,3 +45,10 @@ app.*.map.json
 /android/app/release
 
 .env
+# Node / JS (should not be in a Flutter project)
+node_modules/
+node_modules
+.npm/
+package-lock.json
+yarn.lock
+package.json
