@@ -8,6 +8,12 @@ class WeatherModel {
   final List<DailyForecast> daily;
   final DateTime lastFetched;
 
+  final String cityName;
+  final String bestTime;
+  final String intensity;
+  final String hydration;
+  final bool isDay;
+
   WeatherModel({
     required this.currentTemp,
     required this.weatherCode,
@@ -17,6 +23,11 @@ class WeatherModel {
     required this.hourly,
     required this.daily,
     required this.lastFetched,
+    required this.cityName,
+    required this.bestTime,
+    required this.intensity,
+    required this.hydration,
+    required this.isDay,
   });
 
   String get condition => _getConditionFromCode(weatherCode);
@@ -31,13 +42,16 @@ class WeatherModel {
   }
 
   static String _getConditionFromCode(int code) {
-    if (code == 0) return 'Clear';
-    if (code == 1 || code == 2 || code == 3) return 'Cloudy';
-    if (code >= 45 && code <= 48) return 'Foggy';
-    if (code >= 51 && code <= 69) return 'Rainy';
-    if (code >= 71 && code <= 77) return 'Snow';
-    if (code >= 80 && code <= 82) return 'Showers';
-    if (code >= 95 && code <= 99) return 'Thunderstorm';
+    if (code == 0) return 'Clear Sky';
+    if (code == 1) return 'Mainly Clear';
+    if (code == 2) return 'Partly Cloudy';
+    if (code == 3) return 'Overcast';
+    if (code == 45 || code == 48) return 'Foggy';
+    if (code == 51 || code == 53 || code == 55) return 'Drizzle';
+    if (code == 61 || code == 63 || code == 65) return 'Rain';
+    if (code == 71 || code == 73 || code == 75) return 'Snow';
+    if (code == 80 || code == 81 || code == 82) return 'Rain Showers';
+    if (code == 95 || code == 96 || code == 99) return 'Thunderstorm';
     return 'Unknown';
   }
 
@@ -50,6 +64,11 @@ class WeatherModel {
         'hourly': hourly.map((e) => e.toJson()).toList(),
         'daily': daily.map((e) => e.toJson()).toList(),
         'lastFetched': lastFetched.toIso8601String(),
+        'cityName': cityName,
+        'bestTime': bestTime,
+        'intensity': intensity,
+        'hydration': hydration,
+        'isDay': isDay,
       };
 
   factory WeatherModel.fromJson(Map<String, dynamic> json) => WeatherModel(
@@ -61,6 +80,11 @@ class WeatherModel {
         hourly: (json['hourly'] as List).map((e) => HourlyForecast.fromJson(Map<String, dynamic>.from(e))).toList(),
         daily: (json['daily'] as List).map((e) => DailyForecast.fromJson(Map<String, dynamic>.from(e))).toList(),
         lastFetched: DateTime.parse(json['lastFetched'] as String),
+        cityName: json['cityName'] as String? ?? 'Unknown Location',
+        bestTime: json['bestTime'] as String? ?? 'Anytime',
+        intensity: json['intensity'] as String? ?? 'Moderate',
+        hydration: json['hydration'] as String? ?? 'Normal',
+        isDay: json['isDay'] as bool? ?? true,
       );
 }
 
@@ -69,12 +93,14 @@ class HourlyForecast {
   final double temp;
   final int weatherCode;
   final double uvIndex;
+  final double precipitationProbability;
 
   HourlyForecast({
     required this.time,
     required this.temp,
     required this.weatherCode,
     required this.uvIndex,
+    required this.precipitationProbability,
   });
 
   String get condition => WeatherModel._getConditionFromCode(weatherCode);
@@ -84,6 +110,7 @@ class HourlyForecast {
         'temp': temp,
         'weatherCode': weatherCode,
         'uvIndex': uvIndex,
+        'precipitationProbability': precipitationProbability,
       };
 
   factory HourlyForecast.fromJson(Map<String, dynamic> json) => HourlyForecast(
@@ -91,6 +118,7 @@ class HourlyForecast {
         temp: (json['temp'] as num).toDouble(),
         weatherCode: json['weatherCode'] as int,
         uvIndex: (json['uvIndex'] as num).toDouble(),
+        precipitationProbability: (json['precipitationProbability'] as num?)?.toDouble() ?? 0.0,
       );
 }
 

@@ -29,7 +29,7 @@ class DashboardWeatherSection extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         // 1. Combined Weather + Insights Card
-        Text("Weather & Activity", style: theme.textTheme.headlineSmall),
+        Text(weather.cityName, style: theme.textTheme.headlineSmall),
         const SizedBox(height: AppSpacing.md),
         _buildWeatherInsightCard(weather, theme, isDark),
         const SizedBox(height: AppSpacing.xl),
@@ -77,8 +77,19 @@ class DashboardWeatherSection extends StatelessWidget {
     );
   }
 
-  IconData _getIcon(String cond) {
+  IconData _getIcon(String cond, {bool isDay = true}) {
     final c = cond.toLowerCase();
+    if (c == 'clear sky') return isDay ? LucideIcons.sun : LucideIcons.moon;
+    if (c == 'mainly clear' || c == 'partly cloudy') return isDay ? LucideIcons.cloudSun : LucideIcons.cloudMoon;
+    if (c == 'overcast') return LucideIcons.cloud;
+    if (c == 'foggy') return LucideIcons.cloudFog;
+    if (c == 'drizzle') return LucideIcons.cloudDrizzle;
+    if (c == 'rain') return LucideIcons.cloudRain;
+    if (c == 'snow') return LucideIcons.snowflake;
+    if (c == 'rain showers') return LucideIcons.cloudLightning; // or cloud-rain
+    if (c == 'thunderstorm') return LucideIcons.cloudLightning;
+    
+    // Fallbacks just in case
     if (c.contains('thunder')) return LucideIcons.cloudLightning;
     if (c.contains('snow')) return LucideIcons.snowflake;
     if (c.contains('rain') || c.contains('drizzle')) return LucideIcons.cloudRain;
@@ -87,9 +98,12 @@ class DashboardWeatherSection extends StatelessWidget {
   }
 
   Color _getAqiColor(int aqi) {
-    if (aqi <= 50) return AppColors.primary; // Good
-    if (aqi <= 100) return AppColors.solarAmber; // Moderate
-    return AppColors.coral; // Unhealthy
+    if (aqi <= 50) return Colors.green; // Good
+    if (aqi <= 100) return Colors.lightGreen; // Satisfactory
+    if (aqi <= 200) return Colors.yellow; // Moderate
+    if (aqi <= 300) return Colors.orange; // Poor
+    if (aqi <= 400) return Colors.red; // Very Poor
+    return Colors.red[900] ?? Colors.red; // Severe
   }
 
   Widget _buildWeatherInsightCard(WeatherModel weather, ThemeData theme, bool isDark) {
@@ -101,31 +115,19 @@ class DashboardWeatherSection extends StatelessWidget {
     String insightTitle = "Perfect weather for a run!";
     IconData insightIcon = LucideIcons.checkCircle;
     Color insightColor = AppColors.primary;
-    String bestTime = "Anytime";
-    String intensity = "High";
-    String hydration = "Normal | Drink to thirst";
 
     if (isHot) {
       insightTitle = "Hot outside. Swim or light jog.";
       insightIcon = LucideIcons.alertTriangle;
       insightColor = AppColors.solarAmber;
-      bestTime = "After 7 PM";
-      intensity = "Moderate";
-      hydration = "High Risk | Drink 500ml/hr";
     } else if (isBadAir) {
       insightTitle = "Poor air quality. Train indoors.";
       insightIcon = LucideIcons.alertTriangle;
       insightColor = AppColors.coral;
-      bestTime = "Indoor Gym";
-      intensity = "Moderate";
-      hydration = "Normal";
     } else if (isRainy) {
       insightTitle = "Rain expected. Bring a jacket.";
       insightIcon = LucideIcons.cloudRain;
       insightColor = AppColors.voltCyan;
-      bestTime = "Indoor";
-      intensity = "Variable";
-      hydration = "Normal";
     }
 
     return Container(
@@ -140,7 +142,7 @@ class DashboardWeatherSection extends StatelessWidget {
           // ── TOP: Weather Row ──
           Row(
             children: [
-              Icon(_getIcon(weather.condition), size: 38, color: AppColors.textSecondary),
+              Icon(_getIcon(weather.condition, isDay: weather.isDay), size: 38, color: AppColors.textSecondary),
               const SizedBox(width: 14),
               Expanded(
                 child: Column(
@@ -160,7 +162,7 @@ class DashboardWeatherSection extends StatelessWidget {
                 ),
                 child: Column(
                   children: [
-                    Text('AQI', style: theme.textTheme.labelSmall?.copyWith(color: _getAqiColor(weather.aqi), fontSize: 10)),
+                    Text('AQI (IN)', style: theme.textTheme.labelSmall?.copyWith(color: _getAqiColor(weather.aqi), fontSize: 10)),
                     Text('${weather.aqi}', style: theme.textTheme.titleMedium?.copyWith(color: _getAqiColor(weather.aqi), fontWeight: FontWeight.bold, height: 1.1)),
                   ],
                 ),
@@ -191,12 +193,12 @@ class DashboardWeatherSection extends StatelessWidget {
           const SizedBox(height: AppSpacing.md),
           Row(
             children: [
-              Expanded(child: _buildInsightDetail(LucideIcons.clock, 'Best Time', bestTime, theme)),
-              Expanded(child: _buildInsightDetail(LucideIcons.activity, 'Intensity', intensity, theme)),
+              Expanded(child: _buildInsightDetail(LucideIcons.clock, 'Best Time', weather.bestTime, theme)),
+              Expanded(child: _buildInsightDetail(LucideIcons.activity, 'Intensity', weather.intensity, theme)),
             ],
           ),
           const SizedBox(height: AppSpacing.sm),
-          _buildInsightDetail(LucideIcons.droplets, 'Hydration', hydration, theme),
+          _buildInsightDetail(LucideIcons.droplets, 'Hydration', weather.hydration, theme),
         ],
       ),
     );
