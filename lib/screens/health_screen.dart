@@ -42,7 +42,7 @@ class _HealthScreenState extends State<HealthScreen> {
             days: List.generate(7, (i) => DayModel(
               date: DateTime.now().subtract(Duration(days: 3 - i)),
               state: i == 3 ? DayState.today : (i < 3 ? DayState.completed : DayState.defaultState),
-              moduleType: i % 3 == 0 ? ModuleType.fitness : ModuleType.none,
+              moduleType: ModuleType.none,
             )),
             onDaySelected: (date) {},
           ),

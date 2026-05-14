@@ -17,23 +17,8 @@ class _HistoryScreenState extends State<HistoryScreen> with SingleTickerProvider
   String _activeFilter = 'All';
   final List<String> _filters = ['All', 'Running', 'Fitness', 'Study', 'Nutrition', 'Sleep'];
 
-  // Mock data for activities
-  final List<Map<String, dynamic>> _activities = [
-    {
-      'date': 'Today, 8 May',
-      'items': [
-        {'type': 'Running', 'title': 'Morning 5K', 'detail': '5.2 km • 24:10', 'time': '07:30', 'icon': LucideIcons.footprints, 'color': AppColors.voltCyan},
-        {'type': 'Study', 'title': 'Deep Work #3', 'detail': '1h 30m • Focus', 'time': '09:00', 'icon': LucideIcons.bookOpen, 'color': AppColors.irisViolet},
-      ]
-    },
-    {
-      'date': 'Yesterday, 7 May',
-      'items': [
-        {'type': 'Fitness', 'title': 'Upper Body Power', 'detail': '45 min • 320 kcal', 'time': '18:15', 'icon': LucideIcons.dumbbell, 'color': AppColors.pulseRed},
-        {'type': 'Nutrition', 'title': 'Daily Summary', 'detail': '2,450 kcal • 120g P', 'time': '22:00', 'icon': LucideIcons.apple, 'color': AppColors.solarAmber},
-      ]
-    }
-  ];
+  // Dynamic activities (removed mock data)
+  final List<Map<String, dynamic>> _activities = [];
 
   void _showDetailSheet(Map<String, dynamic> item, bool isDark) {
     showModalBottomSheet(

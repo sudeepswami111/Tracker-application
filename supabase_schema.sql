@@ -89,12 +89,7 @@ CREATE TABLE IF NOT EXISTS public.notifications (
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
-CREATE TABLE IF NOT EXISTS public.dismissed_suggestions (
-  user_id UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
-  dismissed_user_id UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
-  dismissed_at TIMESTAMPTZ DEFAULT NOW(),
-  PRIMARY KEY(user_id, dismissed_user_id)
-);
+
 
 -- ─────────────────────────────────────────────────────────────────
 -- 3. ENABLE RLS
@@ -105,7 +100,7 @@ ALTER TABLE public.friendships ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.chats ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.messages ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.notifications ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.dismissed_suggestions ENABLE ROW LEVEL SECURITY;
+
 
 -- ─────────────────────────────────────────────────────────────────
 -- 4. SAFELY DROP AND RECREATE POLICIES
@@ -126,8 +121,7 @@ BEGIN
     DROP POLICY IF EXISTS "notifications_select" ON public.notifications;
     DROP POLICY IF EXISTS "notifications_update" ON public.notifications;
     DROP POLICY IF EXISTS "notifications_insert" ON public.notifications;
-    DROP POLICY IF EXISTS "dismissed_select" ON public.dismissed_suggestions;
-    DROP POLICY IF EXISTS "dismissed_insert" ON public.dismissed_suggestions;
+
 END $$;
 
 CREATE POLICY "profiles_select_all" ON public.profiles FOR SELECT USING (true);
@@ -150,8 +144,7 @@ CREATE POLICY "notifications_select" ON public.notifications FOR SELECT USING (a
 CREATE POLICY "notifications_update" ON public.notifications FOR UPDATE USING (auth.uid() = user_id);
 CREATE POLICY "notifications_insert" ON public.notifications FOR INSERT WITH CHECK (true);
 
-CREATE POLICY "dismissed_select" ON public.dismissed_suggestions FOR SELECT USING (auth.uid() = user_id);
-CREATE POLICY "dismissed_insert" ON public.dismissed_suggestions FOR INSERT WITH CHECK (auth.uid() = user_id);
+
 
 -- ─────────────────────────────────────────────────────────────────
 -- 5. TRIGGERS

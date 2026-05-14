@@ -319,15 +319,7 @@ class AppProvider extends ChangeNotifier {
   List<Map<String, dynamic>> dailyGoals = [];
 
   // ──── Daily Plans ────
-  List<DailyPlan> dailyPlans = [
-    DailyPlan(
-      id: 'default_1',
-      title: 'Morning Run 5K',
-      duration: '30 min',
-      kcal: '320 kcal',
-      imageUrl: 'https://images.unsplash.com/photo-1552674605-db6ffd4facb5?auto=format&fit=crop&w=150&q=80',
-    ),
-  ];
+  List<DailyPlan> dailyPlans = [];
 
   void addDailyPlan(DailyPlan plan) {
     dailyPlans.add(plan);
@@ -342,58 +334,7 @@ class AppProvider extends ChangeNotifier {
   }
 
   bool hasUnreadNotifications = true;
-  List<Map<String, dynamic>> notifications = [
-    {
-      'id': 'sample_1',
-      'type': 'Achievements',
-      'title': 'Achievement Unlocked',
-      'message': 'You earned Elite Runner! Tap to view.',
-      'time': 'Just now',
-      'icon': LucideIcons.trophy,
-      'color': const Color(0xFFF59E0B),
-      'isRead': false,
-    },
-    {
-      'id': 'sample_2',
-      'type': 'Social',
-      'title': 'Community Boost',
-      'message': 'Alex boosted your run!',
-      'time': '2m ago',
-      'icon': LucideIcons.zap,
-      'color': const Color(0xFFFF3B5C),
-      'isRead': false,
-    },
-    {
-      'id': 'sample_3',
-      'type': 'Activity',
-      'title': 'Workout Reminder',
-      'message': 'Time for your workout! You\'ve trained 3 days in a row.',
-      'time': '1h ago',
-      'icon': LucideIcons.flame,
-      'color': const Color(0xFFFF3B5C),
-      'isRead': true,
-    },
-    {
-      'id': 'sample_4',
-      'type': 'Activity',
-      'title': 'PR Badge',
-      'message': 'New personal record! Fastest 5K: 24:10.',
-      'time': 'Yesterday',
-      'icon': LucideIcons.star,
-      'color': const Color(0xFFF59E0B),
-      'isRead': true,
-    },
-    {
-      'id': 'sample_5',
-      'type': 'Reminders',
-      'title': 'Hydration Reminder',
-      'message': 'Time to hydrate! You\'re at 1.5L today.',
-      'time': 'Yesterday',
-      'icon': LucideIcons.droplets,
-      'color': const Color(0xFF00E5CC),
-      'isRead': true,
-    },
-  ];
+  List<Map<String, dynamic>> notifications = [];
 
   // ──── 2.1 History ────
   List<DailySnapshot> history = [];

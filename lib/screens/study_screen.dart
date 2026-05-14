@@ -23,16 +23,9 @@ class _StudyScreenState extends State<StudyScreen> with TickerProviderStateMixin
   Timer? _timer;
   bool _isRunning = false;
 
-  // Task list mock data
-  final List<Map<String, dynamic>> _tasks = [
-    {'id': '1', 'title': 'Read Chapter 4 (Biology)', 'priority': 'Red', 'time': '45m', 'done': false},
-    {'id': '2', 'title': 'Draft History Essay', 'priority': 'Amber', 'time': '60m', 'done': false},
-    {'id': '3', 'title': 'Review Math Notes', 'priority': 'Cyan', 'time': '30m', 'done': false},
-  ];
-
-  final List<Map<String, dynamic>> _completedTasks = [
-    {'id': '4', 'title': 'Reply to study group', 'priority': 'Cyan', 'time': '10m', 'done': true},
-  ];
+  // Task list (mock data removed)
+  final List<Map<String, dynamic>> _tasks = [];
+  final List<Map<String, dynamic>> _completedTasks = [];
   
   bool _showCompleted = false;
 
@@ -522,11 +515,11 @@ class _WeeklyChartPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final data = [45.0, 60.0, 30.0, 90.0, 120.0, 50.0, 0.0]; // Mon-Sun
-    final maxVal = 120.0;
+    final data = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]; // Mon-Sun
+    final maxVal = 1.0;
     final barWidth = 16.0;
     final spacing = (size.width - (barWidth * 7)) / 6;
-    final currentDayIndex = 4; // Mock Friday
+    final currentDayIndex = DateTime.now().weekday - 1; // Real day index
 
     final bgPaint = Paint()..color = isDark ? Colors.white.withValues(alpha: 0.1) : Colors.black.withValues(alpha: 0.05);
     final activePaint = Paint()..color = AppColors.irisViolet;
@@ -561,7 +554,7 @@ class _WeeklyChartPainter extends CustomPainter {
     }
 
     // Draw average dashed line
-    final avgHeight = size.height * 0.5; // Mock average
+    final avgHeight = 0.0; // removed mock average
     final dashPaint = Paint()
       ..color = AppColors.solarAmber.withValues(alpha: 0.6)
       ..strokeWidth = 1.5

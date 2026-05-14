@@ -70,17 +70,6 @@ class FitnessProfile {
       };
 }
 
-class FriendSuggestion {
-  final FitnessProfile profile;
-  final int matchScore;
-  final List<String> matchReasons;
-
-  const FriendSuggestion({
-    required this.profile,
-    required this.matchScore,
-    required this.matchReasons,
-  });
-}
 
 class FriendRequest {
   final String id;

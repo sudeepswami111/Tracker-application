@@ -50,12 +50,7 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
   int _countdown = 3;
   
   // Mock Route for Pre-run
-  final List<LatLng> _mockPreRunRoute = const [
-    LatLng(20.5937, 78.9629),
-    LatLng(20.5947, 78.9639),
-    LatLng(20.5957, 78.9630),
-    LatLng(20.5967, 78.9645),
-  ];
+  final List<LatLng> _mockPreRunRoute = const [];
 
   String _selectedRunType = 'Outdoor Run';
   bool _audioPrompts = true;
@@ -388,7 +383,7 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
                     ),
                   const SizedBox(height: 8),
                   ElevationStripWidget(
-                    data: const [0, 5, 12, 10, 25, 30, 28, 45, 40, 35, 15, 0], // Mock elevation
+                    data: const [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], // removed mock elevation
                     theme: theme,
                   ),
                 ],
@@ -404,7 +399,7 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
               child: LiveRunMetricPanel(
                 pace: _fmtPace(_paceMin),
                 distance: _distKm.toStringAsFixed(2),
-                bpm: 145, // Mock BPM
+                bpm: 0, // removed mock BPM
                 duration: _fmtDur(_durSecs),
               ),
             ),

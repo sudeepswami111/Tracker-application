@@ -8,16 +8,14 @@ enum FriendProviderState { idle, loading, loaded, error }
 class FriendProvider extends ChangeNotifier {
   final FriendService _service = FriendService();
 
-  List<FriendSuggestion> _suggestions = [];
   List<FriendRequest> _incomingRequests = [];
   final Set<String> _sentRequestIds = {};
-  final Set<String> _dismissedIds = {};
 
   FriendProviderState _state = FriendProviderState.idle;
   String _error = '';
   RealtimeChannel? _realtimeChannel;
 
-  List<FriendSuggestion> get suggestions => _suggestions;
+
   List<FriendRequest> get incomingRequests => _incomingRequests;
   Set<String> get sentRequestIds => _sentRequestIds;
   FriendProviderState get state => _state;
@@ -44,11 +42,9 @@ class FriendProvider extends ChangeNotifier {
 
     try {
       final results = await Future.wait([
-        _service.getFriendSuggestions(uid),
         _service.getIncomingRequests(uid),
       ]);
-      _suggestions = results[0] as List<FriendSuggestion>;
-      _incomingRequests = results[1] as List<FriendRequest>;
+      _incomingRequests = results[0] as List<FriendRequest>;
       _state = FriendProviderState.loaded;
 
       _subscribeRealtime(uid);
@@ -77,17 +73,6 @@ class FriendProvider extends ChangeNotifier {
     }
   }
 
-  // ─── Dismiss a suggestion ────────────────────────────────────────
-  Future<void> dismiss(String profileId) async {
-    final uid = _userId;
-    if (uid == null) return;
-
-    _dismissedIds.add(profileId);
-    _suggestions.removeWhere((s) => s.profile.id == profileId);
-    notifyListeners();
-
-    await _service.dismissSuggestion(uid, profileId);
-  }
 
   // ─── Accept incoming request ─────────────────────────────────────
   Future<void> acceptRequest(String requestId) async {
@@ -107,13 +92,6 @@ class FriendProvider extends ChangeNotifier {
     }
   }
 
-  // ─── Refresh suggestions ─────────────────────────────────────────
-  Future<void> refreshSuggestions() async {
-    final uid = _userId;
-    if (uid == null) return;
-    _suggestions = await _service.getFriendSuggestions(uid);
-    notifyListeners();
-  }
 
   // ─── Realtime subscription (mirrors JS useEffect cleanup pattern) ──
   void _subscribeRealtime(String uid) {

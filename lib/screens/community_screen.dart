@@ -4,7 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_spacing.dart';
-import 'chat_inbox_screen.dart';
+import 'dm_chat_screen.dart';
 
 // ====================================================
 // PREMIUM COMMUNITY FEED
@@ -123,7 +123,7 @@ class _CommunityScreenState extends State<CommunityScreen> with SingleTickerProv
                               Navigator.push(
                                 context,
                                 PageRouteBuilder(
-                                  pageBuilder: (context, animation, secondaryAnimation) => const ChatInboxScreen(),
+                                  pageBuilder: (context, animation, secondaryAnimation) => const DMListScreen(),
                                   transitionsBuilder: (context, animation, secondaryAnimation, child) {
                                     return SlideTransition(
                                       position: Tween<Offset>(begin: const Offset(1, 0), end: Offset.zero)
@@ -223,27 +223,7 @@ class _CommunityScreenState extends State<CommunityScreen> with SingleTickerProv
                           padding: const EdgeInsets.symmetric(horizontal: AppSpacing.screenMargin),
                           scrollDirection: Axis.horizontal,
                           physics: const BouncingScrollPhysics(),
-                          children: [
-                            _PremiumChallengeCard(
-                              title: '100km Run Club',
-                              progress: 65,
-                              total: 100,
-                              unit: 'km',
-                              gradient: AppColors.gradientAmber,
-                              icon: LucideIcons.flame,
-                              participants: '12.4k',
-                            ),
-                            const SizedBox(width: 16),
-                            _PremiumChallengeCard(
-                              title: 'May Meditation',
-                              progress: 4,
-                              total: 10,
-                              unit: 'hrs',
-                              gradient: AppColors.gradientCyan,
-                              icon: LucideIcons.sparkles,
-                              participants: '8.2k',
-                            ),
-                          ],
+                          children: [], // removed dummy challenges
                         ),
                       ),
                       const SizedBox(height: AppSpacing.xl),
@@ -262,7 +242,7 @@ class _CommunityScreenState extends State<CommunityScreen> with SingleTickerProv
                         child: _PremiumFeedCard(index: index, isDark: isDark, theme: theme),
                       );
                     },
-                    childCount: 8,
+                    childCount: 0, // removed dummy posts
                   ),
                 ),
               ),

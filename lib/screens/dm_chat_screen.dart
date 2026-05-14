@@ -79,8 +79,7 @@ class _DMListScreenState extends State<DMListScreen> {
 
   Widget _buildChatTile(ChatRoom chat, ThemeData theme, bool isDark, bool isOnline) {
     final friend = chat.friend;
-    final bool hasUnread = chat.chatId.hashCode % 2 != 0; // Mocking unread for premium UI demo
-
+    final bool hasUnread = false; // TODO: Implement real unread status
     return GestureDetector(
       onTap: () {
         HapticFeedback.selectionClick();
@@ -151,7 +150,7 @@ class _DMListScreenState extends State<DMListScreen> {
                         ),
                       ),
                       Text(
-                        '12m', // mock timestamp
+                        '', // removed mock timestamp
                         style: TextStyle(
                           color: hasUnread ? AppColors.irisViolet : AppColors.textSecondary,
                           fontSize: 12,

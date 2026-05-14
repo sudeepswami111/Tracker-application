@@ -197,9 +197,9 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
                         Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            Text('248 Followers', style: theme.textTheme.labelSmall?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
+                            Text('0 Followers', style: theme.textTheme.labelSmall?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
                             const SizedBox(width: 12),
-                            Text('112 Following', style: theme.textTheme.labelSmall?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
+                            Text('0 Following', style: theme.textTheme.labelSmall?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
                           ],
                         ),
                       ],
@@ -220,9 +220,9 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                     children: [
-                      _statPill(LucideIcons.footprints, '34', 'Runs', theme, isDark),
-                      _statPill(LucideIcons.bookOpen, '142h', 'Study', theme, isDark),
-                      _statPill(LucideIcons.messageSquare, '89', 'Posts', theme, isDark),
+                       _statPill(LucideIcons.footprints, '0', 'Runs', theme, isDark),
+                      _statPill(LucideIcons.bookOpen, '0h', 'Study', theme, isDark),
+                      _statPill(LucideIcons.messageSquare, '0', 'Posts', theme, isDark),
                     ],
                   ),
                   const SizedBox(height: 24),
@@ -239,7 +239,7 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
                         const SizedBox(width: 12),
                         _streakBadgeCard('Study', app.studyStreak, app.longestStreak, AppColors.irisViolet, isDark),
                         const SizedBox(width: 12),
-                        _streakBadgeCard('Nutrition', 7, 14, AppColors.solarAmber, isDark), // Mock values
+                        _streakBadgeCard('Nutrition', 0, 0, AppColors.solarAmber, isDark), // Mock values removed
                       ],
                     ),
                   ),
@@ -299,7 +299,7 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
                     'Nutrition', 
                     LucideIcons.apple, 
                     AppColors.solarAmber, 
-                    {'Avg Calories': '2,450', 'Macro Adherence': '88%'}, 
+                    {'Avg Calories': '0', 'Macro Adherence': '0%'}, 
                     isDark
                   ),
                   const SizedBox(height: 24),
