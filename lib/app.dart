@@ -7,7 +7,7 @@ import 'providers/app_provider.dart';
 import 'providers/auth_provider.dart';
 import 'screens/dashboard_screen.dart';
 import 'screens/running_screen.dart';
-import 'screens/health_fitness_screen.dart';
+import 'screens/health_screen.dart';
 import 'screens/study_screen.dart';
 import 'screens/history_screen.dart';
 import 'screens/profile_screen.dart';
@@ -39,7 +39,7 @@ class _AppShellState extends State<AppShell> {
 
   List<Widget> get _screens => [
     const DashboardScreen(),
-    const HealthFitnessScreen(),
+    const HealthScreen(),
     RunningScreen(onFullscreenChanged: (v) => setState(() => _isMapFullscreen = v)),
     const CommunityScreen(),
     const StudyScreen(),

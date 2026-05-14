@@ -15,6 +15,7 @@ import '../widgets/glass_card.dart';
 import 'package:provider/provider.dart';
 import '../providers/weather_provider.dart';
 import 'package:intl/intl.dart';
+import 'fitness_screen.dart';
 
 enum RunState { planning, countdown, running, paused, finished }
 
@@ -599,6 +600,13 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
               child: const Text('START RUN', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, letterSpacing: 1.2)),
             ),
           ),
+          const SizedBox(height: 32),
+          
+          // ── FITNESS SECTION INTEGRATION ──
+          const Divider(height: 1, color: Colors.white10),
+          const SizedBox(height: 16),
+          const FitnessScreen(),
+          
           const SizedBox(height: 100), // Padding for bottom nav
         ],
       ),
