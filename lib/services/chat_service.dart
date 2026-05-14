@@ -160,4 +160,83 @@ class ChatService {
           if (kDebugMode) print('Chat realtime status: $status ${error ?? ""}');
         });
   }
+
+  // ──────────────────────────────────────────────────────────────────
+  // 11. MARK MESSAGES AS READ
+  // ──────────────────────────────────────────────────────────────────
+  Future<void> markAsRead(String chatId) async {
+    final userId = currentUserId;
+    if (userId.isEmpty) return;
+    try {
+      await _supabase
+          .from('messages')
+          .update({
+            'is_read': true, 
+            'read_at': DateTime.now().toIso8601String()
+          })
+          .eq('chat_id', chatId)
+          .neq('sender_id', userId)
+          .eq('is_read', false);
+    } catch (e) {
+      if (kDebugMode) print('markAsRead error: $e');
+    }
+  }
+
+  // ──────────────────────────────────────────────────────────────────
+  // 12. PRESENCE (TYPING INDICATORS & ONLINE STATUS)
+  // ──────────────────────────────────────────────────────────────────
+  RealtimeChannel subscribeToPresence(
+    String chatId, {
+    required void Function(List<String> typingUsers) onTypingChanged,
+    required void Function(List<String> onlineUsers) onOnlineChanged,
+  }) {
+    final userId = currentUserId;
+    final channel = _supabase.channel('presence_$chatId');
+
+    channel
+        .onPresenceSync((payload) {
+          final state = channel.presenceState();
+          final typingUsers = <String>[];
+          final onlineUsers = <String>[];
+          
+          for (final stateObj in state) {
+            for (final p in stateObj.presences) {
+              final payload = p.payload;
+              if (payload['userId'] != null) {
+                onlineUsers.add(payload['userId'] as String);
+                if (payload['isTyping'] == true && payload['userId'] != userId) {
+                  typingUsers.add(payload['userId'] as String);
+                }
+              }
+            }
+          }
+          onTypingChanged(typingUsers);
+          onOnlineChanged(onlineUsers);
+        })
+        .subscribe((status, [error]) async {
+          if (status == RealtimeSubscribeStatus.subscribed) {
+            await channel.track({
+              'userId': userId, 
+              'isTyping': false, 
+              'online': true
+            });
+          }
+        });
+
+    return channel;
+  }
+
+  Future<void> setTyping(RealtimeChannel channel, bool isTyping) async {
+    final userId = currentUserId;
+    if (userId.isEmpty) return;
+    try {
+      await channel.track({
+        'userId': userId, 
+        'isTyping': isTyping, 
+        'online': true
+      });
+    } catch (e) {
+      // Ignore presence track errors if channel is disconnected
+    }
+  }
 }

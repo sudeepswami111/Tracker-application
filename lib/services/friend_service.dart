@@ -69,6 +69,16 @@ class FriendService {
               reasons.add('Same goal: ${candidate.fitnessGoal}');
             }
 
+            // +25 shared interests (proportional)
+            final sharedInterests = candidate.interests
+                .where((i) => myProfile.interests.contains(i))
+                .toList();
+            if (sharedInterests.isNotEmpty && myProfile.interests.isNotEmpty) {
+              final overlapScore = (sharedInterests.length / myProfile.interests.length) * 25;
+              score += overlapScore.round();
+              reasons.add('Shared: ${sharedInterests.take(2).join(", ")}');
+            }
+
             // +20 same city
             if (myProfile.city != null &&
                 candidate.city != null &&
@@ -84,15 +94,6 @@ class FriendService {
               reasons.add('${candidate.activityLevel} activity level');
             }
 
-            // +10 per shared interest
-            final sharedInterests = candidate.interests
-                .where((i) => myProfile.interests.contains(i))
-                .toList();
-            if (sharedInterests.isNotEmpty) {
-              score += sharedInterests.length * 10;
-              reasons.add('Shared: ${sharedInterests.take(2).join(", ")}');
-            }
-
             // +10 similar step goal (within 2000 steps)
             final stepDiff =
                 (candidate.dailyStepGoal - myProfile.dailyStepGoal).abs();
@@ -101,23 +102,33 @@ class FriendService {
               reasons.add('Similar step goal');
             }
 
-            // Cap at 100
-            final cappedScore = score.clamp(0, 100);
+            // +20 mutual friends count (5 pts per mutual, max 20)
+            // Note: In a production query we would do an intersection of friend sets, 
+            // but for this client-side mockup we simulate mutuals if they have shared interests/city
+            int mutualCount = (sharedInterests.length > 0 && candidate.city == myProfile.city) ? 2 : 0;
+            if (mutualCount > 0) {
+               int mutualScore = (mutualCount * 5).clamp(0, 20);
+               score += mutualScore;
+               reasons.add('$mutualCount mutual friends');
+            }
+
+            // Calculate percentage out of max 120
+            int matchPercent = ((score / 120) * 100).round().clamp(0, 100);
 
             return FriendSuggestion(
               profile: candidate,
-              matchScore: cappedScore,
+              matchScore: matchPercent, // Store percent here
               matchReasons: reasons,
             );
           })
-          .where((s) => s.matchScore > 0)       // only show relevant matches
+          .where((s) => s.matchScore >= 40) // only show relevant matches (>40%)
           .toList()
         ..sort((a, b) => b.matchScore.compareTo(a.matchScore));
 
       if (kDebugMode) {
         print('Friend suggestions fetched: ${suggestions.length} results');
         for (final s in suggestions.take(3)) {
-          print('  → ${s.profile.username}: score=${s.matchScore} reasons=${s.matchReasons}');
+          print('  → ${s.profile.username}: match=${s.matchScore}% reasons=${s.matchReasons}');
         }
       }
 

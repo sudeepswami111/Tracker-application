@@ -71,6 +71,7 @@ class ChatMessage {
   final String chatId;
   final String senderId;
   final String message;
+  final bool isRead;
   final DateTime createdAt;
 
   const ChatMessage({
@@ -78,6 +79,7 @@ class ChatMessage {
     required this.chatId,
     required this.senderId,
     required this.message,
+    this.isRead = false,
     required this.createdAt,
   });
 
@@ -87,6 +89,7 @@ class ChatMessage {
       chatId: json['chat_id'] as String,
       senderId: json['sender_id'] as String,
       message: json['message'] as String? ?? '',
+      isRead: json['is_read'] as bool? ?? false,
       createdAt: DateTime.tryParse(json['created_at'] as String? ?? '') ?? DateTime.now(),
     );
   }

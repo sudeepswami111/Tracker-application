@@ -1,6 +1,8 @@
 import 'dart:ui';
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import '../models/chat_models.dart';
 import '../services/chat_service.dart';
@@ -231,18 +233,62 @@ class _DMChatScreenState extends State<DMChatScreen> {
   late final Stream<List<ChatMessage>> _stream;
   bool _hasText = false;
 
+  // Realtime Presence State
+  Timer? _typingTimer;
+  bool _isFriendTyping = false;
+  bool _isFriendOnline = false;
+  dynamic _presenceChannel; // RealtimeChannel
+
   @override
   void initState() {
     super.initState();
     _stream = _service.getDMMessagesStream(widget.chatRoom.chatId);
+    
+    // Mark messages as read when opening
+    _service.markAsRead(widget.chatRoom.chatId);
+
+    // Subscribe to typing and online status
+    _presenceChannel = _service.subscribeToPresence(
+      widget.chatRoom.chatId,
+      onTypingChanged: (typingUsers) {
+        if (mounted) {
+          setState(() {
+            _isFriendTyping = typingUsers.contains(widget.chatRoom.friend.id);
+            if (_isFriendTyping) _scrollToBottom();
+          });
+        }
+      },
+      onOnlineChanged: (onlineUsers) {
+        if (mounted) {
+          setState(() {
+            _isFriendOnline = onlineUsers.contains(widget.chatRoom.friend.id);
+          });
+        }
+      },
+    );
+
     _ctrl.addListener(() {
       final has = _ctrl.text.trim().isNotEmpty;
       if (has != _hasText) setState(() => _hasText = has);
+
+      // Typing debouncer
+      if (_presenceChannel != null) {
+        _service.setTyping(_presenceChannel!, true);
+        _typingTimer?.cancel();
+        _typingTimer = Timer(const Duration(seconds: 2), () {
+          _service.setTyping(_presenceChannel!, false);
+        });
+      }
     });
   }
 
   @override
   void dispose() {
+    _typingTimer?.cancel();
+    if (_presenceChannel != null) {
+      _service.setTyping(_presenceChannel!, false);
+      Supabase.instance.client.removeChannel(_presenceChannel!);
+    }
     _ctrl.dispose();
     _scroll.dispose();
     super.dispose();
@@ -303,6 +349,7 @@ class _DMChatScreenState extends State<DMChatScreen> {
               },
             ),
           ),
+          if (_isFriendTyping) _buildTypingIndicator(theme, isDark, friend),
           _buildInputArea(theme, isDark),
         ],
       ),
@@ -331,10 +378,11 @@ class _DMChatScreenState extends State<DMChatScreen> {
                 backgroundImage: friend.avatarUrl != null && friend.avatarUrl!.isNotEmpty ? NetworkImage(friend.avatarUrl!) : null,
                 child: friend.avatarUrl == null || friend.avatarUrl!.isEmpty ? Text(friend.initials, style: const TextStyle(color: AppColors.irisViolet, fontWeight: FontWeight.bold, fontSize: 12)) : null,
               ),
-              Positioned(
-                right: -2, bottom: -2,
-                child: Container(width: 10, height: 10, decoration: BoxDecoration(color: AppColors.voltCyan, shape: BoxShape.circle, border: Border.all(color: theme.scaffoldBackgroundColor, width: 2))),
-              ),
+              if (_isFriendOnline)
+                Positioned(
+                  right: -2, bottom: -2,
+                  child: Container(width: 10, height: 10, decoration: BoxDecoration(color: AppColors.voltCyan, shape: BoxShape.circle, border: Border.all(color: theme.scaffoldBackgroundColor, width: 2))),
+                ),
             ],
           ),
           const SizedBox(width: 12),
@@ -342,7 +390,7 @@ class _DMChatScreenState extends State<DMChatScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(friend.displayName, style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold, fontSize: 16)),
-              const Text('Active now', style: TextStyle(color: AppColors.voltCyan, fontSize: 12, fontWeight: FontWeight.w500)),
+              Text(_isFriendOnline ? 'Active now' : 'Offline', style: TextStyle(color: _isFriendOnline ? AppColors.voltCyan : AppColors.textSecondary, fontSize: 12, fontWeight: FontWeight.w500)),
             ],
           ),
         ],
@@ -414,7 +462,7 @@ class _DMChatScreenState extends State<DMChatScreen> {
                 ),
                 if (isMe) ...[
                   const SizedBox(width: 4),
-                  const Icon(LucideIcons.checkCheck, size: 12, color: Colors.white70),
+                  Icon(LucideIcons.checkCheck, size: 12, color: msg.isRead ? AppColors.voltCyan : Colors.white70),
                 ],
               ],
             ),
@@ -495,6 +543,33 @@ class _DMChatScreenState extends State<DMChatScreen> {
             ),
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildTypingIndicator(ThemeData theme, bool isDark, ChatFriend friend) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      alignment: Alignment.centerLeft,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          CircleAvatar(
+            radius: 12,
+            backgroundImage: friend.avatarUrl != null ? NetworkImage(friend.avatarUrl!) : null,
+            backgroundColor: AppColors.irisViolet.withValues(alpha: 0.2),
+          ),
+          const SizedBox(width: 8),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              color: isDark ? AppColors.surfaceElevated : Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.black.withValues(alpha: 0.05)),
+            ),
+            child: Text('typing...', style: TextStyle(color: AppColors.textSecondary, fontSize: 12, fontStyle: FontStyle.italic)),
+          ),
+        ],
       ),
     );
   }
