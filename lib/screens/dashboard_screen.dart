@@ -96,7 +96,6 @@ class DashboardScreen extends StatelessWidget {
               ),
               const SizedBox(height: AppSpacing.xl),
 
-
               // 6. Community Teaser
               AnimatedCardEnter(
                 index: 6,

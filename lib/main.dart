@@ -52,7 +52,13 @@ void main() async {
         ChangeNotifierProvider(create: (_) => WatchMetricsProvider()),
         ChangeNotifierProvider(create: (_) => AuthProvider()),
         ChangeNotifierProvider(create: (_) => WeatherProvider()),
-        ChangeNotifierProvider(create: (_) => StepTrackerProvider()),
+        ChangeNotifierProxyProvider<AppProvider, StepTrackerProvider>(
+          create: (context) => StepTrackerProvider(),
+          update: (context, appProvider, stepTracker) {
+            stepTracker?.setAppProvider(appProvider);
+            return stepTracker ?? StepTrackerProvider();
+          },
+        ),
         ChangeNotifierProvider(create: (_) => FriendProvider()),
       ],
       child: const LifePulseApp(),

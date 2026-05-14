@@ -1,10 +1,20 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import 'package:pedometer/pedometer.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'app_provider.dart';
 
-class StepTrackerProvider extends ChangeNotifier {
+class StepTrackerProvider extends ChangeNotifier with WidgetsBindingObserver {
+  static const int _streakStepThreshold = 1000; // Change this value if needed
+  bool _streakRecordedToday = false;
+  AppProvider? _appProvider;
+
+  void setAppProvider(AppProvider appProvider) {
+    _appProvider = appProvider;
+  }
+
   late Stream<StepCount> _stepCountStream;
   late Stream<PedestrianStatus> _pedestrianStatusStream;
   StreamSubscription<StepCount>? _stepCountSub;
@@ -34,8 +44,37 @@ class StepTrackerProvider extends ChangeNotifier {
   double get distance => (_steps * 0.00078); // ~0.78 meters per step = 0.00078 km
   int get activeMinutes => (_steps / 100).round(); // ~100 steps per active minute
 
+  Timer? _midnightTimer;
+
   StepTrackerProvider() {
     _initPlatformState();
+    WidgetsBinding.instance.addObserver(this);
+    _startMidnightTimer();
+  }
+
+  void _startMidnightTimer() {
+    _midnightTimer = Timer.periodic(const Duration(minutes: 1), (_) => _checkDayReset());
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _checkDayReset();
+    }
+  }
+
+  void _checkDayReset() async {
+    final todayStr = DateTime.now().toIso8601String().substring(0, 10);
+    if (_lastSavedDate.isNotEmpty && _lastSavedDate != todayStr) {
+      _initialStepsForDay = -1;
+      _steps = 0;
+      _streakRecordedToday = false;
+      _lastSavedDate = todayStr;
+      
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('lastSavedDate', _lastSavedDate);
+      notifyListeners();
+    }
   }
 
   Future<void> _initPlatformState() async {
@@ -92,6 +131,7 @@ class StepTrackerProvider extends ChangeNotifier {
     if (_initialStepsForDay == -1 || _lastSavedDate != todayStr) {
       _initialStepsForDay = event.steps;
       _lastSavedDate = todayStr;
+      _streakRecordedToday = false;
       await prefs.setInt('initialSteps', _initialStepsForDay);
       await prefs.setString('lastSavedDate', _lastSavedDate);
     }
@@ -105,6 +145,14 @@ class StepTrackerProvider extends ChangeNotifier {
     }
 
     _steps = currentSteps;
+    
+    // NEW: Auto-validate streak when step threshold is crossed
+    if (!_streakRecordedToday && _steps >= _streakStepThreshold && _appProvider != null) {
+      _streakRecordedToday = true;
+      _appProvider!.recordActivity();
+      if (kDebugMode) print('Streak recorded via steps: $_steps steps');
+    }
+
     notifyListeners();
     
     if (kDebugMode) print('Live steps updated: $_steps');
@@ -130,6 +178,8 @@ class StepTrackerProvider extends ChangeNotifier {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _midnightTimer?.cancel();
     _stepCountSub?.cancel();
     _pedestrianStatusSub?.cancel();
     super.dispose();
