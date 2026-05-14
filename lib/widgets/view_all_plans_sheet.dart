@@ -3,7 +3,6 @@ import 'package:lucide_icons/lucide_icons.dart';
 import 'package:provider/provider.dart';
 
 import '../providers/app_provider.dart';
-import '../theme/app_colors.dart';
 import '../theme/app_spacing.dart';
 import 'daily_plan_tile.dart';
 

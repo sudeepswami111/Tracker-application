@@ -44,7 +44,7 @@ class FriendProvider extends ChangeNotifier {
       final results = await Future.wait([
         _service.getIncomingRequests(uid),
       ]);
-      _incomingRequests = results[0] as List<FriendRequest>;
+      _incomingRequests = results[0];
       _state = FriendProviderState.loaded;
 
       _subscribeRealtime(uid);

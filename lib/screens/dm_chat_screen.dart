@@ -79,7 +79,6 @@ class _DMListScreenState extends State<DMListScreen> {
 
   Widget _buildChatTile(ChatRoom chat, ThemeData theme, bool isDark, bool isOnline) {
     final friend = chat.friend;
-    final bool hasUnread = false; // TODO: Implement real unread status
     return GestureDetector(
       onTap: () {
         HapticFeedback.selectionClick();
@@ -146,15 +145,15 @@ class _DMListScreenState extends State<DMListScreen> {
                       Text(
                         friend.displayName,
                         style: theme.textTheme.titleMedium?.copyWith(
-                          fontWeight: hasUnread ? FontWeight.bold : FontWeight.w600,
+                          fontWeight: FontWeight.w600,
                         ),
                       ),
                       Text(
                         '', // removed mock timestamp
-                        style: TextStyle(
-                          color: hasUnread ? AppColors.irisViolet : AppColors.textSecondary,
+                        style: const TextStyle(
+                          color: AppColors.textSecondary,
                           fontSize: 12,
-                          fontWeight: hasUnread ? FontWeight.bold : FontWeight.normal,
+                          fontWeight: FontWeight.normal,
                         ),
                       ),
                     ],
@@ -168,18 +167,11 @@ class _DMListScreenState extends State<DMListScreen> {
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: theme.textTheme.bodyMedium?.copyWith(
-                            color: hasUnread ? theme.colorScheme.onSurface : AppColors.textSecondary,
-                            fontWeight: hasUnread ? FontWeight.bold : FontWeight.normal,
+                            color: AppColors.textSecondary,
+                            fontWeight: FontWeight.normal,
                           ),
                         ),
                       ),
-                      if (hasUnread)
-                        Container(
-                          margin: const EdgeInsets.only(left: 8),
-                          padding: const EdgeInsets.all(6),
-                          decoration: const BoxDecoration(color: AppColors.irisViolet, shape: BoxShape.circle),
-                          child: const Text('1', style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
-                        ),
                     ],
                   ),
                 ],

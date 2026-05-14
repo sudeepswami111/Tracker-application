@@ -11,7 +11,7 @@ class StepTrackerProvider extends ChangeNotifier {
   StreamSubscription<PedestrianStatus>? _pedestrianStatusSub;
 
   int _steps = 0;
-  int _dailyGoal = 10000;
+  final int _dailyGoal = 10000;
   String _status = 'stopped';
   bool _isAvailable = false;
   bool _permissionGranted = false;
@@ -115,13 +115,13 @@ class StepTrackerProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  void onPedestrianStatusError(error) {
+  void onPedestrianStatusError(Object error) {
     if (kDebugMode) print('Pedestrian Status Error: $error');
     _status = 'unknown';
     notifyListeners();
   }
 
-  void onStepCountError(error) {
+  void onStepCountError(Object error) {
     if (kDebugMode) print('Step Count Error: $error');
     _isAvailable = false;
     _error = "Step tracking not supported on this device";

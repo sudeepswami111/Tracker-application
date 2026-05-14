@@ -39,7 +39,7 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
   Duration _pausedDur = Duration.zero;
   DateTime? _pauseStart;
   
-  double _distKm = 0, _speedKmh = 0, _paceMin = 0;
+  double _distKm = 0, _paceMin = 0;
   int _calories = 0, _durSecs = 0;
   
   // Animation for pulsing user dot
@@ -95,7 +95,6 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
     final spd = p.speed * 3.6;
     setState(() {
       _distKm = d;
-      _speedKmh = spd;
       _paceMin = spd > 0.5 ? 60.0 / spd : 0;
       _calories = (d * 65).round();
     });
@@ -176,7 +175,6 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
       _state = RunState.planning;
       _gpsRoute.clear();
       _distKm = 0;
-      _speedKmh = 0;
       _paceMin = 0;
       _calories = 0;
       _durSecs = 0;
@@ -573,7 +571,7 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
                 Switch(
                   value: _audioPrompts,
                   onChanged: (v) => setState(() => _audioPrompts = v),
-                  activeColor: AppColors.pulseRed,
+                  activeTrackColor: AppColors.pulseRed,
                 ),
               ],
             ),

@@ -101,7 +101,7 @@ class MetricRingCard extends StatelessWidget {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(
-                      this.value,
+                      value,
                       style: theme.textTheme.displayLarge,
                     ),
                     Text(

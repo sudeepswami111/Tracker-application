@@ -1,5 +1,4 @@
 import 'dart:io';
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -23,7 +22,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   bool _workoutReminders = true;
   bool _studyReminders = false;
   double _dailyStepsGoal = 10000;
-  double _calorieBudget = 2400;
+  final double _calorieBudget = 2400;
   int _pomodoroDuration = 25;
 
   @override
@@ -95,7 +94,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               children: [
                 _settingsRow(LucideIcons.heartPulse, 'Health Connect', Switch.adaptive(
                   value: _healthKitConnected,
-                  activeColor: AppColors.voltCyan,
+                  activeTrackColor: AppColors.voltCyan,
                   onChanged: (v) => setState(() => _healthKitConnected = v),
                 )),
                 _divider(),
@@ -132,7 +131,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         min: 1000,
                         max: 20000,
                         divisions: 19,
-                        activeColor: AppColors.voltCyan,
+                         activeColor: AppColors.voltCyan,
                         onChanged: (v) => setState(() => _dailyStepsGoal = v),
                       ),
                     ],
@@ -168,20 +167,20 @@ class _SettingsScreenState extends State<SettingsScreen> {
               children: [
                 _settingsRow(LucideIcons.bell, 'Master Toggle', Switch.adaptive(
                   value: _masterNotifications,
-                  activeColor: AppColors.voltCyan,
+                  activeTrackColor: AppColors.voltCyan,
                   onChanged: (v) => setState(() => _masterNotifications = v),
                 )),
                 if (_masterNotifications) ...[
                   _divider(),
                   _settingsRow(LucideIcons.activity, 'Workout Reminders', Switch.adaptive(
                     value: _workoutReminders,
-                    activeColor: AppColors.voltCyan,
+                    activeTrackColor: AppColors.voltCyan,
                     onChanged: (v) => setState(() => _workoutReminders = v),
                   )),
                   _divider(),
                   _settingsRow(LucideIcons.bookOpen, 'Study Reminders', Switch.adaptive(
                     value: _studyReminders,
-                    activeColor: AppColors.voltCyan,
+                    activeTrackColor: AppColors.voltCyan,
                     onChanged: (v) => setState(() => _studyReminders = v),
                   )),
                 ]

@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:hive/hive.dart';
 import 'package:geolocator/geolocator.dart';
@@ -119,7 +120,7 @@ class WeatherService {
       
       return weatherModel;
     } catch (e) {
-      print('Weather fetch error: $e');
+      debugPrint('Weather fetch error: $e');
       return null; // Return null if fetching fails
     }
   }
