@@ -28,16 +28,10 @@ class DashboardWeatherSection extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // 1. Combined Weather + Insights Card
+        // 1. Combined Weather + Insights + Forecast Card
         Text(weather.cityName, style: theme.textTheme.headlineSmall),
         const SizedBox(height: AppSpacing.md),
         _buildWeatherInsightCard(weather, theme, isDark),
-        const SizedBox(height: AppSpacing.xl),
-
-        // 2. 7-Day Forecast (Horizontal Carousel)
-        Text("7-Day Forecast", style: theme.textTheme.headlineSmall),
-        const SizedBox(height: AppSpacing.md),
-        _buildForecastList(weather, theme, isDark),
       ],
     );
   }
@@ -200,6 +194,18 @@ class DashboardWeatherSection extends StatelessWidget {
           ),
           const SizedBox(height: AppSpacing.sm),
           _buildInsightDetail(LucideIcons.droplets, 'Hydration', weather.hydration, theme),
+          
+          const SizedBox(height: AppSpacing.xl),
+          Divider(color: isDark ? Colors.white.withValues(alpha: 0.06) : Colors.black.withValues(alpha: 0.06), height: 1),
+          const SizedBox(height: AppSpacing.lg),
+
+          // ── 7-Day Forecast ──
+          Align(
+            alignment: Alignment.centerLeft,
+            child: Text("7-Day Forecast", style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+          ),
+          const SizedBox(height: AppSpacing.md),
+          _buildForecastList(weather, theme, isDark),
         ],
       ),
     );

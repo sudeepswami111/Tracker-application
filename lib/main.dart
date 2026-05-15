@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:app_links/app_links.dart';
 
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
@@ -36,6 +37,26 @@ void main() async {
     url: dotenv.env['SUPABASE_URL']!,
     anonKey: dotenv.env['SUPABASE_ANON_KEY']!,
   );
+
+  // Handle OAuth deep links (e.g. after Google sign-in redirects back to the app).
+  // supabase_flutter v2 uses PKCE — the redirect URL contains a one-time code
+  // that must be exchanged for a session.
+  final appLinks = AppLinks();
+
+  // Cold-start: app was opened directly by the deep link
+  try {
+    final initialUri = await appLinks.getInitialLink();
+    if (initialUri != null) {
+      await Supabase.instance.client.auth.getSessionFromUrl(initialUri);
+    }
+  } catch (_) {}
+
+  // Warm-start: app was already running when the deep link arrived
+  appLinks.uriLinkStream.listen((uri) async {
+    try {
+      await Supabase.instance.client.auth.getSessionFromUrl(uri);
+    } catch (_) {}
+  });
   SystemChrome.setSystemUIOverlayStyle(
     const SystemUiOverlayStyle(
       statusBarColor: Colors.transparent,

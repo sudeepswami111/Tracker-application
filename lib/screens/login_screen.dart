@@ -25,14 +25,28 @@ class _LoginScreenState extends State<LoginScreen> {
     super.dispose();
   }
 
+  void _showSnackBar(String message, {bool isError = false, Duration duration = const Duration(seconds: 4)}) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: isError ? Colors.red[800] : null,
+        duration: duration,
+      ),
+    );
+  }
+
   Future<void> _submit() async {
     final email = _emailController.text.trim();
     final password = _passwordController.text.trim();
 
     if (email.isEmpty || password.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please enter both email and password.')),
-      );
+      _showSnackBar('Please enter both email and password.', isError: true);
+      return;
+    }
+
+    if (password.length < 6) {
+      _showSnackBar('Password must be at least 6 characters.', isError: true);
       return;
     }
 
@@ -45,23 +59,37 @@ class _LoginScreenState extends State<LoginScreen> {
       } else {
         await authProvider.signUpWithEmail(email, password);
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Sign up successful! Please check your email or log in.')),
-          );
-          setState(() => _isLogin = true); 
+          // Auto-switch to login with email pre-filled
+          setState(() {
+            _isLogin = true;
+          });
+          _showSnackBar('Account created! You can now log in.', duration: const Duration(seconds: 5));
         }
       }
     } on AuthException catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(e.message)),
+      if (!mounted) return;
+      // Provide actionable messages for common Supabase errors
+      if (e.message.toLowerCase().contains('email not confirmed')) {
+        _showSnackBar(
+          'Please confirm your email first — check your inbox, or disable email confirmation in Supabase.',
+          isError: true,
+          duration: const Duration(seconds: 6),
         );
+      } else if (e.message.toLowerCase().contains('invalid login credentials')) {
+        _showSnackBar('Wrong email or password. Please try again.', isError: true);
+      } else if (e.message.toLowerCase().contains('user already registered')) {
+        _showSnackBar('This email is already registered. Try logging in instead.', isError: true);
+        setState(() => _isLogin = true);
+      } else {
+        _showSnackBar(e.message, isError: true);
       }
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('An error occurred: \$e')),
-        );
+      if (!mounted) return;
+      final msg = e.toString();
+      if (msg.contains('SocketException') || msg.contains('Failed host lookup')) {
+        _showSnackBar('No internet connection. Please check your network and try again.', isError: true);
+      } else {
+        _showSnackBar('An error occurred: $e', isError: true);
       }
     } finally {
       if (mounted) setState(() => _isLoading = false);
