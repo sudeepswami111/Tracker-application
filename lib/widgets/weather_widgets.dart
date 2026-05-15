@@ -129,7 +129,10 @@ class DashboardWeatherSection extends StatelessWidget {
         borderRadius: BorderRadius.circular(AppSpacing.cardRadius),
         border: Border.all(color: insightColor.withValues(alpha: 0.25)),
       ),
+      clipBehavior: Clip.antiAlias,
       child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // ── TOP: Weather Row ──
           Row(
@@ -206,6 +209,7 @@ class DashboardWeatherSection extends StatelessWidget {
           ),
           const SizedBox(height: AppSpacing.md),
           _buildForecastList(weather, theme, isDark),
+          const SizedBox(height: AppSpacing.sm), // Added bottom buffer
         ],
       ),
     );
@@ -233,7 +237,7 @@ class DashboardWeatherSection extends StatelessWidget {
   Widget _buildForecastList(WeatherModel weather, ThemeData theme, bool isDark) {
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
-      clipBehavior: Clip.none,
+      clipBehavior: Clip.hardEdge,
       child: Row(
         children: weather.daily.map((day) {
           final condL = day.condition.toLowerCase();
