@@ -1,6 +1,7 @@
 class WeatherModel {
   final double currentTemp;
   final int weatherCode;
+  final String conditionText; // WeatherAPI condition string (e.g. "Haze", "Partly cloudy")
   final int aqi;
   final double windSpeed;
   final double uvIndex;
@@ -17,6 +18,7 @@ class WeatherModel {
   WeatherModel({
     required this.currentTemp,
     required this.weatherCode,
+    this.conditionText = '',
     required this.aqi,
     required this.windSpeed,
     required this.uvIndex,
@@ -30,14 +32,17 @@ class WeatherModel {
     required this.isDay,
   });
 
-  String get condition => _getConditionFromCode(weatherCode);
+  /// Use WeatherAPI's rich string if available; fall back to code-based label.
+  String get condition =>
+      conditionText.isNotEmpty ? conditionText : _getConditionFromCode(weatherCode);
+
   bool get isUnsafe => aqi > 150 || windSpeed > 40 || currentTemp > 40 || currentTemp < -10;
-  
+
   String get suggestion {
     if (isUnsafe) return 'Unsafe conditions! Stay indoors.';
     if (currentTemp > 30) return 'Too hot — try swimming or indoor gym.';
-    if (weatherCode >= 60 && weatherCode <= 69) return 'Rainy — great day for yoga or indoor cycling.';
-    if (weatherCode >= 71) return 'Snowy — dress warm if you go out!';
+    if (condition.toLowerCase().contains('rain')) return 'Rainy — great day for yoga or indoor cycling.';
+    if (condition.toLowerCase().contains('snow')) return 'Snowy — dress warm if you go out!';
     return 'Great day for a run!';
   }
 
@@ -58,6 +63,7 @@ class WeatherModel {
   Map<String, dynamic> toJson() => {
         'currentTemp': currentTemp,
         'weatherCode': weatherCode,
+        'conditionText': conditionText,
         'aqi': aqi,
         'windSpeed': windSpeed,
         'uvIndex': uvIndex,
@@ -73,12 +79,17 @@ class WeatherModel {
 
   factory WeatherModel.fromJson(Map<String, dynamic> json) => WeatherModel(
         currentTemp: (json['currentTemp'] as num).toDouble(),
-        weatherCode: json['weatherCode'] as int,
+        weatherCode: json['weatherCode'] as int? ?? 0,
+        conditionText: json['conditionText'] as String? ?? '',
         aqi: json['aqi'] as int,
         windSpeed: (json['windSpeed'] as num).toDouble(),
         uvIndex: (json['uvIndex'] as num).toDouble(),
-        hourly: (json['hourly'] as List).map((e) => HourlyForecast.fromJson(Map<String, dynamic>.from(e))).toList(),
-        daily: (json['daily'] as List).map((e) => DailyForecast.fromJson(Map<String, dynamic>.from(e))).toList(),
+        hourly: (json['hourly'] as List)
+            .map((e) => HourlyForecast.fromJson(Map<String, dynamic>.from(e)))
+            .toList(),
+        daily: (json['daily'] as List)
+            .map((e) => DailyForecast.fromJson(Map<String, dynamic>.from(e)))
+            .toList(),
         lastFetched: DateTime.parse(json['lastFetched'] as String),
         cityName: json['cityName'] as String? ?? 'Unknown Location',
         bestTime: json['bestTime'] as String? ?? 'Anytime',
@@ -92,6 +103,7 @@ class HourlyForecast {
   final DateTime time;
   final double temp;
   final int weatherCode;
+  final String conditionText;
   final double uvIndex;
   final double precipitationProbability;
 
@@ -99,16 +111,19 @@ class HourlyForecast {
     required this.time,
     required this.temp,
     required this.weatherCode,
+    this.conditionText = '',
     required this.uvIndex,
     required this.precipitationProbability,
   });
 
-  String get condition => WeatherModel._getConditionFromCode(weatherCode);
+  String get condition =>
+      conditionText.isNotEmpty ? conditionText : WeatherModel._getConditionFromCode(weatherCode);
 
   Map<String, dynamic> toJson() => {
         'time': time.toIso8601String(),
         'temp': temp,
         'weatherCode': weatherCode,
+        'conditionText': conditionText,
         'uvIndex': uvIndex,
         'precipitationProbability': precipitationProbability,
       };
@@ -116,9 +131,11 @@ class HourlyForecast {
   factory HourlyForecast.fromJson(Map<String, dynamic> json) => HourlyForecast(
         time: DateTime.parse(json['time'] as String),
         temp: (json['temp'] as num).toDouble(),
-        weatherCode: json['weatherCode'] as int,
+        weatherCode: json['weatherCode'] as int? ?? 0,
+        conditionText: json['conditionText'] as String? ?? '',
         uvIndex: (json['uvIndex'] as num).toDouble(),
-        precipitationProbability: (json['precipitationProbability'] as num?)?.toDouble() ?? 0.0,
+        precipitationProbability:
+            (json['precipitationProbability'] as num?)?.toDouble() ?? 0.0,
       );
 }
 
@@ -127,27 +144,32 @@ class DailyForecast {
   final double maxTemp;
   final double minTemp;
   final int weatherCode;
+  final String conditionText;
 
   DailyForecast({
     required this.date,
     required this.maxTemp,
     required this.minTemp,
     required this.weatherCode,
+    this.conditionText = '',
   });
 
-  String get condition => WeatherModel._getConditionFromCode(weatherCode);
+  String get condition =>
+      conditionText.isNotEmpty ? conditionText : WeatherModel._getConditionFromCode(weatherCode);
 
   Map<String, dynamic> toJson() => {
         'date': date.toIso8601String(),
         'maxTemp': maxTemp,
         'minTemp': minTemp,
         'weatherCode': weatherCode,
+        'conditionText': conditionText,
       };
 
   factory DailyForecast.fromJson(Map<String, dynamic> json) => DailyForecast(
         date: DateTime.parse(json['date'] as String),
         maxTemp: (json['maxTemp'] as num).toDouble(),
         minTemp: (json['minTemp'] as num).toDouble(),
-        weatherCode: json['weatherCode'] as int,
+        weatherCode: json['weatherCode'] as int? ?? 0,
+        conditionText: json['conditionText'] as String? ?? '',
       );
 }

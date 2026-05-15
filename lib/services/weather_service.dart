@@ -7,6 +7,9 @@ import 'package:geocoding/geocoding.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/weather_model.dart';
 
+/// WeatherService — powered by Open-Meteo (free, no API key required).
+/// AQI is calculated using the Indian National Air Quality Index (NAQI)
+/// from PM2.5 and PM10 readings fetched from the Open-Meteo Air Quality API.
 class WeatherService {
   static const String _boxName = 'weatherBox';
   static const String _cacheKey = 'weatherCache';
@@ -15,7 +18,6 @@ class WeatherService {
   static Future<WeatherModel?> getWeather() async {
     try {
       final box = await Hive.openBox(_boxName);
-      
       final prefs = await SharedPreferences.getInstance();
 
       // 1. Check Cache with TTL
@@ -27,8 +29,8 @@ class WeatherService {
           if (DateTime.now().difference(weather.lastFetched).inMinutes < _ttlMinutes) {
             return weather;
           }
-        } catch (e) {
-          // Cache invalid
+        } catch (_) {
+          // Cache invalid — re-fetch
         }
       }
 
@@ -40,7 +42,7 @@ class WeatherService {
       if (perm == LocationPermission.deniedForever || perm == LocationPermission.denied) {
         throw Exception('LocationPermissionDenied');
       }
-      
+
       Position? position;
       try {
         position = await Geolocator.getCurrentPosition(
@@ -51,7 +53,6 @@ class WeatherService {
         );
       } catch (_) {
         try {
-          // Retry once with slightly longer timeout
           position = await Geolocator.getCurrentPosition(
             locationSettings: const LocationSettings(
               accuracy: LocationAccuracy.low,
@@ -74,125 +75,168 @@ class WeatherService {
       } else {
         lat = prefs.getDouble('last_lat') ?? 0.0;
         lon = prefs.getDouble('last_lon') ?? 0.0;
-        if (lat == 0.0 && lon == 0.0) {
-          throw Exception('LocationTimeout');
-        }
+        if (lat == 0.0 && lon == 0.0) throw Exception('LocationTimeout');
       }
 
-      // Reverse geocoding
-      String cityName = "Unknown Location";
+      // 3. Phase 2D — Reverse Geocoding with subLocality priority
+      String cityName = 'Unknown Location';
       try {
-        List<Placemark> placemarks = await placemarkFromCoordinates(lat, lon);
+        final placemarks = await placemarkFromCoordinates(lat, lon);
         if (placemarks.isNotEmpty) {
-          if (placemarks.first.locality != null && placemarks.first.administrativeArea != null) {
-             cityName = "${placemarks.first.locality}, ${placemarks.first.administrativeArea}";
+          final p = placemarks.first;
+          // Prefer the most granular recognizable name
+          final sub = p.subLocality?.trim();
+          final loc = p.locality?.trim();
+          final subAdmin = p.subAdministrativeArea?.trim();
+          final admin = p.administrativeArea?.trim();
+
+          final name = (sub != null && sub.isNotEmpty)
+              ? sub
+              : (loc != null && loc.isNotEmpty)
+                  ? loc
+                  : (subAdmin != null && subAdmin.isNotEmpty)
+                      ? subAdmin
+                      : (admin ?? 'Unknown Location');
+
+          if (admin != null && admin.isNotEmpty && name != admin) {
+            cityName = '$name, $admin';
           } else {
-             cityName = placemarks.first.locality ?? placemarks.first.subAdministrativeArea ?? placemarks.first.administrativeArea ?? "Unknown Location";
+            cityName = name;
           }
         }
       } catch (_) {}
 
-      // 3. Fetch from Open-Meteo
-      final url = Uri.parse(
-          'https://api.open-meteo.com/v1/forecast?latitude=$lat&longitude=$lon'
-          '&current=temperature_2m,weather_code,wind_speed_10m,relative_humidity_2m,is_day'
-          '&hourly=temperature_2m,weather_code,uv_index,precipitation_probability'
-          '&daily=weather_code,temperature_2m_max,temperature_2m_min'
-          '&timezone=auto'
+      // 4. Fetch Weather from Open-Meteo
+      final weatherUrl = Uri.parse(
+        'https://api.open-meteo.com/v1/forecast'
+        '?latitude=$lat&longitude=$lon'
+        '&current=temperature_2m,weather_code,wind_speed_10m,relative_humidity_2m,is_day'
+        '&hourly=temperature_2m,weather_code,uv_index,precipitation_probability'
+        '&daily=weather_code,temperature_2m_max,temperature_2m_min'
+        '&timezone=auto',
       );
-      final response = await http.get(url);
-      if (response.statusCode != 200) throw Exception('Failed to fetch weather');
-      final data = jsonDecode(response.body);
+      final weatherResponse = await http.get(weatherUrl);
+      if (weatherResponse.statusCode != 200) {
+        throw Exception('Open-Meteo weather fetch failed: ${weatherResponse.statusCode}');
+      }
+      final data = jsonDecode(weatherResponse.body) as Map<String, dynamic>;
 
-      // 4. Fetch AQI
-      final aqiUrl = Uri.parse(
-          'https://air-quality-api.open-meteo.com/v1/air-quality?latitude=$lat&longitude=$lon'
-          '&current=pm10,pm2_5'
-      );
-      int aqi = 50; // Default if fails
+      // 5. Fetch AQI from Open-Meteo Air Quality API
+      int aqi = 50;
       try {
+        final aqiUrl = Uri.parse(
+          'https://air-quality-api.open-meteo.com/v1/air-quality'
+          '?latitude=$lat&longitude=$lon&current=pm10,pm2_5',
+        );
         final aqiRes = await http.get(aqiUrl);
         if (aqiRes.statusCode == 200) {
-          final aqiData = jsonDecode(aqiRes.body);
+          final aqiData = jsonDecode(aqiRes.body) as Map<String, dynamic>;
           if (aqiData['current'] != null) {
-            double pm10 = (aqiData['current']['pm10'] as num?)?.toDouble() ?? 0.0;
-            double pm25 = (aqiData['current']['pm2_5'] as num?)?.toDouble() ?? 0.0;
+            final pm25 = (aqiData['current']['pm2_5'] as num?)?.toDouble() ?? 0.0;
+            final pm10 = (aqiData['current']['pm10'] as num?)?.toDouble() ?? 0.0;
             aqi = _calculateIndianAqi(pm25, pm10);
           }
         }
       } catch (_) {}
 
-      // 5. Parse Data
-      final current = data['current'];
-      final hourly = data['hourly'];
-      final daily = data['daily'];
+      // 6. Parse Current
+      final current = data['current'] as Map<String, dynamic>;
+      final hourlyRaw = data['hourly'] as Map<String, dynamic>;
+      final dailyRaw = data['daily'] as Map<String, dynamic>;
 
       final currentTemp = (current['temperature_2m'] as num).toDouble();
       final currentHumidity = (current['relative_humidity_2m'] as num?)?.toDouble() ?? 50.0;
+      final windSpeed = (current['wind_speed_10m'] as num).toDouble();
       final isDay = (current['is_day'] as int?) == 1;
+      final currentWeatherCode = current['weather_code'] as int;
 
-      List<HourlyForecast> hourlyList = [];
-      for (int i = 0; i < 24; i++) { // Get next 24 hours
+      // Phase 2B — Hazy condition label when sky is clear but AQI is bad
+      String conditionText = _getConditionFromCode(currentWeatherCode);
+      if ((currentWeatherCode == 0 || currentWeatherCode == 1) && aqi > 100) {
+        conditionText = aqi > 150 ? 'Hazy' : 'Clear but Hazy';
+      }
+
+      // 7. Phase 2C — Hourly forecast starting from current hour (not midnight index 0)
+      final List<String> hourlyTimes = List<String>.from(hourlyRaw['time'] as List);
+      final now = DateTime.now();
+      final currentHourStr =
+          '${now.year.toString().padLeft(4, '0')}-'
+          '${now.month.toString().padLeft(2, '0')}-'
+          '${now.day.toString().padLeft(2, '0')}T'
+          '${now.hour.toString().padLeft(2, '0')}:00';
+      int startIdx = hourlyTimes.indexWhere((t) => t == currentHourStr);
+      if (startIdx == -1) {
+        // Fallback: find first time >= now
+        startIdx = hourlyTimes.indexWhere(
+          (t) => !DateTime.parse(t).isBefore(DateTime(now.year, now.month, now.day, now.hour)),
+        );
+      }
+      if (startIdx == -1) startIdx = 0;
+
+      final List<HourlyForecast> hourlyList = [];
+      for (int i = startIdx; i < startIdx + 24 && i < hourlyTimes.length; i++) {
         hourlyList.add(HourlyForecast(
-          time: DateTime.parse(hourly['time'][i]),
-          temp: (hourly['temperature_2m'][i] as num).toDouble(),
-          weatherCode: hourly['weather_code'][i] as int,
-          uvIndex: (hourly['uv_index'][i] as num?)?.toDouble() ?? 0.0,
-          precipitationProbability: (hourly['precipitation_probability'][i] as num?)?.toDouble() ?? 0.0,
+          time: DateTime.parse(hourlyTimes[i]),
+          temp: (hourlyRaw['temperature_2m'][i] as num).toDouble(),
+          weatherCode: hourlyRaw['weather_code'][i] as int,
+          conditionText: _getConditionFromCode(hourlyRaw['weather_code'][i] as int),
+          uvIndex: (hourlyRaw['uv_index'][i] as num?)?.toDouble() ?? 0.0,
+          precipitationProbability:
+              (hourlyRaw['precipitation_probability'][i] as num?)?.toDouble() ?? 0.0,
         ));
       }
 
-      List<DailyForecast> dailyList = [];
-      for (int i = 0; i < 7; i++) { // Get next 7 days
+      // 8. Daily Forecast
+      final List<DailyForecast> dailyList = [];
+      final List dailyTimes = dailyRaw['time'] as List;
+      for (int i = 0; i < dailyTimes.length && i < 7; i++) {
+        final code = dailyRaw['weather_code'][i] as int;
         dailyList.add(DailyForecast(
-          date: DateTime.parse(daily['time'][i]),
-          maxTemp: (daily['temperature_2m_max'][i] as num).toDouble(),
-          minTemp: (daily['temperature_2m_min'][i] as num).toDouble(),
-          weatherCode: daily['weather_code'][i] as int,
+          date: DateTime.parse(dailyTimes[i] as String),
+          maxTemp: (dailyRaw['temperature_2m_max'][i] as num).toDouble(),
+          minTemp: (dailyRaw['temperature_2m_min'][i] as num).toDouble(),
+          weatherCode: code,
+          conditionText: _getConditionFromCode(code),
         ));
       }
 
-      // 6. Dynamic Insights Calculation
-      String bestTimeStr = "Anytime";
-      String intensityStr = "Moderate";
-      String hydrationStr = "Normal | Drink 250ml/hr";
+      // 9. Dynamic Fitness Insights
+      String bestTimeStr = 'Anytime';
+      String intensityStr = 'Moderate';
+      String hydrationStr = 'Normal | Drink 250ml/hr';
 
       HourlyForecast? bestHour;
-      for (var h in hourlyList) {
+      for (final h in hourlyList) {
         if (h.time.hour >= 5 && h.time.hour <= 21 && h.precipitationProbability < 20) {
-          if (bestHour == null || h.temp < bestHour.temp) {
-            bestHour = h;
-          }
+          if (bestHour == null || h.temp < bestHour.temp) bestHour = h;
         }
       }
 
       if (bestHour != null) {
-        int hr = bestHour.time.hour;
-        String period = hr >= 12 ? 'PM' : 'AM';
-        int displayHr = hr > 12 ? hr - 12 : (hr == 0 ? 12 : hr);
-        bestTimeStr = "$displayHr:00 $period";
-        
+        final hr = bestHour.time.hour;
+        final period = hr >= 12 ? 'PM' : 'AM';
+        final displayHr = hr > 12 ? hr - 12 : (hr == 0 ? 12 : hr);
+        bestTimeStr = '$displayHr:00 $period';
         if (bestHour.temp < 25) {
-          intensityStr = "High";
+          intensityStr = 'High';
         } else if (bestHour.temp <= 32) {
-          intensityStr = "Moderate";
+          intensityStr = 'Moderate';
         } else {
-          intensityStr = "Low (avoid intense exercise)";
+          intensityStr = 'Low (avoid intense exercise)';
         }
       }
 
       if (currentTemp > 35 || currentHumidity > 70) {
-        hydrationStr = "High Risk | Drink 500ml/hr";
+        hydrationStr = 'High Risk | Drink 500ml/hr';
       } else if (currentTemp >= 28 && currentTemp <= 35) {
-        hydrationStr = "Moderate | Drink 350ml/hr";
-      } else {
-        hydrationStr = "Normal | Drink 250ml/hr";
+        hydrationStr = 'Moderate | Drink 350ml/hr';
       }
 
       final weatherModel = WeatherModel(
         currentTemp: currentTemp,
-        weatherCode: current['weather_code'] as int,
-        windSpeed: (current['wind_speed_10m'] as num).toDouble(),
+        weatherCode: currentWeatherCode,
+        conditionText: conditionText,
+        windSpeed: windSpeed,
         aqi: aqi,
         uvIndex: hourlyList.isNotEmpty ? hourlyList.first.uvIndex : 0.0,
         hourly: hourlyList,
@@ -205,9 +249,7 @@ class WeatherService {
         isDay: isDay,
       );
 
-      // 6. Cache Data
       await box.put(_cacheKey, weatherModel.toJson());
-      
       return weatherModel;
     } catch (e) {
       debugPrint('Weather fetch error: $e');
@@ -221,6 +263,22 @@ class WeatherService {
     }
   }
 
+  /// Open-Meteo WMO weather code → human-readable label.
+  static String _getConditionFromCode(int code) {
+    if (code == 0) return 'Clear Sky';
+    if (code == 1) return 'Mainly Clear';
+    if (code == 2) return 'Partly Cloudy';
+    if (code == 3) return 'Overcast';
+    if (code == 45 || code == 48) return 'Foggy';
+    if (code == 51 || code == 53 || code == 55) return 'Drizzle';
+    if (code == 61 || code == 63 || code == 65) return 'Rain';
+    if (code == 71 || code == 73 || code == 75) return 'Snow';
+    if (code == 80 || code == 81 || code == 82) return 'Rain Showers';
+    if (code == 95 || code == 96 || code == 99) return 'Thunderstorm';
+    return 'Unknown';
+  }
+
+  /// Indian National Air Quality Index from PM2.5 and PM10 breakpoints.
   static int _calculateIndianAqi(double pm25, double pm10) {
     int getSubIndex(double c, List<double> bp, List<int> i) {
       for (int k = 0; k < bp.length - 1; k++) {
@@ -232,9 +290,10 @@ class WeatherService {
       return 0;
     }
 
-    int ipm25 = getSubIndex(pm25, [0, 30, 60, 90, 120, 250], [0, 50, 100, 200, 300, 400, 500]);
-    int ipm10 = getSubIndex(pm10, [0, 50, 100, 250, 350, 430], [0, 50, 100, 200, 300, 400, 500]);
-    
+    final ipm25 =
+        getSubIndex(pm25, [0, 30, 60, 90, 120, 250], [0, 50, 100, 200, 300, 400, 500]);
+    final ipm10 =
+        getSubIndex(pm10, [0, 50, 100, 250, 350, 430], [0, 50, 100, 200, 300, 400, 500]);
     return ipm25 > ipm10 ? ipm25 : ipm10;
   }
 }

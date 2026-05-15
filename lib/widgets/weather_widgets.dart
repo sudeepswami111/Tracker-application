@@ -79,22 +79,20 @@ class DashboardWeatherSection extends StatelessWidget {
 
   IconData _getIcon(String cond, {bool isDay = true}) {
     final c = cond.toLowerCase();
-    if (c == 'clear sky') return isDay ? LucideIcons.sun : LucideIcons.moon;
-    if (c == 'mainly clear' || c == 'partly cloudy') return isDay ? LucideIcons.cloudSun : LucideIcons.cloudMoon;
-    if (c == 'overcast') return LucideIcons.cloud;
-    if (c == 'foggy') return LucideIcons.cloudFog;
-    if (c == 'drizzle') return LucideIcons.cloudDrizzle;
-    if (c == 'rain') return LucideIcons.cloudRain;
-    if (c == 'snow') return LucideIcons.snowflake;
-    if (c == 'rain showers') return LucideIcons.cloudLightning; // or cloud-rain
-    if (c == 'thunderstorm') return LucideIcons.cloudLightning;
-    
-    // Fallbacks just in case
-    if (c.contains('thunder')) return LucideIcons.cloudLightning;
-    if (c.contains('snow')) return LucideIcons.snowflake;
-    if (c.contains('rain') || c.contains('drizzle')) return LucideIcons.cloudRain;
-    if (c.contains('cloud')) return LucideIcons.cloud;
-    return LucideIcons.sun;
+    // WeatherAPI keyword matching (order matters — most specific first)
+    if (c.contains('thunder') || c.contains('lightning')) return LucideIcons.cloudLightning;
+    if (c.contains('blizzard') || c.contains('sleet') || c.contains('ice pellet')) return LucideIcons.snowflake;
+    if (c.contains('snow') || c.contains('flurr')) return LucideIcons.snowflake;
+    if (c.contains('drizzle')) return LucideIcons.cloudDrizzle;
+    if (c.contains('shower') || c.contains('rain')) return LucideIcons.cloudRain;
+    if (c.contains('fog') || c.contains('mist') || c.contains('freezing fog')) return LucideIcons.cloudFog;
+    if (c.contains('haz') || c.contains('smoke') || c.contains('dust') || c.contains('sand')) return LucideIcons.cloudFog;
+    if (c.contains('overcast')) return LucideIcons.cloud;
+    if (c.contains('cloud') || c.contains('partly') || c.contains('mostly')) {
+      return isDay ? LucideIcons.cloudSun : LucideIcons.cloudMoon;
+    }
+    if (c.contains('clear') || c.contains('sunny')) return isDay ? LucideIcons.sun : LucideIcons.moon;
+    return isDay ? LucideIcons.sun : LucideIcons.moon;
   }
 
   Color _getAqiColor(int aqi) {
@@ -161,9 +159,12 @@ class DashboardWeatherSection extends StatelessWidget {
                   border: Border.all(color: _getAqiColor(weather.aqi).withValues(alpha: 0.3)),
                 ),
                 child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
                     Text('AQI (IN)', style: theme.textTheme.labelSmall?.copyWith(color: _getAqiColor(weather.aqi), fontSize: 10)),
                     Text('${weather.aqi}', style: theme.textTheme.titleMedium?.copyWith(color: _getAqiColor(weather.aqi), fontWeight: FontWeight.bold, height: 1.1)),
+                    // Phase 2A: Indian NAQI label so users know this differs from phone app AQI
+                    Text('Indian NAQI', style: theme.textTheme.labelSmall?.copyWith(color: AppColors.textSecondary, fontSize: 8)),
                   ],
                 ),
               ),
@@ -229,8 +230,9 @@ class DashboardWeatherSection extends StatelessWidget {
       clipBehavior: Clip.none,
       child: Row(
         children: weather.daily.map((day) {
-          final bool isBad = day.weatherCode >= 61 || day.maxTemp > 35; // Rain or very hot
-          final bool isCaution = day.maxTemp > 30 || day.minTemp < 5;
+          final condL = day.condition.toLowerCase();
+          final bool isBad = condL.contains('rain') || condL.contains('thunder') || condL.contains('snow') || day.maxTemp > 35;
+          final bool isCaution = day.maxTemp > 30 || day.minTemp < 5 || condL.contains('haz') || condL.contains('mist');
           
           Color badgeColor = AppColors.primary;
           String badgeText = "Safe";
