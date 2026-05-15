@@ -73,6 +73,7 @@ class StepTrackerProvider extends ChangeNotifier with WidgetsBindingObserver {
       
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString('lastSavedDate', _lastSavedDate);
+      await prefs.setInt('initialSteps', -1); // ← persist sentinel so onStepCount resets correctly
       notifyListeners();
     }
   }
