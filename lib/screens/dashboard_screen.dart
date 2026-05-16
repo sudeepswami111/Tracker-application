@@ -19,6 +19,22 @@ import '../widgets/weather_widgets.dart';
 class DashboardScreen extends StatelessWidget {
   const DashboardScreen({super.key});
 
+  Color _getAccentColor(String type) {
+    switch (type) {
+      case 'Run':
+        return AppColors.pulseRed;
+      case 'Yoga':
+      case 'Swim':
+        return AppColors.voltCyan;
+      case 'Gym':
+        return AppColors.solarAmber;
+      case 'Cycle':
+        return AppColors.irisViolet;
+      default:
+        return AppColors.pulseRed;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final app = context.watch<AppProvider>();
@@ -178,12 +194,37 @@ class DashboardScreen extends StatelessWidget {
 
 
   Widget _buildTodaysPlan(ThemeData theme, bool isDark, AppProvider app, BuildContext context) {
+    final plans = app.dailyPlans;
+    final planCount = plans.length;
+
     return Column(
       children: [
+        // ── Header row ──
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text("Today's Plan", style: theme.textTheme.headlineLarge),
+            Row(
+              children: [
+                Text("Today's Plan", style: theme.textTheme.headlineLarge),
+                if (planCount > 0) ...[
+                  const SizedBox(width: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: AppColors.voltCyan.withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Text(
+                      '$planCount',
+                      style: theme.textTheme.labelSmall?.copyWith(
+                        color: AppColors.voltCyan,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                ],
+              ],
+            ),
             Row(
               children: [
                 IconButton(
@@ -219,44 +260,11 @@ class DashboardScreen extends StatelessWidget {
           ],
         ),
         const SizedBox(height: AppSpacing.md),
-        if (app.dailyPlans.isEmpty)
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(AppSpacing.lg),
-            decoration: BoxDecoration(
-              color: theme.colorScheme.surface,
-              borderRadius: BorderRadius.circular(AppSpacing.cardRadius),
-              border: Border.all(
-                color: isDark
-                    ? Colors.white.withValues(alpha: 0.06)
-                    : Colors.black.withValues(alpha: 0.06),
-              ),
-            ),
-            child: Column(
-              children: [
-                Icon(LucideIcons.calendarPlus, size: 32, color: AppColors.textSecondary),
-                const SizedBox(height: AppSpacing.sm),
-                Text(
-                  'No plans yet',
-                  style: theme.textTheme.titleMedium?.copyWith(color: AppColors.textPrimary),
-                ),
-                Text(
-                  'Tap + to create your first plan',
-                  style: theme.textTheme.bodyMedium?.copyWith(color: AppColors.textSecondary),
-                ),
-              ],
-            ),
-          )
-        else
-          DailyPlanTile(
-            activityName: app.dailyPlans.first.title,
-            durationOrReps: app.dailyPlans.first.duration,
-            kcal: app.dailyPlans.first.kcal,
-            imageUrl: app.dailyPlans.first.imageUrl,
-            onStart: () {
-              app.setTabIndex(2);
-            },
-            onReplace: () {
+
+        // ── Empty State ──
+        if (plans.isEmpty)
+          GestureDetector(
+            onTap: () {
               showModalBottomSheet(
                 context: context,
                 isScrollControlled: true,
@@ -264,6 +272,95 @@ class DashboardScreen extends StatelessWidget {
                 builder: (context) => const AddPlanSheet(),
               );
             },
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(vertical: 32, horizontal: 24),
+              decoration: BoxDecoration(
+                color: theme.colorScheme.surface,
+                borderRadius: BorderRadius.circular(AppSpacing.cardRadius),
+                border: Border.all(
+                  color: isDark
+                      ? Colors.white.withValues(alpha: 0.08)
+                      : Colors.black.withValues(alpha: 0.08),
+                ),
+              ),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Container(
+                    width: 56,
+                    height: 56,
+                    decoration: BoxDecoration(
+                      color: AppColors.voltCyan.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: const Icon(LucideIcons.plus, color: AppColors.voltCyan, size: 28),
+                  ),
+                  const SizedBox(height: 14),
+                  Text(
+                    'Plan your first workout',
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      color: AppColors.textPrimary,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Tap anywhere to add a plan',
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          )
+
+        // ── Plans: single full-width or horizontal scroll (up to 3) ──
+        else if (planCount == 1)
+          DailyPlanTile(
+            activityName: plans.first.title,
+            durationOrReps: plans.first.duration,
+            kcal: plans.first.kcal,
+            imageUrl: plans.first.imageUrl,
+            isCompleted: plans.first.isCompleted,
+            accentColor: _getAccentColor(plans.first.type),
+            onStart: () {
+              app.togglePlanComplete(plans.first.id);
+              if (!plans.first.isCompleted) app.setTabIndex(2);
+            },
+            onDelete: () => app.removeDailyPlan(plans.first.id),
+          )
+        else
+          SizedBox(
+            height: 185,
+            child: ListView.builder(
+              scrollDirection: Axis.horizontal,
+              physics: const BouncingScrollPhysics(),
+              itemCount: planCount.clamp(0, 3),
+              itemBuilder: (context, index) {
+                final plan = plans[index];
+                return Padding(
+                  padding: EdgeInsets.only(right: index < planCount.clamp(0, 3) - 1 ? 12 : 0),
+                  child: SizedBox(
+                    width: MediaQuery.of(context).size.width - 64,
+                    child: DailyPlanTile(
+                      activityName: plan.title,
+                      durationOrReps: plan.duration,
+                      kcal: plan.kcal,
+                      imageUrl: plan.imageUrl,
+                      isCompleted: plan.isCompleted,
+                      accentColor: _getAccentColor(plan.type),
+                      onStart: () {
+                        app.togglePlanComplete(plan.id);
+                        if (!plan.isCompleted) app.setTabIndex(2);
+                      },
+                      onDelete: () => app.removeDailyPlan(plan.id),
+                    ),
+                  ),
+                );
+              },
+            ),
           ),
       ],
     );

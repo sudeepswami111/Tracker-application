@@ -63,6 +63,8 @@ class DailyPlan {
   final String duration;
   final String kcal;
   final String imageUrl;
+  final String type;
+  bool isCompleted;
 
   DailyPlan({
     required this.id,
@@ -70,6 +72,8 @@ class DailyPlan {
     required this.duration,
     required this.kcal,
     required this.imageUrl,
+    this.type = 'Run',
+    this.isCompleted = false,
   });
 
   Map<String, dynamic> toJson() => {
@@ -78,6 +82,8 @@ class DailyPlan {
         'duration': duration,
         'kcal': kcal,
         'imageUrl': imageUrl,
+        'type': type,
+        'isCompleted': isCompleted,
       };
 
   factory DailyPlan.fromJson(Map<String, dynamic> json) => DailyPlan(
@@ -86,6 +92,8 @@ class DailyPlan {
         duration: json['duration'] as String,
         kcal: json['kcal'] as String,
         imageUrl: json['imageUrl'] as String,
+        type: json['type'] as String? ?? 'Run',
+        isCompleted: json['isCompleted'] as bool? ?? false,
       );
 }
 
@@ -331,6 +339,15 @@ class AppProvider extends ChangeNotifier {
     dailyPlans.removeWhere((p) => p.id == id);
     _saveData();
     notifyListeners();
+  }
+
+  void togglePlanComplete(String id) {
+    final idx = dailyPlans.indexWhere((p) => p.id == id);
+    if (idx != -1) {
+      dailyPlans[idx].isCompleted = !dailyPlans[idx].isCompleted;
+      _saveData();
+      notifyListeners();
+    }
   }
 
   bool hasUnreadNotifications = true;

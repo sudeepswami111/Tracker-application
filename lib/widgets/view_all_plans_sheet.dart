@@ -3,11 +3,28 @@ import 'package:lucide_icons/lucide_icons.dart';
 import 'package:provider/provider.dart';
 
 import '../providers/app_provider.dart';
+import '../theme/app_colors.dart';
 import '../theme/app_spacing.dart';
 import 'daily_plan_tile.dart';
 
 class ViewAllPlansSheet extends StatelessWidget {
   const ViewAllPlansSheet({super.key});
+
+  Color _getAccentColor(String type) {
+    switch (type) {
+      case 'Run':
+        return AppColors.pulseRed;
+      case 'Yoga':
+      case 'Swim':
+        return AppColors.voltCyan;
+      case 'Gym':
+        return AppColors.solarAmber;
+      case 'Cycle':
+        return AppColors.irisViolet;
+      default:
+        return AppColors.pulseRed;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -48,15 +65,17 @@ class ViewAllPlansSheet extends StatelessWidget {
                           durationOrReps: plan.duration,
                           kcal: plan.kcal,
                           imageUrl: plan.imageUrl,
+                          isCompleted: plan.isCompleted,
+                          accentColor: _getAccentColor(plan.type),
                           onStart: () {
-                            Navigator.pop(context);
-                            app.setTabIndex(2);
+                            app.togglePlanComplete(plan.id);
+                            if (!plan.isCompleted) {
+                              Navigator.pop(context);
+                              app.setTabIndex(2);
+                            }
                           },
                           onDelete: () {
                             app.removeDailyPlan(plan.id);
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text('Plan deleted successfully.')),
-                            );
                           },
                         ),
                       );

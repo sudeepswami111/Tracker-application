@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import '../theme/app_colors.dart';
@@ -7,9 +8,12 @@ class DailyPlanTile extends StatelessWidget {
   final String durationOrReps;
   final String kcal;
   final String imageUrl;
+  final bool isCompleted;
   final VoidCallback? onStart;
-  final VoidCallback? onReplace;
   final VoidCallback? onDelete;
+
+  // Accent color drives the gradient + shadow — default to coral (Run)
+  final Color accentColor;
 
   const DailyPlanTile({
     super.key,
@@ -17,124 +21,215 @@ class DailyPlanTile extends StatelessWidget {
     required this.durationOrReps,
     required this.kcal,
     required this.imageUrl,
+    this.isCompleted = false,
     this.onStart,
-    this.onReplace,
     this.onDelete,
+    this.accentColor = const Color(0xFFFF3B5C),
   });
+
+  // Choose gradient from accentColor
+  LinearGradient get _accentGradient {
+    if (accentColor == AppColors.voltCyan || accentColor == AppColors.irisViolet) {
+      return AppColors.gradientCyan;
+    }
+    if (accentColor == AppColors.solarAmber) return AppColors.gradientAmber;
+    return AppColors.gradientCoral;
+  }
+
+  void _confirmDelete(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppColors.surfaceElevated,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text('Remove this plan?',
+            style: TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.w700)),
+        content: const Text('This will delete the plan from your list.',
+            style: TextStyle(color: AppColors.textSecondary)),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel', style: TextStyle(color: AppColors.textSecondary)),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              onDelete?.call();
+            },
+            child: const Text('Remove', style: TextStyle(color: AppColors.pulseRed, fontWeight: FontWeight.w700)),
+          ),
+        ],
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    
-    return Container(
+
+    Widget card = Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: AppColors.surfaceCard,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(
-          color: AppColors.borderSubtle,
-          width: 1,
+        borderRadius: BorderRadius.circular(20),
+        border: Border(
+          left: BorderSide(color: accentColor, width: 3),
         ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Top Row: Info + Image
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      activityName,
-                      style: theme.textTheme.headlineMedium?.copyWith(
-                        color: AppColors.textPrimary,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Row(
-                      children: [
-                        Icon(LucideIcons.clock, size: 14, color: AppColors.textSecondary),
-                        const SizedBox(width: 4),
-                        Text(
-                          durationOrReps,
-                          style: theme.textTheme.bodyMedium?.copyWith(
-                            color: AppColors.textSecondary,
-                          ),
-                        ),
-                        const SizedBox(width: 16),
-                        Icon(LucideIcons.flame, size: 14, color: AppColors.textSecondary),
-                        const SizedBox(width: 4),
-                        Text(
-                          kcal,
-                          style: theme.textTheme.bodyMedium?.copyWith(
-                            color: AppColors.textSecondary,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 16),
-              Container(
-                width: 48,
-                height: 48,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: AppColors.surfaceElevated,
-                  image: DecorationImage(
-                    image: NetworkImage(imageUrl),
-                    fit: BoxFit.cover,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          // Bottom CTA Row
-          Row(
-            children: [
-              if (onReplace != null || onDelete != null) ...[
-                Expanded(
-                  child: TextButton(
-                    onPressed: onDelete ?? onReplace,
-                    style: TextButton.styleFrom(
-                      foregroundColor: onDelete != null ? AppColors.pulseRed : AppColors.textSecondary,
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        side: BorderSide(color: onDelete != null ? AppColors.pulseRed.withValues(alpha: 0.5) : AppColors.borderSubtle),
-                      ),
-                    ),
-                    child: Text(onDelete != null ? 'Delete' : 'Replace', style: const TextStyle(fontWeight: FontWeight.w600)),
-                  ),
-                ),
-                const SizedBox(width: 12),
-              ],
-              if (onStart != null)
-                Expanded(
-                child: ElevatedButton(
-                  onPressed: onStart,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.pulseRed,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                    elevation: 0,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                  child: const Text('Start', style: TextStyle(fontWeight: FontWeight.w700)),
-                ),
-              ),
-            ],
+        boxShadow: [
+          BoxShadow(
+            color: accentColor.withValues(alpha: 0.15),
+            blurRadius: 20,
+            offset: const Offset(0, 8),
           ),
         ],
       ),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // ── Left: Activity image 80×80 ──
+            ClipRRect(
+              borderRadius: BorderRadius.circular(16),
+              child: CachedNetworkImage(
+                imageUrl: imageUrl,
+                width: 80,
+                height: 80,
+                fit: BoxFit.cover,
+                placeholder: (context, url) => Container(
+                  width: 80,
+                  height: 80,
+                  color: AppColors.surfaceElevated,
+                  child: const Icon(LucideIcons.dumbbell, color: AppColors.textSecondary, size: 28),
+                ),
+                errorWidget: (context, url, error) => Container(
+                  width: 80,
+                  height: 80,
+                  color: AppColors.surfaceElevated,
+                  child: const Icon(LucideIcons.dumbbell, color: AppColors.textSecondary, size: 28),
+                ),
+              ),
+            ),
+            const SizedBox(width: 14),
+
+            // ── Right: Info + buttons ──
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Title row with trash icon
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: Text(
+                          activityName,
+                          style: theme.textTheme.titleLarge?.copyWith(
+                            fontWeight: FontWeight.w800,
+                            color: AppColors.textPrimary,
+                            decoration: isCompleted ? TextDecoration.lineThrough : null,
+                            decorationColor: AppColors.textSecondary,
+                          ),
+                        ),
+                      ),
+                      if (onDelete != null)
+                        GestureDetector(
+                          onTap: () => _confirmDelete(context),
+                          child: Padding(
+                            padding: const EdgeInsets.only(left: 6, top: 2),
+                            child: Icon(LucideIcons.trash2, size: 16, color: AppColors.textSecondary),
+                          ),
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+
+                  // Stats chips
+                  Wrap(
+                    spacing: 12,
+                    runSpacing: 6,
+                    children: [
+                      _StatChip(icon: LucideIcons.timer, label: durationOrReps),
+                      _StatChip(icon: LucideIcons.zap, label: kcal),
+                    ],
+                  ),
+                  const SizedBox(height: 14),
+
+                  // CTA button / Completed state
+                  isCompleted
+                      ? Row(
+                          children: [
+                            Icon(LucideIcons.checkCircle2, size: 18, color: AppColors.green),
+                            const SizedBox(width: 6),
+                            Text(
+                              'Completed!',
+                              style: theme.textTheme.labelLarge?.copyWith(
+                                color: AppColors.green,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ],
+                        )
+                      : SizedBox(
+                          width: double.infinity,
+                          height: 44,
+                          child: DecoratedBox(
+                            decoration: BoxDecoration(
+                              gradient: _accentGradient,
+                              borderRadius: BorderRadius.circular(14),
+                            ),
+                            child: Material(
+                              color: Colors.transparent,
+                              child: InkWell(
+                                borderRadius: BorderRadius.circular(14),
+                                onTap: onStart,
+                                child: const Center(
+                                  child: Text(
+                                    'Start Workout →',
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.w700,
+                                      fontSize: 14,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    return isCompleted ? Opacity(opacity: 0.65, child: card) : card;
+  }
+}
+
+class _StatChip extends StatelessWidget {
+  final IconData icon;
+  final String label;
+
+  const _StatChip({required this.icon, required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, size: 12, color: AppColors.textSecondary),
+        const SizedBox(width: 4),
+        Text(
+          label,
+          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: AppColors.textSecondary,
+                fontSize: 12,
+              ),
+        ),
+      ],
     );
   }
 }

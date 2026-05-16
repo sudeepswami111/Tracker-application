@@ -18,21 +18,15 @@ class _AddPlanSheetState extends State<AddPlanSheet> {
   final _durationController = TextEditingController();
   final _kcalController = TextEditingController();
 
-  final List<String> _galleryImages = [
-    'https://images.unsplash.com/photo-1552674605-db6ffd4facb5?auto=format&fit=crop&w=150&q=80', // Run
-    'https://images.unsplash.com/photo-1544367567-0f2fcb009e0b?auto=format&fit=crop&w=150&q=80', // Yoga
-    'https://images.unsplash.com/photo-1581009146145-b5ef050c2e1e?auto=format&fit=crop&w=150&q=80', // Weights
-    'https://images.unsplash.com/photo-1519315901367-f34f9273400a?auto=format&fit=crop&w=150&q=80', // Swim
-    'https://images.unsplash.com/photo-1517649763962-0c623066013b?auto=format&fit=crop&w=150&q=80', // Cycle
-  ];
+  final Map<String, String> _typeImages = {
+    'Run': 'https://images.unsplash.com/photo-1552674605-db6ffd4facb5?auto=format&fit=crop&w=150&q=80',
+    'Yoga': 'https://images.unsplash.com/photo-1544367567-0f2fcb009e0b?auto=format&fit=crop&w=150&q=80',
+    'Gym': 'https://images.unsplash.com/photo-1581009146145-b5ef050c2e1e?auto=format&fit=crop&w=150&q=80',
+    'Swim': 'https://images.unsplash.com/photo-1519315901367-f34f9273400a?auto=format&fit=crop&w=150&q=80',
+    'Cycle': 'https://images.unsplash.com/photo-1517649763962-0c623066013b?auto=format&fit=crop&w=150&q=80',
+  };
 
-  String? _selectedImage;
-
-  @override
-  void initState() {
-    super.initState();
-    _selectedImage = _galleryImages.first;
-  }
+  String _selectedType = 'Run';
 
   @override
   void dispose() {
@@ -45,10 +39,9 @@ class _AddPlanSheetState extends State<AddPlanSheet> {
   void _savePlan() {
     if (_titleController.text.isEmpty ||
         _durationController.text.isEmpty ||
-        _kcalController.text.isEmpty ||
-        _selectedImage == null) {
+        _kcalController.text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please fill all fields and select an image.')),
+        const SnackBar(content: Text('Please fill all fields.')),
       );
       return;
     }
@@ -58,7 +51,8 @@ class _AddPlanSheetState extends State<AddPlanSheet> {
       title: _titleController.text,
       duration: _durationController.text,
       kcal: _kcalController.text,
-      imageUrl: _selectedImage!,
+      imageUrl: _typeImages[_selectedType]!,
+      type: _selectedType,
     );
 
     context.read<AppProvider>().addDailyPlan(newPlan);
@@ -96,13 +90,42 @@ class _AddPlanSheetState extends State<AddPlanSheet> {
               ],
             ),
             const SizedBox(height: AppSpacing.md),
+            
+            // Type Selection
+            Text('Activity Type', style: theme.textTheme.titleMedium),
+            const SizedBox(height: AppSpacing.sm),
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: _typeImages.keys.map((type) {
+                  final isSelected = _selectedType == type;
+                  return Padding(
+                    padding: const EdgeInsets.only(right: 8),
+                    child: ChoiceChip(
+                      label: Text(type),
+                      selected: isSelected,
+                      onSelected: (val) {
+                        if (val) setState(() => _selectedType = type);
+                      },
+                      selectedColor: AppColors.voltCyan.withValues(alpha: 0.2),
+                      checkmarkColor: AppColors.voltCyan,
+                      labelStyle: TextStyle(
+                        color: isSelected ? AppColors.voltCyan : AppColors.textSecondary,
+                        fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                      ),
+                    ),
+                  );
+                }).toList(),
+              ),
+            ),
+            const SizedBox(height: AppSpacing.md),
+
             TextField(
               controller: _titleController,
               decoration: InputDecoration(
                 labelText: 'Plan Title (e.g., Morning Run 5K)',
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide(color: AppColors.borderSubtle),
                 ),
               ),
             ),
@@ -113,7 +136,7 @@ class _AddPlanSheetState extends State<AddPlanSheet> {
                   child: TextField(
                     controller: _durationController,
                     decoration: InputDecoration(
-                      labelText: 'Timer / Duration',
+                      labelText: 'Duration',
                       hintText: '30 min',
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
@@ -126,8 +149,8 @@ class _AddPlanSheetState extends State<AddPlanSheet> {
                   child: TextField(
                     controller: _kcalController,
                     decoration: InputDecoration(
-                      labelText: 'Kcal Burn',
-                      hintText: '320 kcal',
+                      labelText: 'Kcal',
+                      hintText: '320',
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
                       ),
@@ -136,38 +159,22 @@ class _AddPlanSheetState extends State<AddPlanSheet> {
                 ),
               ],
             ),
+            
             const SizedBox(height: AppSpacing.lg),
-            Text('Select Logo / Image', style: theme.textTheme.titleMedium),
+            Text('Preview Image', style: theme.textTheme.titleMedium),
             const SizedBox(height: AppSpacing.sm),
-            SizedBox(
-              height: 80,
-              child: ListView.builder(
-                scrollDirection: Axis.horizontal,
-                itemCount: _galleryImages.length,
-                itemBuilder: (context, index) {
-                  final imgUrl = _galleryImages[index];
-                  final isSelected = _selectedImage == imgUrl;
-                  return GestureDetector(
-                    onTap: () => setState(() => _selectedImage = imgUrl),
-                    child: Container(
-                      width: 80,
-                      margin: const EdgeInsets.only(right: 12),
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(
-                          color: isSelected ? AppColors.voltCyan : Colors.transparent,
-                          width: 3,
-                        ),
-                        image: DecorationImage(
-                          image: NetworkImage(imgUrl),
-                          fit: BoxFit.cover,
-                        ),
-                      ),
-                    ),
-                  );
-                },
+            Container(
+              height: 100,
+              width: double.infinity,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(16),
+                image: DecorationImage(
+                  image: NetworkImage(_typeImages[_selectedType]!),
+                  fit: BoxFit.cover,
+                ),
               ),
             ),
+
             const SizedBox(height: AppSpacing.xl),
             SizedBox(
               width: double.infinity,
