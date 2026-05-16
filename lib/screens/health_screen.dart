@@ -7,7 +7,7 @@ import '../theme/app_colors.dart';
 import '../widgets/watch_connect_banner.dart';
 import '../widgets/watch_dashboard.dart';
 import '../providers/watch_metrics_provider.dart';
-import '../widgets/week_strip_calendar.dart';
+import '../widgets/health_date_selector.dart';
 import '../theme/app_spacing.dart';
 import '../widgets/health_components.dart';
 
@@ -19,6 +19,8 @@ class HealthScreen extends StatefulWidget {
 }
 
 class _HealthScreenState extends State<HealthScreen> {
+  DateTime _selectedDate = DateTime.now();
+
   @override
   Widget build(BuildContext context) {
     final app = context.watch<AppProvider>();
@@ -37,14 +39,17 @@ class _HealthScreenState extends State<HealthScreen> {
               style: theme.textTheme.bodySmall),
           const SizedBox(height: AppSpacing.lg),
 
-          // ── Week Strip Calendar ──
-          WeekStripCalendar(
-            days: List.generate(7, (i) => DayModel(
-              date: DateTime.now().subtract(Duration(days: 3 - i)),
-              state: i == 3 ? DayState.today : (i < 3 ? DayState.completed : DayState.defaultState),
-              moduleType: ModuleType.none,
-            )),
-            onDaySelected: (date) {},
+          // ── Health Date Selector ──
+          HealthDateSelector(
+            selectedDate: _selectedDate,
+            completedDates: [
+              DateTime.now().subtract(const Duration(days: 1)),
+              DateTime.now().subtract(const Duration(days: 2)),
+              DateTime.now().subtract(const Duration(days: 3)),
+            ],
+            onDateSelected: (date) {
+              setState(() => _selectedDate = date);
+            },
           ),
           const SizedBox(height: AppSpacing.lg),
 
