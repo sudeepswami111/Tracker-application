@@ -50,7 +50,7 @@ class DashboardScreen extends StatelessWidget {
             left: AppSpacing.screenMargin,
             right: AppSpacing.screenMargin,
             top: AppSpacing.xl,
-            bottom: AppSpacing.navHeight + 32,
+            bottom: 150, // Enough padding to prevent bottom nav overlap
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,

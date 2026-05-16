@@ -249,7 +249,7 @@ class _CommunityScreenState extends State<CommunityScreen> with SingleTickerProv
               // ── FIX FOR BOTTOM OVERFLOW ──
               const SliverSafeArea(
                 top: false,
-                sliver: SliverToBoxAdapter(child: SizedBox(height: 110)),
+                sliver: SliverToBoxAdapter(child: SizedBox(height: 150)),
               ),
             ],
           ),

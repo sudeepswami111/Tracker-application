@@ -74,7 +74,7 @@ class _HealthScreenState extends State<HealthScreen> {
                 : _buildDisconnectedView(theme, isDark),
           ),
 
-          const SizedBox(height: 100),
+          const SizedBox(height: 150), // Bottom nav padding
         ],
       ),
     );

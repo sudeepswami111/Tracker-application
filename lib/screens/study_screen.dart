@@ -388,7 +388,7 @@ class _StudyScreenState extends State<StudyScreen> with TickerProviderStateMixin
                   )),
               ],
 
-              const SizedBox(height: 100), // Bottom nav padding
+              const SizedBox(height: 150), // Bottom nav padding
             ],
           ),
         ),

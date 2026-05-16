@@ -39,116 +39,116 @@ class GlassNavBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bottomPadding = MediaQuery.of(context).padding.bottom;
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    return Padding(
-      // Floating offset
-      padding: EdgeInsets.only(
-        left: 20,
-        right: 20,
-        bottom: bottomPadding + 16,
-      ),
-      child: SizedBox(
-        height: 64,
-        child: Stack(
-          clipBehavior: Clip.none,
-          alignment: Alignment.center,
-          children: [
-            // ── Glass Container ──────────────────────────────────────────────
-            Positioned.fill(
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(32),
-                child: BackdropFilter(
-                  filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
-                  child: Container(
-                    decoration: BoxDecoration(
-                      // Dark: near-transparent white glass
-                      // Light: opaque white card with subtle border
-                      color: isDark
-                          ? Colors.white.withValues(alpha: 0.04)
-                          : Colors.white.withValues(alpha: 0.88),
-                      borderRadius: BorderRadius.circular(32),
-                      border: Border.all(
+    return SafeArea(
+      child: Padding(
+        // Floating offset above the bottom edge
+        padding: const EdgeInsets.only(
+          left: 20,
+          right: 20,
+          bottom: 16,
+        ),
+        child: SizedBox(
+          height: 72,
+          child: Stack(
+            clipBehavior: Clip.none,
+            alignment: Alignment.center,
+            children: [
+              // ── Glass Container ──────────────────────────────────────────────
+              Positioned.fill(
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(36),
+                  child: BackdropFilter(
+                    filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
+                    child: Container(
+                      decoration: BoxDecoration(
+                        // Semi-transparent dark premium background in dark mode
                         color: isDark
-                            ? Colors.white.withValues(alpha: 0.08)
-                            : Colors.black.withValues(alpha: 0.07),
-                        width: 1,
+                            ? const Color(0xFF151515).withValues(alpha: 0.75)
+                            : Colors.white.withValues(alpha: 0.88),
+                        borderRadius: BorderRadius.circular(36),
+                        border: Border.all(
+                          color: isDark
+                              ? Colors.white.withValues(alpha: 0.12)
+                              : Colors.black.withValues(alpha: 0.08),
+                          width: 1,
+                        ),
+                        boxShadow: isDark
+                            ? []
+                            : [
+                                BoxShadow(
+                                  color: Colors.black.withValues(alpha: 0.08),
+                                  blurRadius: 20,
+                                  offset: const Offset(0, 4),
+                                ),
+                              ],
                       ),
-                      boxShadow: isDark
-                          ? []
-                          : [
-                              BoxShadow(
-                                color: Colors.black.withValues(alpha: 0.08),
-                                blurRadius: 20,
-                                offset: const Offset(0, 4),
-                              ),
-                            ],
                     ),
                   ),
                 ),
               ),
-            ),
 
-            // ── Nav Items Row ────────────────────────────────────────────────
-            Row(
-              children: [
-                // Left half: Dashboard, Health
-                Expanded(
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: _NavTab(
-                          destination: _destinations[0],
-                          isActive: currentIndex == 0,
-                          onTap: onTap,
+              // ── Nav Items Row ────────────────────────────────────────────────
+              Row(
+                children: [
+                  // Left half: Dashboard, Health
+                  Expanded(
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: _NavTab(
+                            destination: _destinations[0],
+                            isActive: currentIndex == 0,
+                            onTap: onTap,
+                          ),
                         ),
-                      ),
-                      Expanded(
-                        child: _NavTab(
-                          destination: _destinations[1],
-                          isActive: currentIndex == 1,
-                          onTap: onTap,
+                        Expanded(
+                          child: _NavTab(
+                            destination: _destinations[1],
+                            isActive: currentIndex == 1,
+                            onTap: onTap,
+                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
-                ),
-                // Center gap for floating button
-                const SizedBox(width: 72),
-                // Right half: Chat, Study
-                Expanded(
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: _NavTab(
-                          destination: _destinations[2],
-                          isActive: currentIndex == 3,
-                          onTap: onTap,
+                  // Center gap for floating button
+                  const SizedBox(width: 72),
+                  // Right half: Chat, Study
+                  Expanded(
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: _NavTab(
+                            destination: _destinations[2],
+                            isActive: currentIndex == 3,
+                            onTap: onTap,
+                          ),
                         ),
-                      ),
-                      Expanded(
-                        child: _NavTab(
-                          destination: _destinations[3],
-                          isActive: currentIndex == 4,
-                          onTap: onTap,
+                        Expanded(
+                          child: _NavTab(
+                            destination: _destinations[3],
+                            isActive: currentIndex == 4,
+                            onTap: onTap,
+                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
-                ),
-              ],
-            ),
-
-            // ── Floating Center Button ───────────────────────────────────────
-            Positioned(
-              top: -16,
-              child: _FloatingCenterButton(
-                isActive: currentIndex == 2,
-                onTap: () => onTap(2),
+                ],
               ),
-            ),
-          ],
+
+              // ── Floating Center Button ───────────────────────────────────────
+              Positioned(
+                top: -24, // Moved slightly higher than nav bar to be prominent
+                child: _FloatingCenterButton(
+                  isActive: currentIndex == 2,
+                  onTap: () => onTap(2),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -218,7 +218,8 @@ class _NavTabState extends State<_NavTab> with SingleTickerProviderStateMixin {
     }
 
     final activeColor = getAccentColor();
-    final inactiveColor = Theme.of(context).colorScheme.onSurfaceVariant;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final inactiveColor = isDark ? Colors.white54 : Colors.black54;
 
     return GestureDetector(
       onTapDown: _onTapDown,
@@ -230,64 +231,40 @@ class _NavTabState extends State<_NavTab> with SingleTickerProviderStateMixin {
           scale: _scale,
           child: Container(
             color: Colors.transparent, // Ensures full tap area
-            height: 64,
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                // Icon + Optional Label inside pill
-                AnimatedContainer(
-                  duration: const Duration(milliseconds: 250),
-                  curve: Curves.easeOutCubic,
-                  padding: EdgeInsets.symmetric(
-                    horizontal: widget.isActive ? 12 : 8, 
-                    vertical: 8
+            height: 72,
+            alignment: Alignment.center,
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 250),
+              curve: Curves.easeOutCubic,
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+              decoration: BoxDecoration(
+                color: widget.isActive
+                    ? activeColor.withValues(alpha: 0.15)
+                    : Colors.transparent,
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    widget.destination.icon,
+                    size: 24, // Consistent icon size 24px
+                    color: widget.isActive ? activeColor : inactiveColor,
                   ),
-                  decoration: BoxDecoration(
-                    color: widget.isActive
-                        ? activeColor.withValues(alpha: 0.15)
-                        : Colors.transparent,
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        widget.destination.icon,
-                        size: 20,
-                        color: widget.isActive ? activeColor : inactiveColor,
-                      ),
-                      if (widget.isActive) ...[
-                        const SizedBox(width: 6),
-                        Flexible(
-                          child: Text(
-                            widget.destination.label,
-                            maxLines: 1,
-                            overflow: TextOverflow.clip,
-                            style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                              color: activeColor,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                        ),
-                      ]
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 4),
-                // Small filled circle beneath icon when active
-                AnimatedOpacity(
-                  opacity: widget.isActive ? 1.0 : 0.0,
-                  duration: const Duration(milliseconds: 200),
-                  child: Container(
-                    height: 4,
-                    width: 4,
-                    decoration: BoxDecoration(
-                      color: activeColor,
-                      shape: BoxShape.circle,
+                  const SizedBox(height: 2),
+                  Text(
+                    widget.destination.label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                      color: widget.isActive ? activeColor : inactiveColor,
+                      fontWeight: widget.isActive ? FontWeight.w700 : FontWeight.w500,
+                      fontSize: 11,
                     ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),
