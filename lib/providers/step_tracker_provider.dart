@@ -29,6 +29,7 @@ class StepTrackerProvider extends ChangeNotifier with WidgetsBindingObserver {
   String _error = '';
 
   int _initialStepsForDay = -1;
+  int _lastKnownDeviceSteps = -1;
   String _lastSavedDate = '';
 
   int get steps => _steps;
@@ -66,14 +67,15 @@ class StepTrackerProvider extends ChangeNotifier with WidgetsBindingObserver {
   void _checkDayReset() async {
     final todayStr = DateTime.now().toIso8601String().substring(0, 10);
     if (_lastSavedDate.isNotEmpty && _lastSavedDate != todayStr) {
-      _initialStepsForDay = -1;
-      _steps = 0;
-      _streakRecordedToday = false;
-      _lastSavedDate = todayStr;
-      
       final prefs = await SharedPreferences.getInstance();
+      
+      _initialStepsForDay = _lastKnownDeviceSteps != -1 ? _lastKnownDeviceSteps : 0;
+      _lastSavedDate = todayStr;
+      _streakRecordedToday = false;
+      _steps = 0;
+      
       await prefs.setString('lastSavedDate', _lastSavedDate);
-      await prefs.setInt('initialSteps', -1); // ← persist sentinel so onStepCount resets correctly
+      await prefs.setInt('initialSteps', _initialStepsForDay);
       notifyListeners();
     }
   }
@@ -91,11 +93,25 @@ class StepTrackerProvider extends ChangeNotifier with WidgetsBindingObserver {
         // 2. Load cached initial steps
         final prefs = await SharedPreferences.getInstance();
         _initialStepsForDay = prefs.getInt('initialSteps') ?? -1;
+        _lastKnownDeviceSteps = prefs.getInt('lastKnownDeviceSteps') ?? -1;
         _lastSavedDate = prefs.getString('lastSavedDate') ?? '';
         
         final todayStr = DateTime.now().toIso8601String().substring(0, 10);
-        if (_lastSavedDate != todayStr) {
-          _initialStepsForDay = -1; // Reset for new day
+        
+        if (_lastSavedDate.isNotEmpty && _lastSavedDate != todayStr) {
+          // Day changed while app was closed. Baseline is yesterday's last known steps.
+          _initialStepsForDay = _lastKnownDeviceSteps != -1 ? _lastKnownDeviceSteps : 0;
+          _lastSavedDate = todayStr;
+          _steps = 0;
+          _streakRecordedToday = false;
+          await prefs.setString('lastSavedDate', _lastSavedDate);
+          await prefs.setInt('initialSteps', _initialStepsForDay);
+        } else {
+          // Same day, calculate current steps based on last known if available
+          if (_initialStepsForDay != -1 && _lastKnownDeviceSteps != -1) {
+            _steps = _lastKnownDeviceSteps - _initialStepsForDay;
+            if (_steps < 0) _steps = 0;
+          }
         }
 
         // 3. Subscribe to Sensors
@@ -129,13 +145,25 @@ class StepTrackerProvider extends ChangeNotifier with WidgetsBindingObserver {
     final todayStr = DateTime.now().toIso8601String().substring(0, 10);
     final prefs = await SharedPreferences.getInstance();
 
-    if (_initialStepsForDay == -1 || _lastSavedDate != todayStr) {
-      _initialStepsForDay = event.steps;
+    if (_lastSavedDate != todayStr) {
+      if (_lastSavedDate.isNotEmpty && _lastKnownDeviceSteps != -1) {
+        _initialStepsForDay = _lastKnownDeviceSteps;
+      } else {
+        _initialStepsForDay = event.steps;
+      }
       _lastSavedDate = todayStr;
       _streakRecordedToday = false;
       await prefs.setInt('initialSteps', _initialStepsForDay);
       await prefs.setString('lastSavedDate', _lastSavedDate);
+    } else if (_initialStepsForDay == -1) {
+      _initialStepsForDay = event.steps;
+      _lastSavedDate = todayStr;
+      await prefs.setInt('initialSteps', _initialStepsForDay);
+      await prefs.setString('lastSavedDate', _lastSavedDate);
     }
+
+    _lastKnownDeviceSteps = event.steps;
+    await prefs.setInt('lastKnownDeviceSteps', _lastKnownDeviceSteps);
 
     int currentSteps = event.steps - _initialStepsForDay;
     if (currentSteps < 0) {
