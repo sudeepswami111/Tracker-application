@@ -53,8 +53,43 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
   final List<LatLng> _mockPreRunRoute = const [];
 
   String _selectedRunType = 'Outdoor Run';
+  String _selectedSportCategory = 'Cardio';
   bool _audioPrompts = true;
   bool _isFullScreenMap = false;
+
+  final Map<String, List<Map<String, dynamic>>> _sportsCategories = {
+    'Cardio': [
+      {'name': 'Outdoor Run', 'icon': Icons.directions_run},
+      {'name': 'Treadmill', 'icon': Icons.fitness_center},
+      {'name': 'Trail Run', 'icon': Icons.park},
+      {'name': 'Cycling', 'icon': Icons.directions_bike},
+    ],
+    'Fitness': [
+      {'name': 'Workout', 'icon': Icons.fitness_center},
+      {'name': 'HIIT', 'icon': Icons.timer},
+      {'name': 'Dance', 'icon': Icons.music_note},
+    ],
+    'Water': [
+      {'name': 'Swim', 'icon': Icons.pool},
+      {'name': 'Surf', 'icon': Icons.surfing},
+      {'name': 'Stand Up Paddle', 'icon': Icons.rowing},
+      {'name': 'Kayak', 'icon': Icons.kayaking},
+    ],
+    'Winter': [
+      {'name': 'Ice Skate', 'icon': Icons.ice_skating},
+      {'name': 'Snowboard', 'icon': Icons.snowboarding},
+    ],
+    'Team': [
+      {'name': 'Football', 'icon': Icons.sports_soccer},
+      {'name': 'Basketball', 'icon': Icons.sports_basketball},
+      {'name': 'Volleyball', 'icon': Icons.sports_volleyball},
+      {'name': 'Cricket', 'icon': Icons.sports_cricket},
+    ],
+    'Other': [
+      {'name': 'Skateboard', 'icon': Icons.skateboarding},
+      {'name': 'Golf', 'icon': Icons.sports_golf},
+    ],
+  };
 
   void _toggleFullScreen() {
     setState(() {
@@ -239,7 +274,7 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
             top: 0,
             left: 0,
             right: 0,
-            height: isRunningPhase || _isFullScreenMap ? size.height : size.height * 0.45,
+            height: isRunningPhase || _isFullScreenMap ? size.height : 280.0 + MediaQuery.of(context).padding.top,
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 600),
               curve: Curves.easeInOutCubic,
@@ -389,10 +424,10 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
           AnimatedPositioned(
             duration: const Duration(milliseconds: 600),
             curve: Curves.easeInOutCubic,
-            top: isRunningPhase || _isFullScreenMap ? size.height : size.height * 0.45,
+            top: isRunningPhase || _isFullScreenMap ? size.height : 280.0 + MediaQuery.of(context).padding.top,
             left: 0,
             right: 0,
-            height: size.height * 0.55,
+            height: size.height - (280.0 + MediaQuery.of(context).padding.top),
             child: AnimatedOpacity(
               duration: const Duration(milliseconds: 300),
               opacity: isRunningPhase || _isFullScreenMap ? 0.0 : 1.0,
@@ -529,16 +564,43 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
           ),
           const SizedBox(height: AppSpacing.xl),
 
+          // Category selector
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: _sportsCategories.keys.map((cat) {
+                final isActive = _selectedSportCategory == cat;
+                return GestureDetector(
+                  onTap: () {
+                    HapticFeedback.lightImpact();
+                    setState(() {
+                      _selectedSportCategory = cat;
+                      _selectedRunType = _sportsCategories[cat]!.first['name'];
+                    });
+                  },
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 200),
+                    margin: const EdgeInsets.only(right: 8),
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: isActive ? AppColors.voltCyan.withValues(alpha: 0.2) : Colors.transparent,
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(color: isActive ? AppColors.voltCyan : (isDark ? Colors.white : Colors.black).withValues(alpha: 0.1)),
+                    ),
+                    child: Text(cat, style: TextStyle(color: isActive ? AppColors.voltCyan : (isDark ? Colors.white : Colors.black).withValues(alpha: 0.7), fontWeight: FontWeight.bold, fontSize: 13)),
+                  ),
+                );
+              }).toList(),
+            ),
+          ),
+          const SizedBox(height: 16),
           // Run type selector chips
           SingleChildScrollView(
             scrollDirection: Axis.horizontal,
             child: Row(
-              children: [
-                _typeChip('Outdoor Run', Icons.directions_run, isDark),
-                _typeChip('Treadmill', Icons.fitness_center, isDark),
-                _typeChip('Trail Run', Icons.park, isDark),
-                _typeChip('Cycling', Icons.directions_bike, isDark),
-              ],
+              children: _sportsCategories[_selectedSportCategory]!.map((sport) {
+                return _typeChip(sport['name'], sport['icon'], isDark);
+              }).toList(),
             ),
           ),
           const SizedBox(height: AppSpacing.xl),

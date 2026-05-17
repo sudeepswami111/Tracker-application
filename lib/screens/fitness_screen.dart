@@ -15,60 +15,98 @@ class FitnessScreen extends StatelessWidget {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
 
-    return Padding(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text('Fitness Tracker', style: theme.textTheme.displayLarge),
-          const SizedBox(height: 4),
-          Text('Track your workouts and body metrics', style: theme.textTheme.bodySmall),
-          const SizedBox(height: 20),
-          // 1.6 — 2x2 Circular Ring Cards
-          LayoutBuilder(
-            builder: (context, constraints) {
-              final cardWidth = (constraints.maxWidth - 12) / 2;
-              final ringCards = [
-                _RingStatCard(label: 'Calories', value: '${app.todayCalories}', sublabel: 'kcal', progress: (app.todayCalories / 3000 * 100).clamp(0, 100), color: AppColors.coral),
-                _RingStatCard(label: 'Duration', value: '${app.todayDuration}', sublabel: 'min', progress: (app.todayDuration / 90 * 100).clamp(0, 100), color: AppColors.primary),
-                _RingStatCard(label: 'Exercises', value: '${app.todayExercises}', sublabel: 'done', progress: (app.todayExercises / 6 * 100).clamp(0, 100), color: AppColors.secondary),
-                _RingStatCard(label: 'Weight', value: app.bodyWeight.isNotEmpty ? '${app.bodyWeight.last}' : '0', sublabel: 'kg', progress: 100, color: AppColors.green),
-              ];
-              return Wrap(
-                spacing: 12,
-                runSpacing: 12,
-                children: ringCards.map((card) => SizedBox(width: cardWidth, child: card)).toList(),
-              );
-            },
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Text('Your Progress', style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
+        ),
+        const SizedBox(height: 16),
+        // Horizontal scrolling stat pills
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Row(
+            children: [
+              _StatPill(icon: LucideIcons.flame, label: 'Calories', value: '${app.todayCalories}', sub: 'kcal', color: AppColors.coral),
+              const SizedBox(width: 12),
+              _StatPill(icon: LucideIcons.timer, label: 'Duration', value: '${app.todayDuration}', sub: 'min', color: AppColors.primary),
+              const SizedBox(width: 12),
+              _StatPill(icon: LucideIcons.activity, label: 'Workouts', value: '${app.todayExercises}', sub: 'done', color: AppColors.secondary),
+              const SizedBox(width: 12),
+              _StatPill(icon: LucideIcons.scale, label: 'Weight', value: app.bodyWeight.isNotEmpty ? '${app.bodyWeight.last}' : '0', sub: 'kg', color: AppColors.green),
+            ],
           ),
-          const SizedBox(height: 20),
-          GlassCard(child: Column(children: [
-            Text('Weekly Goal', style: theme.textTheme.titleLarge),
-            const SizedBox(height: 16),
-            ProgressRing(size: 160, strokeWidth: 12, progress: app.weeklyCompleted / app.weeklyGoal * 100, color: AppColors.primary, label: '${app.weeklyCompleted}/${app.weeklyGoal}', sublabel: 'workouts', fontSize: 24),
-            const SizedBox(height: 12),
-            Text('${app.weeklyGoal - app.weeklyCompleted} more to hit your goal!', style: theme.textTheme.bodySmall),
-          ])),
-          const SizedBox(height: 16),
-          GlassCard(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-              Text("Today's Workouts", style: theme.textTheme.titleLarge),
-              ElevatedButton.icon(onPressed: () => _showAddWorkout(context, app), icon: const Icon(LucideIcons.plus, size: 16), label: const Text('Log')),
-            ]),
-            const SizedBox(height: 12),
-            ...app.workouts.map((w) => _WorkoutTile(w: w, isDark: isDark, theme: theme)),
-          ])),
-          const SizedBox(height: 16),
-          GlassCard(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text('Body Metrics', style: theme.textTheme.titleLarge),
-            const SizedBox(height: 16),
-            _metricRow('Current Weight', app.bodyWeight.isNotEmpty ? '${app.bodyWeight.last} kg' : '-- kg', theme),
-            _metricRow('BMI', '${app.bmi}', theme),
-            _metricRow('Weight Lost', app.bodyWeight.isNotEmpty ? '-${(app.bodyWeight.first - app.bodyWeight.last).toStringAsFixed(1)} kg' : '0 kg', theme, color: AppColors.green),
-          ])),
-          const SizedBox(height: 100),
-        ],
-      ),
+        ),
+        const SizedBox(height: 24),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Row(
+            children: [
+              Expanded(
+                child: GlassCard(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    children: [
+                      Text('Weekly Goal', style: theme.textTheme.titleMedium),
+                      const SizedBox(height: 12),
+                      ProgressRing(size: 100, strokeWidth: 8, progress: app.weeklyCompleted / app.weeklyGoal * 100, color: AppColors.primary, label: '${app.weeklyCompleted}/${app.weeklyGoal}', sublabel: 'done', fontSize: 20),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: GlassCard(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Body Metrics', style: theme.textTheme.titleMedium),
+                      const SizedBox(height: 16),
+                      _metricRow('BMI', '${app.bmi}', theme),
+                      _metricRow('Weight', app.bodyWeight.isNotEmpty ? '${app.bodyWeight.last} kg' : '-- kg', theme),
+                      _metricRow('Lost', app.bodyWeight.isNotEmpty ? '-${(app.bodyWeight.first - app.bodyWeight.last).toStringAsFixed(1)} kg' : '0 kg', theme, color: AppColors.green),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 24),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: GlassCard(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text("Today's Workouts", style: theme.textTheme.titleMedium),
+                    TextButton.icon(
+                      onPressed: () => _showAddWorkout(context, app), 
+                      icon: const Icon(LucideIcons.plus, size: 16), 
+                      label: const Text('Add')
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                if (app.workouts.isEmpty)
+                  Center(child: Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: Text('No workouts logged today', style: theme.textTheme.bodySmall),
+                  ))
+                else
+                  ...app.workouts.map((w) => _WorkoutTile(w: w, isDark: isDark, theme: theme)),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 100),
+      ],
     );
   }
 
@@ -80,62 +118,46 @@ class FitnessScreen extends StatelessWidget {
   }
 }
 
-// 1.6 — Compact circular ring stat card
-class _RingStatCard extends StatelessWidget {
+class _StatPill extends StatelessWidget {
+  final IconData icon;
   final String label;
   final String value;
-  final String sublabel;
-  final double progress;
+  final String sub;
   final Color color;
 
-  const _RingStatCard({
-    required this.label,
-    required this.value,
-    required this.sublabel,
-    required this.progress,
-    required this.color,
-  });
+  const _StatPill({required this.icon, required this.label, required this.value, required this.sub, required this.color});
 
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final theme = Theme.of(context);
     return Container(
-      padding: const EdgeInsets.symmetric(vertical: 16),
+      width: 140,
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: isDark
-            ? AppColors.darkSurfaceContainer.withValues(alpha: 0.55)
-            : AppColors.lightSurface,
+        color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.black.withValues(alpha: 0.02),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: isDark
-              ? Colors.white.withValues(alpha: 0.06)
-              : Colors.black.withValues(alpha: 0.06),
-        ),
+        border: Border.all(color: isDark ? Colors.white.withValues(alpha: 0.1) : Colors.black.withValues(alpha: 0.05)),
       ),
       child: Column(
-        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          SizedBox(
-            width: 80,
-            height: 80,
-            child: ProgressRing(
-              size: 80,
-              strokeWidth: 5,
-              progress: progress,
-              color: color,
-              label: value,
-              sublabel: sublabel,
-              fontSize: 16,
-            ),
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(color: color.withValues(alpha: 0.2), shape: BoxShape.circle),
+            child: Icon(icon, color: color, size: 20),
           ),
-          const SizedBox(height: 8),
-          Text(
-            label.toUpperCase(),
-            style: theme.textTheme.labelSmall?.copyWith(
-              letterSpacing: 1,
-              fontSize: 10,
-            ),
+          const SizedBox(height: 12),
+          Text(label, style: TextStyle(color: (isDark ? Colors.white : Colors.black).withValues(alpha: 0.5), fontSize: 12)),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Text(value, style: TextStyle(color: isDark ? Colors.white : Colors.black, fontSize: 24, fontWeight: FontWeight.bold)),
+              const SizedBox(width: 4),
+              Padding(
+                padding: const EdgeInsets.only(bottom: 4),
+                child: Text(sub, style: TextStyle(color: (isDark ? Colors.white : Colors.black).withValues(alpha: 0.5), fontSize: 12)),
+              ),
+            ],
           ),
         ],
       ),
@@ -185,14 +207,14 @@ class _AddWorkoutSheet extends StatefulWidget {
 }
 
 class _AddWorkoutSheetState extends State<_AddWorkoutSheet> {
-  String type = 'Running'; int duration = 30; int calories = 250; String intensity = 'Medium';
+  String type = 'Outdoor Run'; int duration = 30; int calories = 250; String intensity = 'Medium';
   @override
   Widget build(BuildContext context) {
     return Padding(padding: EdgeInsets.fromLTRB(24, 24, 24, MediaQuery.of(context).viewInsets.bottom + 24),
       child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
         Text('Log Workout', style: Theme.of(context).textTheme.headlineMedium), const SizedBox(height: 20),
         DropdownButtonFormField<String>(initialValue: type, decoration: const InputDecoration(labelText: 'Type'),
-          items: ['Running', 'Weight Training', 'Yoga', 'Cycling', 'HIIT'].map((t) => DropdownMenuItem(value: t, child: Text(t))).toList(), onChanged: (v) => setState(() => type = v!)),
+          items: ['Outdoor Run', 'Treadmill', 'Cycling', 'Workout', 'HIIT', 'Swim', 'Surf', 'Snowboard', 'Football', 'Basketball', 'Dance'].map((t) => DropdownMenuItem(value: t, child: Text(t))).toList(), onChanged: (v) => setState(() => type = v!)),
         const SizedBox(height: 12),
         TextFormField(initialValue: '$duration', decoration: const InputDecoration(labelText: 'Duration (min)'), keyboardType: TextInputType.number, onChanged: (v) => duration = int.tryParse(v) ?? 30),
         const SizedBox(height: 12),
