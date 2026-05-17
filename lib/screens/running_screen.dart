@@ -54,6 +54,23 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
 
   String _selectedRunType = 'Outdoor Run';
   bool _audioPrompts = true;
+  bool _isFullScreenMap = false;
+
+  void _toggleFullScreen() {
+    setState(() {
+      _isFullScreenMap = !_isFullScreenMap;
+    });
+    widget.onFullscreenChanged?.call(_isFullScreenMap || _state != RunState.planning);
+  }
+
+  void _resetLocation() {
+    if (_curPos != null) {
+      _mapCtrl.move(_curPos!, 16);
+      setState(() => _follow = true);
+    } else {
+      _initLocation();
+    }
+  }
 
   @override
   void initState() {
@@ -170,7 +187,7 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
   }
 
   void _resetRun() {
-    widget.onFullscreenChanged?.call(false);
+    widget.onFullscreenChanged?.call(_isFullScreenMap);
     setState(() {
       _state = RunState.planning;
       _gpsRoute.clear();
@@ -206,7 +223,7 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
     // Map URL
     final mapUrl = isDark 
         ? 'https://a.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}@2x.png'
-        : 'https://a.basemaps.cartocdn.com/light_all/{z}/{x}/{y}@2x.png';
+        : 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
 
     final isRunningPhase = _state == RunState.running || _state == RunState.paused || _state == RunState.countdown;
     final weather = context.watch<WeatherProvider>().weather;
@@ -216,19 +233,20 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
       body: Stack(
         children: [
           // ── 1. MAP BACKGROUND ──
-          Positioned(
+          AnimatedPositioned(
+            duration: const Duration(milliseconds: 600),
+            curve: Curves.easeInOutCubic,
             top: 0,
             left: 0,
             right: 0,
-            // Pre-run: 220dp tall map (+ status bar). Active: Full bleed
-            height: isRunningPhase ? size.height : 220.0 + MediaQuery.of(context).padding.top,
+            height: isRunningPhase || _isFullScreenMap ? size.height : size.height * 0.45,
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 600),
               curve: Curves.easeInOutCubic,
               decoration: BoxDecoration(
-                borderRadius: isRunningPhase 
+                borderRadius: isRunningPhase || _isFullScreenMap
                     ? BorderRadius.zero 
-                    : const BorderRadius.vertical(bottom: Radius.circular(16)),
+                    : const BorderRadius.vertical(bottom: Radius.circular(32)),
               ),
               clipBehavior: Clip.antiAlias,
               child: FlutterMap(
@@ -323,6 +341,27 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
             ),
           ),
 
+          // ── MAP CONTROLS ──
+          if (!isRunningPhase)
+            Positioned(
+              top: MediaQuery.of(context).padding.top + 16,
+              right: 16,
+              child: Column(
+                children: [
+                  _mapControlBtn(
+                    icon: _isFullScreenMap ? Icons.fullscreen_exit : Icons.fullscreen,
+                    onTap: _toggleFullScreen,
+                  ),
+                  const SizedBox(height: 12),
+                  _mapControlBtn(
+                    icon: Icons.my_location,
+                    onTap: _resetLocation,
+                    color: _follow ? AppColors.voltCyan : null,
+                  ),
+                ],
+              ),
+            ),
+
           // ── MAP WEATHER OVERLAY ──
           if (isRunningPhase && weather != null)
             Positioned(
@@ -347,11 +386,22 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
             ),
 
           // ── 2. PRE-RUN UI ──
-          if (_state == RunState.planning)
-            Positioned.fill(
-              top: 220.0 + MediaQuery.of(context).padding.top + 16,
-              child: _buildPreRunUI(theme, isDark),
+          AnimatedPositioned(
+            duration: const Duration(milliseconds: 600),
+            curve: Curves.easeInOutCubic,
+            top: isRunningPhase || _isFullScreenMap ? size.height : size.height * 0.45,
+            left: 0,
+            right: 0,
+            height: size.height * 0.55,
+            child: AnimatedOpacity(
+              duration: const Duration(milliseconds: 300),
+              opacity: isRunningPhase || _isFullScreenMap ? 0.0 : 1.0,
+              child: IgnorePointer(
+                ignoring: isRunningPhase || _isFullScreenMap,
+                child: _buildPreRunUI(theme, isDark),
+              ),
             ),
+          ),
 
           // ── 3. ACTIVE RUN UI ──
           if (_state == RunState.running || _state == RunState.paused) ...[
@@ -602,6 +652,32 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
           
           const SizedBox(height: 100), // Padding for bottom nav
         ],
+      ),
+    );
+  }
+
+  Widget _mapControlBtn({required IconData icon, required VoidCallback onTap, Color? color}) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return GestureDetector(
+      onTap: onTap,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(12),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
+          child: Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              color: (isDark ? Colors.black : Colors.white).withValues(alpha: 0.6),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: (isDark ? Colors.white : Colors.black).withValues(alpha: 0.1)),
+              boxShadow: [
+                BoxShadow(color: Colors.black.withValues(alpha: 0.1), blurRadius: 4, offset: const Offset(0, 2))
+              ],
+            ),
+            child: Icon(icon, color: color ?? (isDark ? Colors.white : Colors.black), size: 24),
+          ),
+        ),
       ),
     );
   }
