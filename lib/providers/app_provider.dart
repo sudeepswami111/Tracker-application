@@ -715,12 +715,19 @@ class AppProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  void completeFocusSession() {
+  void completeFocusSession(int durationSeconds) {
     focusSessionsCompleted++;
     focusTimerRunning = false;
+    studyHrs += durationSeconds / 3600.0;
+    final int mins = durationSeconds ~/ 60;
+    if (mins > (prefs.getInt('longestFocusSession') ?? 0)) {
+      prefs.setInt('longestFocusSession', mins);
+    }
     _saveData();
     notifyListeners();
   }
+
+  int get longestFocusSession => prefs.getInt('longestFocusSession') ?? 0;
 
   // ──── Feature 4 — Weekly Challenge Generator ────
   void generateWeeklyChallenges() {
