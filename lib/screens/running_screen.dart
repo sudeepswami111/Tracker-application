@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'dart:ui';
 import 'package:flutter/material.dart';
@@ -41,6 +42,8 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
   
   double _distKm = 0, _paceMin = 0;
   int _calories = 0, _durSecs = 0;
+  int _estimatedBpm = 0;
+  double _lastSpeed = 0; // km/h from GPS
   
   // Animation for pulsing user dot
   late AnimationController _pulseCtrl;
@@ -56,6 +59,16 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
   String _selectedSportCategory = 'Cardio';
   bool _audioPrompts = true;
   bool _isFullScreenMap = false;
+
+  // Map layer selection
+  int _selectedMapLayer = 0;
+  final List<Map<String, String>> _mapLayers = [
+    {'name': 'Standard', 'dark': 'https://a.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}@2x.png', 'light': 'https://tile.openstreetmap.org/{z}/{x}/{y}.png'},
+    {'name': 'Humanitarian', 'dark': 'https://a.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}@2x.png', 'light': 'https://a.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png'},
+    {'name': 'Cycling', 'dark': 'https://a.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}@2x.png', 'light': 'https://tile.thunderforest.com/cycle/{z}/{x}/{y}.png?apikey=6170aad10dfd42a38d4d8c709a536f38'},
+    {'name': 'Transport', 'dark': 'https://a.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}@2x.png', 'light': 'https://tile.thunderforest.com/transport/{z}/{x}/{y}.png?apikey=6170aad10dfd42a38d4d8c709a536f38'},
+    {'name': 'Topo', 'dark': 'https://a.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}@2x.png', 'light': 'https://tile.opentopomap.org/{z}/{x}/{y}.png'},
+  ];
 
   final Map<String, List<Map<String, dynamic>>> _sportsCategories = {
     'Cardio': [
@@ -124,32 +137,92 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
       setState(() => _curPos = LatLng(p.latitude, p.longitude));
       _mapCtrl.move(_curPos!, _zoom);
     } catch (_) {}
+
+    // Use platform-specific settings for continuous updates
+    late LocationSettings locSettings;
+    if (Platform.isAndroid) {
+      locSettings = AndroidSettings(
+        accuracy: LocationAccuracy.bestForNavigation,
+        distanceFilter: 0,
+        intervalDuration: const Duration(seconds: 1),
+        forceLocationManager: false,
+        foregroundNotificationConfig: const ForegroundNotificationConfig(
+          notificationTitle: 'LifePulse Running',
+          notificationText: 'Tracking your run in the background',
+          enableWakeLock: true,
+        ),
+      );
+    } else if (Platform.isIOS) {
+      locSettings = AppleSettings(
+        accuracy: LocationAccuracy.bestForNavigation,
+        distanceFilter: 0,
+        activityType: ActivityType.fitness,
+        pauseLocationUpdatesAutomatically: false,
+        allowBackgroundLocationUpdates: true,
+        showBackgroundLocationIndicator: true,
+      );
+    } else {
+      locSettings = const LocationSettings(
+        accuracy: LocationAccuracy.bestForNavigation,
+        distanceFilter: 0,
+      );
+    }
+
     _posSub = Geolocator.getPositionStream(
-      locationSettings: const LocationSettings(accuracy: LocationAccuracy.bestForNavigation, distanceFilter: 5)
+      locationSettings: locSettings,
     ).listen(_onPos);
   }
 
   void _onPos(Position p) {
     final pt = LatLng(p.latitude, p.longitude);
-    setState(() => _curPos = pt);
+    final speedKmh = p.speed * 3.6; // m/s to km/h
+    setState(() {
+      _curPos = pt;
+      _lastSpeed = speedKmh;
+    });
     if (_follow && _curPos != null) _mapCtrl.move(_curPos!, _zoom);
     if (_state == RunState.running) {
-      _gpsRoute.add(pt);
-      _calcStats(p);
+      // Only add point if it's far enough from last point (avoid GPS jitter)
+      if (_gpsRoute.isEmpty) {
+        _gpsRoute.add(pt);
+      } else {
+        final lastPt = _gpsRoute.last;
+        final distFromLast = const Distance().as(LengthUnit.Meter, lastPt, pt);
+        if (distFromLast >= 2) { // At least 2 meters to avoid jitter
+          _gpsRoute.add(pt);
+        }
+      }
+      _updateRunStats();
     }
   }
 
-  void _calcStats(Position p) {
+  void _updateRunStats() {
     double d = 0;
     for (int i = 1; i < _gpsRoute.length; i++) {
       d += const Distance().as(LengthUnit.Kilometer, _gpsRoute[i - 1], _gpsRoute[i]);
     }
-    final spd = p.speed * 3.6;
     setState(() {
       _distKm = d;
-      _paceMin = spd > 0.5 ? 60.0 / spd : 0;
-      _calories = (d * 65).round();
+      // Pace from GPS speed (instantaneous)
+      if (_lastSpeed > 1.0) {
+        _paceMin = 60.0 / _lastSpeed; // min/km
+      } else if (_distKm > 0.005 && _durSecs > 0) {
+        // Fallback: pace from elapsed time / distance
+        _paceMin = (_durSecs / 60.0) / _distKm;
+      }
+      _calories = (_distKm * 65).round();
+      // Estimate heart rate from speed
+      _estimatedBpm = _estimateHeartRate(_lastSpeed);
     });
+  }
+
+  int _estimateHeartRate(double speedKmh) {
+    // Estimate BPM based on running speed
+    if (speedKmh < 0.5) return 72;  // Resting
+    if (speedKmh < 4) return 90 + (speedKmh * 5).round();   // Walking
+    if (speedKmh < 8) return 120 + ((speedKmh - 4) * 8).round();  // Jogging
+    if (speedKmh < 12) return 150 + ((speedKmh - 8) * 5).round(); // Running
+    return 170 + ((speedKmh - 12) * 3).round().clamp(0, 25);  // Sprinting
   }
 
   Duration _elapsed() {
@@ -183,13 +256,31 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
     setState(() {
       _state = RunState.running;
       _startTime = DateTime.now();
+      _distKm = 0;
+      _paceMin = 0;
+      _calories = 0;
+      _durSecs = 0;
       _gpsRoute.clear();
       if (_curPos != null) _gpsRoute.add(_curPos!);
       _follow = true;
     });
-    if (_curPos != null) _mapCtrl.move(_curPos!, 18); // Zoom in on start
+    if (_curPos != null) _mapCtrl.move(_curPos!, 18); // Zoom in and center
     _timer = Timer.periodic(const Duration(seconds: 1), (_) {
-      setState(() => _durSecs = _elapsed().inSeconds);
+      setState(() {
+        _durSecs = _elapsed().inSeconds;
+        // Recalculate distance from route every second
+        double d = 0;
+        for (int i = 1; i < _gpsRoute.length; i++) {
+          d += const Distance().as(LengthUnit.Kilometer, _gpsRoute[i - 1], _gpsRoute[i]);
+        }
+        _distKm = d;
+        // Calculate pace from distance and time as fallback
+        if (_distKm > 0.005 && _durSecs > 0 && _lastSpeed < 1.0) {
+          _paceMin = (_durSecs / 60.0) / _distKm;
+        }
+        _calories = (_distKm * 65).round();
+        _estimatedBpm = _estimateHeartRate(_lastSpeed);
+      });
     });
   }
 
@@ -230,6 +321,8 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
       _paceMin = 0;
       _calories = 0;
       _durSecs = 0;
+      _estimatedBpm = 0;
+      _lastSpeed = 0;
       _pausedDur = Duration.zero;
       _startTime = null;
     });
@@ -255,10 +348,9 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
     final size = MediaQuery.of(context).size;
     final isDark = theme.brightness == Brightness.dark;
     
-    // Map URL
-    final mapUrl = isDark 
-        ? 'https://a.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}@2x.png'
-        : 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
+    // Map URL from selected layer
+    final layer = _mapLayers[_selectedMapLayer];
+    final mapUrl = isDark ? layer['dark']! : layer['light']!;
 
     final isRunningPhase = _state == RunState.running || _state == RunState.paused || _state == RunState.countdown;
     final weather = context.watch<WeatherProvider>().weather;
@@ -274,7 +366,7 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
             top: 0,
             left: 0,
             right: 0,
-            height: isRunningPhase || _isFullScreenMap ? size.height : 280.0 + MediaQuery.of(context).padding.top,
+            height: isRunningPhase || _isFullScreenMap ? size.height : 260.0 + MediaQuery.of(context).padding.top,
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 600),
               curve: Curves.easeInOutCubic,
@@ -289,9 +381,8 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
                 options: MapOptions(
                   initialCenter: _curPos ?? const LatLng(20.5937, 78.9629),
                   initialZoom: _zoom,
-                  interactionOptions: InteractionOptions(
-                    // Disable interactions during active run to keep hero map static relative to user
-                    flags: isRunningPhase ? InteractiveFlag.none : InteractiveFlag.all,
+                  interactionOptions: const InteractionOptions(
+                    flags: InteractiveFlag.all,
                   ),
                   onPositionChanged: (cam, gesture) {
                     if (gesture && _follow) setState(() => _follow = false);
@@ -315,15 +406,15 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
                       ),
                     ]),
 
-                  // Active Live Route (Pulse Red) - Ideally this would be gradient based on pace
-                  if (isRunningPhase && _gpsRoute.length > 1)
+                  // Active Live Route (Pulse Red)
+                  if (_gpsRoute.length >= 2)
                     PolylineLayer(polylines: [
                       Polyline(
-                        points: _gpsRoute,
+                        points: List.from(_gpsRoute),
                         strokeWidth: 6,
                         color: AppColors.pulseRed,
                         borderStrokeWidth: 2,
-                        borderColor: Colors.white.withValues(alpha: 0.3),
+                        borderColor: Colors.white.withValues(alpha: 0.4),
                       )
                     ]),
 
@@ -376,7 +467,7 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
             ),
           ),
 
-          // ── MAP CONTROLS ──
+          // ── MAP CONTROLS (pre-run) ──
           if (!isRunningPhase)
             Positioned(
               top: MediaQuery.of(context).padding.top + 16,
@@ -392,6 +483,32 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
                     icon: Icons.my_location,
                     onTap: _resetLocation,
                     color: _follow ? AppColors.voltCyan : null,
+                  ),
+                  const SizedBox(height: 12),
+                  _mapControlBtn(
+                    icon: Icons.layers,
+                    onTap: () => _showLayerPicker(context),
+                  ),
+                ],
+              ),
+            ),
+
+          // ── MAP CONTROLS (during run) ──
+          if (_state == RunState.running)
+            Positioned(
+              bottom: size.height * 0.4 + 80,
+              right: 16,
+              child: Column(
+                children: [
+                  _mapControlBtn(
+                    icon: Icons.my_location,
+                    onTap: _resetLocation,
+                    color: _follow ? AppColors.voltCyan : null,
+                  ),
+                  const SizedBox(height: 12),
+                  _mapControlBtn(
+                    icon: Icons.layers,
+                    onTap: () => _showLayerPicker(context),
                   ),
                 ],
               ),
@@ -424,10 +541,10 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
           AnimatedPositioned(
             duration: const Duration(milliseconds: 600),
             curve: Curves.easeInOutCubic,
-            top: isRunningPhase || _isFullScreenMap ? size.height : 280.0 + MediaQuery.of(context).padding.top,
+            top: isRunningPhase || _isFullScreenMap ? size.height : 260.0 + MediaQuery.of(context).padding.top + 16,
             left: 0,
             right: 0,
-            height: size.height - (280.0 + MediaQuery.of(context).padding.top),
+            height: size.height - (260.0 + MediaQuery.of(context).padding.top + 16),
             child: AnimatedOpacity(
               duration: const Duration(milliseconds: 300),
               opacity: isRunningPhase || _isFullScreenMap ? 0.0 : 1.0,
@@ -482,7 +599,7 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
               child: LiveRunMetricPanel(
                 pace: _fmtPace(_paceMin),
                 distance: _distKm.toStringAsFixed(2),
-                bpm: 0, // removed mock BPM
+                bpm: _estimatedBpm,
                 duration: _fmtDur(_durSecs),
               ),
             ),
@@ -718,6 +835,65 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
     );
   }
 
+  void _showLayerPicker(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: isDark ? const Color(0xFF1A1A2E) : Colors.white,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      builder: (ctx) => Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Map Layers', style: TextStyle(color: isDark ? Colors.white : Colors.black, fontSize: 20, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 4),
+            Text('Choose a map style', style: TextStyle(color: (isDark ? Colors.white : Colors.black).withValues(alpha: 0.5), fontSize: 13)),
+            const SizedBox(height: 20),
+            SizedBox(
+              height: 90,
+              child: ListView.builder(
+                scrollDirection: Axis.horizontal,
+                itemCount: _mapLayers.length,
+                itemBuilder: (context, i) {
+                  final isActive = _selectedMapLayer == i;
+                  final layer = _mapLayers[i];
+                  final icons = [Icons.map, Icons.volunteer_activism, Icons.pedal_bike, Icons.directions_bus, Icons.terrain];
+                  return GestureDetector(
+                    onTap: () {
+                      setState(() => _selectedMapLayer = i);
+                      Navigator.pop(ctx);
+                    },
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 200),
+                      width: 80,
+                      margin: const EdgeInsets.only(right: 12),
+                      decoration: BoxDecoration(
+                        color: isActive ? AppColors.voltCyan.withValues(alpha: 0.15) : (isDark ? Colors.white : Colors.black).withValues(alpha: 0.05),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: isActive ? AppColors.voltCyan : (isDark ? Colors.white : Colors.black).withValues(alpha: 0.1), width: isActive ? 2 : 1),
+                      ),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(icons[i], color: isActive ? AppColors.voltCyan : (isDark ? Colors.white : Colors.black).withValues(alpha: 0.6), size: 28),
+                          const SizedBox(height: 8),
+                          Text(layer['name']!, style: TextStyle(color: isActive ? AppColors.voltCyan : (isDark ? Colors.white : Colors.black).withValues(alpha: 0.7), fontSize: 11, fontWeight: FontWeight.w600)),
+                        ],
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+            const SizedBox(height: 16),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _mapControlBtn({required IconData icon, required VoidCallback onTap, Color? color}) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return GestureDetector(
@@ -889,9 +1065,8 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
   void _showSummary() {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
-    final mapUrl = isDark 
-        ? 'https://a.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}@2x.png'
-        : 'https://a.basemaps.cartocdn.com/light_all/{z}/{x}/{y}@2x.png';
+    final summaryLayer = _mapLayers[_selectedMapLayer];
+    final mapUrl = isDark ? summaryLayer['dark']! : summaryLayer['light']!;
 
     showModalBottomSheet(
       context: context,
