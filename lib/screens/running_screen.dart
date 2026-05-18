@@ -88,7 +88,7 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
     {'name': 'Topo', 'dark': 'https://a.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}@2x.png', 'light': 'https://tile.opentopomap.org/{z}/{x}/{y}.png'},
   ];
 
-
+  final GlobalKey _mapKey = GlobalKey();
 
   Future<void> _findRoute() async {
     if (_startLocCtrl.text.isEmpty || _destLocCtrl.text.isEmpty) return;
@@ -100,21 +100,26 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
     });
 
     try {
-      // 1. Geocode Start and Dest
-      List<Location> startLocs = await locationFromAddress(_startLocCtrl.text);
-      List<Location> destLocs = await locationFromAddress(_destLocCtrl.text);
+      // 1. Geocode Start and Dest using Nominatim
+      final startRes = await http.get(Uri.parse('https://nominatim.openstreetmap.org/search?q=${Uri.encodeComponent(_startLocCtrl.text)}&format=json&limit=1'));
+      final destRes = await http.get(Uri.parse('https://nominatim.openstreetmap.org/search?q=${Uri.encodeComponent(_destLocCtrl.text)}&format=json&limit=1'));
 
-      if (startLocs.isEmpty || destLocs.isEmpty) throw Exception('Location not found');
+      final startData = jsonDecode(startRes.body) as List;
+      final destData = jsonDecode(destRes.body) as List;
 
-      final startPos = startLocs.first;
-      final destPos = destLocs.first;
+      if (startData.isEmpty || destData.isEmpty) throw Exception('Location not found');
+
+      final startLat = double.parse(startData[0]['lat']);
+      final startLon = double.parse(startData[0]['lon']);
+      final destLat = double.parse(destData[0]['lat']);
+      final destLon = double.parse(destData[0]['lon']);
 
       // Move map to center
-      final center = LatLng((startPos.latitude + destPos.latitude) / 2, (startPos.longitude + destPos.longitude) / 2);
+      final center = LatLng((startLat + destLat) / 2, (startLon + destLon) / 2);
       _mapCtrl.move(center, 13); // Zoom out a bit
 
       // 2. Fetch OSRM
-      final url = 'http://router.project-osrm.org/route/v1/foot/${startPos.longitude},${startPos.latitude};${destPos.longitude},${destPos.latitude}?geometries=geojson&overview=full&alternatives=true';
+      final url = 'http://router.project-osrm.org/route/v1/foot/$startLon,$startLat;$destLon,$destLat?geometries=geojson&overview=full&alternatives=true';
       final res = await http.get(Uri.parse(url));
 
       if (res.statusCode == 200) {
@@ -441,6 +446,197 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
     super.dispose();
   }
 
+  Widget _buildMapWidget(String mapUrl, bool isDark, bool isRunningPhase) {
+    return FlutterMap(
+      key: _mapKey,
+      mapController: _mapCtrl,
+      options: MapOptions(
+        initialCenter: _curPos ?? const LatLng(20.5937, 78.9629),
+        initialZoom: _zoom,
+        interactionOptions: InteractionOptions(
+          flags: (isRunningPhase || _isFullScreenMap) ? InteractiveFlag.all : (InteractiveFlag.all & ~InteractiveFlag.drag),
+        ),
+        onPositionChanged: (cam, gesture) {
+          if (gesture && _follow) setState(() => _follow = false);
+          _zoom = cam.zoom ?? _zoom;
+        },
+      ),
+      children: [
+        TileLayer(
+          urlTemplate: mapUrl, 
+          userAgentPackageName: 'com.example.lifepulse',
+          maxZoom: 19,
+        ),
+        
+        // Pre-run Route Suggestion (Cyan)
+        if (!isRunningPhase)
+          PolylineLayer(polylines: [
+            Polyline(
+              points: _mockPreRunRoute,
+              strokeWidth: 4,
+              color: AppColors.voltCyan,
+            ),
+          ]),
+
+        // Active Live Route (Pulse Red)
+        if (_gpsRoute.length >= 2)
+          PolylineLayer(polylines: [
+            Polyline(
+              points: List.from(_gpsRoute),
+              strokeWidth: 6,
+              color: AppColors.pulseRed,
+              borderStrokeWidth: 2,
+              borderColor: Colors.white.withValues(alpha: 0.4),
+            )
+          ]),
+
+        // User Location Marker
+        MarkerLayer(markers: [
+          if (_curPos != null)
+            Marker(
+              point: _curPos!,
+              width: 48,
+              height: 48,
+              child: AnimatedBuilder(
+                animation: _pulseAnim,
+                builder: (_, c) => Transform.scale(
+                  scale: _pulseAnim.value,
+                  child: c,
+                ),
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    Container(
+                      width: 48,
+                      height: 48,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: AppColors.pulseRed.withValues(alpha: 0.2),
+                      ),
+                    ),
+                    Container(
+                      width: 16,
+                      height: 16,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: AppColors.pulseRed,
+                        border: Border.all(color: Colors.white, width: 3),
+                        boxShadow: [
+                          BoxShadow(
+                            color: AppColors.pulseRed.withValues(alpha: 0.6),
+                            blurRadius: 8,
+                          )
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+        ]),
+      ],
+    );
+  }
+
+  Widget _buildRoutePlannerUI(bool isDark) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: (isDark ? Colors.white : Colors.black).withValues(alpha: 0.05),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: (isDark ? Colors.white : Colors.black).withValues(alpha: 0.1)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(
+            children: [
+              const Icon(LucideIcons.navigation, color: AppColors.voltCyan, size: 18),
+              const SizedBox(width: 8),
+              Text('Plan Your Route', style: TextStyle(color: isDark ? Colors.white : Colors.black, fontWeight: FontWeight.bold, fontSize: 15)),
+            ],
+          ),
+          const SizedBox(height: 12),
+          SizedBox(
+            height: 40,
+            child: TextField(
+              controller: _startLocCtrl,
+              decoration: InputDecoration(
+                hintText: 'Start (e.g. Central Park)',
+                hintStyle: TextStyle(fontSize: 13, color: (isDark ? Colors.white : Colors.black).withValues(alpha: 0.5)),
+                prefixIcon: const Icon(LucideIcons.mapPin, color: AppColors.voltCyan, size: 16),
+                filled: true,
+                fillColor: (isDark ? Colors.white : Colors.black).withValues(alpha: 0.05),
+                contentPadding: EdgeInsets.zero,
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),
+              ),
+              style: TextStyle(color: isDark ? Colors.white : Colors.black, fontSize: 13),
+            ),
+          ),
+          const SizedBox(height: 8),
+          SizedBox(
+            height: 40,
+            child: TextField(
+              controller: _destLocCtrl,
+              decoration: InputDecoration(
+                hintText: 'Destination (e.g. Times Square)',
+                hintStyle: TextStyle(fontSize: 13, color: (isDark ? Colors.white : Colors.black).withValues(alpha: 0.5)),
+                prefixIcon: const Icon(LucideIcons.flag, color: AppColors.pulseRed, size: 16),
+                filled: true,
+                fillColor: (isDark ? Colors.white : Colors.black).withValues(alpha: 0.05),
+                contentPadding: EdgeInsets.zero,
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),
+              ),
+              style: TextStyle(color: isDark ? Colors.white : Colors.black, fontSize: 13),
+            ),
+          ),
+          const SizedBox(height: 12),
+          SizedBox(
+            width: double.infinity,
+            height: 40,
+            child: ElevatedButton(
+              onPressed: _isLoadingRoute ? null : _findRoute,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.voltCyan,
+                foregroundColor: Colors.black,
+                elevation: 0,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              ),
+              child: _isLoadingRoute
+                  ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(color: Colors.black, strokeWidth: 2))
+                  : const Text('Find Routes', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+            ),
+          ),
+          if (_alternativeRoutes.length > 1) ...[
+            const SizedBox(height: 12),
+            Text('Alternative Routes', style: TextStyle(color: (isDark ? Colors.white : Colors.black).withValues(alpha: 0.7), fontSize: 11, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 6),
+            Wrap(
+              spacing: 6,
+              children: List.generate(_alternativeRoutes.length, (index) {
+                final isSelected = _selectedRouteIndex == index;
+                return ChoiceChip(
+                  label: Text('Route ${index + 1}', style: const TextStyle(fontSize: 11)),
+                  selected: isSelected,
+                  padding: EdgeInsets.zero,
+                  selectedColor: AppColors.voltCyan.withValues(alpha: 0.2),
+                  labelStyle: TextStyle(color: isSelected ? AppColors.voltCyan : (isDark ? Colors.white : Colors.black)),
+                  onSelected: (val) {
+                    setState(() {
+                      _selectedRouteIndex = index;
+                      _mockPreRunRoute = _alternativeRoutes[index];
+                    });
+                  },
+                );
+              }),
+            ),
+          ]
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -458,101 +654,54 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
       backgroundColor: theme.scaffoldBackgroundColor,
       body: Stack(
         children: [
-          // ── 1. MAP BACKGROUND ──
-          AnimatedPositioned(
-            duration: const Duration(milliseconds: 600),
-            curve: Curves.easeInOutCubic,
-            top: isRunningPhase || _isFullScreenMap ? 0 : MediaQuery.of(context).padding.top + 280,
-            left: isRunningPhase || _isFullScreenMap ? 0 : 16,
-            right: isRunningPhase || _isFullScreenMap ? 0 : 16,
-            height: isRunningPhase || _isFullScreenMap ? size.height : 260.0,
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 600),
-              curve: Curves.easeInOutCubic,
-              decoration: BoxDecoration(
-                borderRadius: isRunningPhase || _isFullScreenMap
-                    ? BorderRadius.zero 
-                    : BorderRadius.circular(32),
-              ),
-              clipBehavior: Clip.antiAlias,
-              child: FlutterMap(
-                mapController: _mapCtrl,
-                options: MapOptions(
-                  initialCenter: _curPos ?? const LatLng(20.5937, 78.9629),
-                  initialZoom: _zoom,
-                  interactionOptions: const InteractionOptions(
-                    flags: InteractiveFlag.all,
-                  ),
-                  onPositionChanged: (cam, gesture) {
-                    if (gesture && _follow) setState(() => _follow = false);
-                    _zoom = cam.zoom ?? _zoom;
-                  },
-                ),
-                children: [
-                  TileLayer(
-                    urlTemplate: mapUrl, 
-                    userAgentPackageName: 'com.example.lifepulse',
-                    maxZoom: 19,
-                  ),
-                  
-                  // Pre-run Route Suggestion (Cyan)
-                  if (!isRunningPhase)
-                    PolylineLayer(polylines: [
-                      Polyline(
-                        points: _mockPreRunRoute,
-                        strokeWidth: 4,
-                        color: AppColors.voltCyan,
-                      ),
-                    ]),
-
-                  // Active Live Route (Pulse Red)
-                  if (_gpsRoute.length >= 2)
-                    PolylineLayer(polylines: [
-                      Polyline(
-                        points: List.from(_gpsRoute),
-                        strokeWidth: 6,
-                        color: AppColors.pulseRed,
-                        borderStrokeWidth: 2,
-                        borderColor: Colors.white.withValues(alpha: 0.4),
-                      )
-                    ]),
-
-                  // User Location Marker
-                  MarkerLayer(markers: [
-                    if (_curPos != null)
-                      Marker(
-                        point: _curPos!,
-                        width: 48,
-                        height: 48,
-                        child: AnimatedBuilder(
-                          animation: _pulseAnim,
-                          builder: (_, c) => Transform.scale(
-                            scale: _pulseAnim.value,
-                            child: c,
-                          ),
+          // ── 1. PLANNING VIEW (Scrollable) ──
+          if (!isRunningPhase && !_isFullScreenMap)
+            Positioned.fill(
+              child: SingleChildScrollView(
+                child: Column(
+                  children: [
+                    SizedBox(height: MediaQuery.of(context).padding.top + 16),
+                    
+                    // Route Planner
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: _buildRoutePlannerUI(isDark),
+                    ),
+                    const SizedBox(height: 16),
+                    
+                    // Map Card
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: SizedBox(
+                        height: 260,
+                        width: double.infinity,
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(32),
                           child: Stack(
-                            alignment: Alignment.center,
                             children: [
-                              Container(
-                                width: 48,
-                                height: 48,
-                                decoration: BoxDecoration(
-                                  shape: BoxShape.circle,
-                                  color: AppColors.pulseRed.withValues(alpha: 0.2),
-                                ),
-                              ),
-                              Container(
-                                width: 16,
-                                height: 16,
-                                decoration: BoxDecoration(
-                                  shape: BoxShape.circle,
-                                  color: AppColors.pulseRed,
-                                  border: Border.all(color: Colors.white, width: 3),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: AppColors.pulseRed.withValues(alpha: 0.6),
-                                      blurRadius: 8,
-                                    )
+                              _buildMapWidget(mapUrl, isDark, false),
+                              
+                              // Pre-run Map Controls (overlaying the inline map card)
+                              Positioned(
+                                top: 16,
+                                right: 16,
+                                child: Column(
+                                  children: [
+                                    _mapControlBtn(
+                                      icon: _isFullScreenMap ? Icons.fullscreen_exit : Icons.fullscreen,
+                                      onTap: _toggleFullScreen,
+                                    ),
+                                    const SizedBox(height: 12),
+                                    _mapControlBtn(
+                                      icon: Icons.my_location,
+                                      onTap: _resetLocation,
+                                      color: _follow ? AppColors.voltCyan : null,
+                                    ),
+                                    const SizedBox(height: 12),
+                                    _mapControlBtn(
+                                      icon: Icons.layers,
+                                      onTap: () => _showLayerPicker(context),
+                                    ),
                                   ],
                                 ),
                               ),
@@ -560,36 +709,20 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
                           ),
                         ),
                       ),
-                  ]),
-                ],
+                    ),
+                    const SizedBox(height: 16),
+                    
+                    // Pre-run Metrics and Settings
+                    _buildPreRunUI(theme, isDark),
+                  ],
+                ),
               ),
             ),
-          ),
 
-          // ── MAP CONTROLS (pre-run) ──
-          if (!isRunningPhase)
-            Positioned(
-              top: MediaQuery.of(context).padding.top + 280 + 16,
-              right: 32,
-              child: Column(
-                children: [
-                  _mapControlBtn(
-                    icon: _isFullScreenMap ? Icons.fullscreen_exit : Icons.fullscreen,
-                    onTap: _toggleFullScreen,
-                  ),
-                  const SizedBox(height: 12),
-                  _mapControlBtn(
-                    icon: Icons.my_location,
-                    onTap: _resetLocation,
-                    color: _follow ? AppColors.voltCyan : null,
-                  ),
-                  const SizedBox(height: 12),
-                  _mapControlBtn(
-                    icon: Icons.layers,
-                    onTap: () => _showLayerPicker(context),
-                  ),
-                ],
-              ),
+          // ── 2. RUNNING VIEW (Full-Screen Map) ──
+          if (isRunningPhase || _isFullScreenMap)
+            Positioned.fill(
+              child: _buildMapWidget(mapUrl, isDark, true),
             ),
 
           // ── MAP CONTROLS (during run) ──
@@ -635,136 +768,6 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
                 ),
               ),
             ),
-
-          // ── MAP ROUTE PLANNER (Above Map) ──
-          AnimatedPositioned(
-            duration: const Duration(milliseconds: 600),
-            curve: Curves.easeInOutCubic,
-            top: isRunningPhase || _isFullScreenMap ? -350 : MediaQuery.of(context).padding.top + 16,
-            left: 16,
-            right: 16,
-            child: AnimatedOpacity(
-              duration: const Duration(milliseconds: 300),
-              opacity: isRunningPhase || _isFullScreenMap ? 0.0 : 1.0,
-              child: IgnorePointer(
-                ignoring: isRunningPhase || _isFullScreenMap,
-                child: Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: (isDark ? Colors.white : Colors.black).withValues(alpha: 0.05),
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: (isDark ? Colors.white : Colors.black).withValues(alpha: 0.1)),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Row(
-                        children: [
-                          const Icon(LucideIcons.navigation, color: AppColors.voltCyan, size: 18),
-                          const SizedBox(width: 8),
-                          Text('Plan Your Route', style: TextStyle(color: isDark ? Colors.white : Colors.black, fontWeight: FontWeight.bold, fontSize: 15)),
-                        ],
-                      ),
-                      const SizedBox(height: 12),
-                      SizedBox(
-                        height: 40,
-                        child: TextField(
-                          controller: _startLocCtrl,
-                          decoration: InputDecoration(
-                            hintText: 'Start (e.g. Central Park)',
-                            hintStyle: TextStyle(fontSize: 13, color: (isDark ? Colors.white : Colors.black).withValues(alpha: 0.5)),
-                            prefixIcon: const Icon(LucideIcons.mapPin, color: AppColors.voltCyan, size: 16),
-                            filled: true,
-                            fillColor: (isDark ? Colors.white : Colors.black).withValues(alpha: 0.05),
-                            contentPadding: EdgeInsets.zero,
-                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),
-                          ),
-                          style: TextStyle(color: isDark ? Colors.white : Colors.black, fontSize: 13),
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      SizedBox(
-                        height: 40,
-                        child: TextField(
-                          controller: _destLocCtrl,
-                          decoration: InputDecoration(
-                            hintText: 'Destination (e.g. Times Square)',
-                            hintStyle: TextStyle(fontSize: 13, color: (isDark ? Colors.white : Colors.black).withValues(alpha: 0.5)),
-                            prefixIcon: const Icon(LucideIcons.flag, color: AppColors.pulseRed, size: 16),
-                            filled: true,
-                            fillColor: (isDark ? Colors.white : Colors.black).withValues(alpha: 0.05),
-                            contentPadding: EdgeInsets.zero,
-                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),
-                          ),
-                          style: TextStyle(color: isDark ? Colors.white : Colors.black, fontSize: 13),
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      SizedBox(
-                        width: double.infinity,
-                        height: 40,
-                        child: ElevatedButton(
-                          onPressed: _isLoadingRoute ? null : _findRoute,
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: AppColors.voltCyan,
-                            foregroundColor: Colors.black,
-                            elevation: 0,
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                          ),
-                          child: _isLoadingRoute
-                              ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(color: Colors.black, strokeWidth: 2))
-                              : const Text('Find Routes', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-                        ),
-                      ),
-                      if (_alternativeRoutes.length > 1) ...[
-                        const SizedBox(height: 12),
-                        Text('Alternative Routes', style: TextStyle(color: (isDark ? Colors.white : Colors.black).withValues(alpha: 0.7), fontSize: 11, fontWeight: FontWeight.bold)),
-                        const SizedBox(height: 6),
-                        Wrap(
-                          spacing: 6,
-                          children: List.generate(_alternativeRoutes.length, (index) {
-                            final isSelected = _selectedRouteIndex == index;
-                            return ChoiceChip(
-                              label: Text('Route ${index + 1}', style: const TextStyle(fontSize: 11)),
-                              selected: isSelected,
-                              padding: EdgeInsets.zero,
-                              selectedColor: AppColors.voltCyan.withValues(alpha: 0.2),
-                              labelStyle: TextStyle(color: isSelected ? AppColors.voltCyan : (isDark ? Colors.white : Colors.black)),
-                              onSelected: (val) {
-                                setState(() {
-                                  _selectedRouteIndex = index;
-                                  _mockPreRunRoute = _alternativeRoutes[index];
-                                });
-                              },
-                            );
-                          }),
-                        ),
-                      ]
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          ),
-
-          // ── 2. PRE-RUN UI ──
-          AnimatedPositioned(
-            duration: const Duration(milliseconds: 600),
-            curve: Curves.easeInOutCubic,
-            top: isRunningPhase || _isFullScreenMap ? size.height : MediaQuery.of(context).padding.top + 556,
-            left: 0,
-            right: 0,
-            height: size.height - (MediaQuery.of(context).padding.top + 556),
-            child: AnimatedOpacity(
-              duration: const Duration(milliseconds: 300),
-              opacity: isRunningPhase || _isFullScreenMap ? 0.0 : 1.0,
-              child: IgnorePointer(
-                ignoring: isRunningPhase || _isFullScreenMap,
-                child: _buildPreRunUI(theme, isDark),
-              ),
-            ),
-          ),
 
           // ── 3. ACTIVE RUN UI ──
           if (_state == RunState.running || _state == RunState.paused) ...[
@@ -876,7 +879,7 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
   }
 
   Widget _buildPreRunUI(ThemeData theme, bool isDark) {
-    return SingleChildScrollView(
+    return Container(
       padding: const EdgeInsets.symmetric(horizontal: AppSpacing.screenMargin),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
