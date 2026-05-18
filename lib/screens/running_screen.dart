@@ -462,17 +462,17 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
           AnimatedPositioned(
             duration: const Duration(milliseconds: 600),
             curve: Curves.easeInOutCubic,
-            top: 0,
-            left: 0,
-            right: 0,
-            height: isRunningPhase || _isFullScreenMap ? size.height : 260.0 + MediaQuery.of(context).padding.top,
+            top: isRunningPhase || _isFullScreenMap ? 0 : MediaQuery.of(context).padding.top + 280,
+            left: isRunningPhase || _isFullScreenMap ? 0 : 16,
+            right: isRunningPhase || _isFullScreenMap ? 0 : 16,
+            height: isRunningPhase || _isFullScreenMap ? size.height : 260.0,
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 600),
               curve: Curves.easeInOutCubic,
               decoration: BoxDecoration(
                 borderRadius: isRunningPhase || _isFullScreenMap
                     ? BorderRadius.zero 
-                    : const BorderRadius.vertical(bottom: Radius.circular(32)),
+                    : BorderRadius.circular(32),
               ),
               clipBehavior: Clip.antiAlias,
               child: FlutterMap(
@@ -569,8 +569,8 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
           // ── MAP CONTROLS (pre-run) ──
           if (!isRunningPhase)
             Positioned(
-              top: MediaQuery.of(context).padding.top + 16,
-              right: 16,
+              top: MediaQuery.of(context).padding.top + 280 + 16,
+              right: 32,
               child: Column(
                 children: [
                   _mapControlBtn(
@@ -636,14 +636,126 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
               ),
             ),
 
+          // ── MAP ROUTE PLANNER (Above Map) ──
+          AnimatedPositioned(
+            duration: const Duration(milliseconds: 600),
+            curve: Curves.easeInOutCubic,
+            top: isRunningPhase || _isFullScreenMap ? -350 : MediaQuery.of(context).padding.top + 16,
+            left: 16,
+            right: 16,
+            child: AnimatedOpacity(
+              duration: const Duration(milliseconds: 300),
+              opacity: isRunningPhase || _isFullScreenMap ? 0.0 : 1.0,
+              child: IgnorePointer(
+                ignoring: isRunningPhase || _isFullScreenMap,
+                child: Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: (isDark ? Colors.white : Colors.black).withValues(alpha: 0.05),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: (isDark ? Colors.white : Colors.black).withValues(alpha: 0.1)),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Row(
+                        children: [
+                          const Icon(LucideIcons.navigation, color: AppColors.voltCyan, size: 18),
+                          const SizedBox(width: 8),
+                          Text('Plan Your Route', style: TextStyle(color: isDark ? Colors.white : Colors.black, fontWeight: FontWeight.bold, fontSize: 15)),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      SizedBox(
+                        height: 40,
+                        child: TextField(
+                          controller: _startLocCtrl,
+                          decoration: InputDecoration(
+                            hintText: 'Start (e.g. Central Park)',
+                            hintStyle: TextStyle(fontSize: 13, color: (isDark ? Colors.white : Colors.black).withValues(alpha: 0.5)),
+                            prefixIcon: const Icon(LucideIcons.mapPin, color: AppColors.voltCyan, size: 16),
+                            filled: true,
+                            fillColor: (isDark ? Colors.white : Colors.black).withValues(alpha: 0.05),
+                            contentPadding: EdgeInsets.zero,
+                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),
+                          ),
+                          style: TextStyle(color: isDark ? Colors.white : Colors.black, fontSize: 13),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      SizedBox(
+                        height: 40,
+                        child: TextField(
+                          controller: _destLocCtrl,
+                          decoration: InputDecoration(
+                            hintText: 'Destination (e.g. Times Square)',
+                            hintStyle: TextStyle(fontSize: 13, color: (isDark ? Colors.white : Colors.black).withValues(alpha: 0.5)),
+                            prefixIcon: const Icon(LucideIcons.flag, color: AppColors.pulseRed, size: 16),
+                            filled: true,
+                            fillColor: (isDark ? Colors.white : Colors.black).withValues(alpha: 0.05),
+                            contentPadding: EdgeInsets.zero,
+                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),
+                          ),
+                          style: TextStyle(color: isDark ? Colors.white : Colors.black, fontSize: 13),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      SizedBox(
+                        width: double.infinity,
+                        height: 40,
+                        child: ElevatedButton(
+                          onPressed: _isLoadingRoute ? null : _findRoute,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppColors.voltCyan,
+                            foregroundColor: Colors.black,
+                            elevation: 0,
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                          ),
+                          child: _isLoadingRoute
+                              ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(color: Colors.black, strokeWidth: 2))
+                              : const Text('Find Routes', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                        ),
+                      ),
+                      if (_alternativeRoutes.length > 1) ...[
+                        const SizedBox(height: 12),
+                        Text('Alternative Routes', style: TextStyle(color: (isDark ? Colors.white : Colors.black).withValues(alpha: 0.7), fontSize: 11, fontWeight: FontWeight.bold)),
+                        const SizedBox(height: 6),
+                        Wrap(
+                          spacing: 6,
+                          children: List.generate(_alternativeRoutes.length, (index) {
+                            final isSelected = _selectedRouteIndex == index;
+                            return ChoiceChip(
+                              label: Text('Route ${index + 1}', style: const TextStyle(fontSize: 11)),
+                              selected: isSelected,
+                              padding: EdgeInsets.zero,
+                              selectedColor: AppColors.voltCyan.withValues(alpha: 0.2),
+                              labelStyle: TextStyle(color: isSelected ? AppColors.voltCyan : (isDark ? Colors.white : Colors.black)),
+                              onSelected: (val) {
+                                setState(() {
+                                  _selectedRouteIndex = index;
+                                  _mockPreRunRoute = _alternativeRoutes[index];
+                                });
+                              },
+                            );
+                          }),
+                        ),
+                      ]
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+
           // ── 2. PRE-RUN UI ──
           AnimatedPositioned(
             duration: const Duration(milliseconds: 600),
             curve: Curves.easeInOutCubic,
-            top: isRunningPhase || _isFullScreenMap ? size.height : 260.0 + MediaQuery.of(context).padding.top + 16,
+            top: isRunningPhase || _isFullScreenMap ? size.height : MediaQuery.of(context).padding.top + 556,
             left: 0,
             right: 0,
-            height: size.height - (260.0 + MediaQuery.of(context).padding.top + 16),
+            height: size.height - (MediaQuery.of(context).padding.top + 556),
             child: AnimatedOpacity(
               duration: const Duration(milliseconds: 300),
               opacity: isRunningPhase || _isFullScreenMap ? 0.0 : 1.0,
@@ -777,86 +889,6 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
               _infoPill('Est. Time', '28:40', isDark),
               _infoPill('Elevation', '42 m', isDark),
             ],
-          ),
-          const SizedBox(height: AppSpacing.xl),
-
-          // Route Planning Section
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: (isDark ? Colors.white : Colors.black).withValues(alpha: 0.05),
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: (isDark ? Colors.white : Colors.black).withValues(alpha: 0.1)),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('Plan Your Route', style: TextStyle(color: isDark ? Colors.white : Colors.black, fontWeight: FontWeight.bold, fontSize: 16)),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: _startLocCtrl,
-                  decoration: InputDecoration(
-                    hintText: 'Start (e.g. Central Park)',
-                    prefixIcon: const Icon(LucideIcons.mapPin, color: AppColors.voltCyan),
-                    filled: true,
-                    fillColor: (isDark ? Colors.white : Colors.black).withValues(alpha: 0.05),
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
-                  ),
-                  style: TextStyle(color: isDark ? Colors.white : Colors.black),
-                ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: _destLocCtrl,
-                  decoration: InputDecoration(
-                    hintText: 'Destination (e.g. Times Square)',
-                    prefixIcon: const Icon(LucideIcons.flag, color: AppColors.pulseRed),
-                    filled: true,
-                    fillColor: (isDark ? Colors.white : Colors.black).withValues(alpha: 0.05),
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
-                  ),
-                  style: TextStyle(color: isDark ? Colors.white : Colors.black),
-                ),
-                const SizedBox(height: 16),
-                SizedBox(
-                  width: double.infinity,
-                  height: 48,
-                  child: ElevatedButton(
-                    onPressed: _isLoadingRoute ? null : _findRoute,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.voltCyan,
-                      foregroundColor: Colors.black,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                    ),
-                    child: _isLoadingRoute
-                        ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.black, strokeWidth: 2))
-                        : const Text('Find Routes', style: TextStyle(fontWeight: FontWeight.bold)),
-                  ),
-                ),
-                if (_alternativeRoutes.length > 1) ...[
-                  const SizedBox(height: 16),
-                  Text('Alternative Routes', style: TextStyle(color: isDark ? Colors.white : Colors.black, fontWeight: FontWeight.bold)),
-                  const SizedBox(height: 8),
-                  Wrap(
-                    spacing: 8,
-                    children: List.generate(_alternativeRoutes.length, (index) {
-                      final isSelected = _selectedRouteIndex == index;
-                      return ChoiceChip(
-                        label: Text('Route ${index + 1}'),
-                        selected: isSelected,
-                        selectedColor: AppColors.voltCyan.withValues(alpha: 0.2),
-                        labelStyle: TextStyle(color: isSelected ? AppColors.voltCyan : (isDark ? Colors.white : Colors.black)),
-                        onSelected: (val) {
-                          setState(() {
-                            _selectedRouteIndex = index;
-                            _mockPreRunRoute = _alternativeRoutes[index];
-                          });
-                        },
-                      );
-                    }),
-                  ),
-                ]
-              ],
-            ),
           ),
           const SizedBox(height: AppSpacing.xl),
 
