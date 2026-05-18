@@ -591,80 +591,78 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
             ],
           ),
           const SizedBox(height: 12),
-          Stack(
-            alignment: Alignment.centerRight,
+          Row(
             children: [
-              Column(
-                children: [
-                  SizedBox(
-                    height: 40,
-                    child: TextField(
-                      controller: _startLocCtrl,
-                      decoration: InputDecoration(
-                        hintText: 'Start (e.g. Central Park)',
-                        hintStyle: TextStyle(fontSize: 13, color: (isDark ? Colors.white : Colors.black).withValues(alpha: 0.5)),
-                        prefixIcon: const Icon(LucideIcons.mapPin, color: AppColors.voltCyan, size: 16),
-                        suffixIcon: IconButton(
-                          icon: const Icon(Icons.my_location, size: 16),
-                          onPressed: () async {
-                            if (_curPos != null) {
-                              try {
-                                final placemarks = await placemarkFromCoordinates(_curPos!.latitude, _curPos!.longitude);
-                                if (placemarks.isNotEmpty) {
-                                  _startLocCtrl.text = '${placemarks.first.locality}, ${placemarks.first.country}';
+              Expanded(
+                child: Column(
+                  children: [
+                    SizedBox(
+                      height: 40,
+                      child: TextField(
+                        controller: _startLocCtrl,
+                        decoration: InputDecoration(
+                          hintText: 'Start (e.g. Central Park)',
+                          hintStyle: TextStyle(fontSize: 13, color: (isDark ? Colors.white : Colors.black).withValues(alpha: 0.5)),
+                          prefixIcon: const Icon(LucideIcons.mapPin, color: AppColors.voltCyan, size: 16),
+                          suffixIcon: IconButton(
+                            icon: const Icon(Icons.my_location, size: 16),
+                            onPressed: () async {
+                              if (_curPos != null) {
+                                try {
+                                  final placemarks = await placemarkFromCoordinates(_curPos!.latitude, _curPos!.longitude);
+                                  if (placemarks.isNotEmpty) {
+                                    _startLocCtrl.text = '${placemarks.first.locality}, ${placemarks.first.country}';
+                                  }
+                                } catch (_) {
+                                  _startLocCtrl.text = '${_curPos!.latitude}, ${_curPos!.longitude}';
                                 }
-                              } catch (_) {
-                                _startLocCtrl.text = '${_curPos!.latitude}, ${_curPos!.longitude}';
                               }
-                            }
-                          },
+                            },
+                          ),
+                          filled: true,
+                          fillColor: (isDark ? Colors.white : Colors.black).withValues(alpha: 0.05),
+                          contentPadding: EdgeInsets.zero,
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),
                         ),
-                        filled: true,
-                        fillColor: (isDark ? Colors.white : Colors.black).withValues(alpha: 0.05),
-                        contentPadding: EdgeInsets.zero,
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),
+                        style: TextStyle(color: isDark ? Colors.white : Colors.black, fontSize: 13),
                       ),
-                      style: TextStyle(color: isDark ? Colors.white : Colors.black, fontSize: 13),
                     ),
-                  ),
-                  const SizedBox(height: 8),
-                  SizedBox(
-                    height: 40,
-                    child: TextField(
-                      controller: _destLocCtrl,
-                      decoration: InputDecoration(
-                        hintText: 'Destination (e.g. Times Square)',
-                        hintStyle: TextStyle(fontSize: 13, color: (isDark ? Colors.white : Colors.black).withValues(alpha: 0.5)),
-                        prefixIcon: const Icon(LucideIcons.flag, color: AppColors.pulseRed, size: 16),
-                        filled: true,
-                        fillColor: (isDark ? Colors.white : Colors.black).withValues(alpha: 0.05),
-                        contentPadding: EdgeInsets.zero,
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),
+                    const SizedBox(height: 8),
+                    SizedBox(
+                      height: 40,
+                      child: TextField(
+                        controller: _destLocCtrl,
+                        decoration: InputDecoration(
+                          hintText: 'Destination (e.g. Times Square)',
+                          hintStyle: TextStyle(fontSize: 13, color: (isDark ? Colors.white : Colors.black).withValues(alpha: 0.5)),
+                          prefixIcon: const Icon(LucideIcons.flag, color: AppColors.pulseRed, size: 16),
+                          filled: true,
+                          fillColor: (isDark ? Colors.white : Colors.black).withValues(alpha: 0.05),
+                          contentPadding: EdgeInsets.zero,
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),
+                        ),
+                        style: TextStyle(color: isDark ? Colors.white : Colors.black, fontSize: 13),
                       ),
-                      style: TextStyle(color: isDark ? Colors.white : Colors.black, fontSize: 13),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
-              Positioned(
-                right: 8,
-                top: 30,
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: isDark ? const Color(0xFF2C2C2E) : Colors.white,
-                    shape: BoxShape.circle,
-                    boxShadow: [
-                      BoxShadow(color: Colors.black.withValues(alpha: 0.1), blurRadius: 4),
-                    ]
-                  ),
-                  child: IconButton(
-                    icon: Icon(Icons.swap_vert, size: 20, color: isDark ? Colors.white : Colors.black),
-                    onPressed: () {
-                      final temp = _startLocCtrl.text;
-                      _startLocCtrl.text = _destLocCtrl.text;
-                      _destLocCtrl.text = temp;
-                    },
-                  ),
+              const SizedBox(width: 12),
+              Container(
+                decoration: BoxDecoration(
+                  color: isDark ? const Color(0xFF2C2C2E) : Colors.white,
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(color: Colors.black.withValues(alpha: 0.1), blurRadius: 4),
+                  ]
+                ),
+                child: IconButton(
+                  icon: Icon(Icons.swap_vert, size: 20, color: isDark ? Colors.white : Colors.black),
+                  onPressed: () {
+                    final temp = _startLocCtrl.text;
+                    _startLocCtrl.text = _destLocCtrl.text;
+                    _destLocCtrl.text = temp;
+                  },
                 ),
               ),
             ],
@@ -692,18 +690,20 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
           ],
           SizedBox(
             width: double.infinity,
-            height: 40,
+            height: 48,
             child: ElevatedButton(
               onPressed: _isLoadingRoute ? null : _findRoute,
               style: ElevatedButton.styleFrom(
                 backgroundColor: _routeError != null && _isRetryableError ? AppColors.solarAmber : AppColors.voltCyan,
                 foregroundColor: Colors.black,
                 elevation: 0,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                padding: EdgeInsets.zero,
+                alignment: Alignment.center,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
               ),
               child: _isLoadingRoute
-                  ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(color: Colors.black, strokeWidth: 2))
-                  : Text(_routeError != null && _isRetryableError ? 'Retry Search' : 'Find Routes', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                  ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.black, strokeWidth: 2.5))
+                  : Text(_routeError != null && _isRetryableError ? 'Retry Search' : 'Find Routes', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
             ),
           ),
           if (_alternativeRoutes.length > 1) ...[
@@ -842,7 +842,7 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
             // Map controls for full-screen mode (Top Right)
             if (!isRunningPhase && _isFullScreenMap)
               Positioned(
-                top: MediaQuery.of(context).padding.top + 16,
+                top: MediaQuery.of(context).padding.top > 20 ? MediaQuery.of(context).padding.top + 16 : 40,
                 right: 16,
                 child: Column(
                   children: [
@@ -866,45 +866,25 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
               ),
 
             // Top-Left Theme Toggle (Full Screen)
-            Positioned(
-              top: MediaQuery.of(context).padding.top + 16,
-              left: 16,
-              child: _mapControlBtn(
-                icon: mapModeIsDark ? Icons.light_mode : Icons.dark_mode,
-                onTap: () {
-                  setState(() {
-                    _mapIsDark = !mapModeIsDark;
-                  });
-                },
+            if (!isRunningPhase && _isFullScreenMap)
+              Positioned(
+                top: MediaQuery.of(context).padding.top > 20 ? MediaQuery.of(context).padding.top + 16 : 40,
+                left: 16,
+                child: _mapControlBtn(
+                  icon: mapModeIsDark ? Icons.light_mode : Icons.dark_mode,
+                  onTap: () {
+                    setState(() {
+                      _mapIsDark = !mapModeIsDark;
+                    });
+                  },
+                ),
               ),
-            ),
           ],
-
-          // ── MAP CONTROLS (during run) ──
-          if (_state == RunState.running)
-            Positioned(
-              bottom: size.height * 0.4 + 80,
-              right: 16,
-              child: Column(
-                children: [
-                  _mapControlBtn(
-                    icon: Icons.my_location,
-                    onTap: _resetLocation,
-                    color: _follow ? AppColors.voltCyan : null,
-                  ),
-                  const SizedBox(height: 12),
-                  _mapControlBtn(
-                    icon: Icons.layers,
-                    onTap: () => _showLayerPicker(context),
-                  ),
-                ],
-              ),
-            ),
 
           // ── MAP WEATHER OVERLAY ──
           if (isRunningPhase && weather != null)
             Positioned(
-              top: MediaQuery.of(context).padding.top + 16,
+              top: MediaQuery.of(context).padding.top > 20 ? MediaQuery.of(context).padding.top + 16 : 40,
               left: 16,
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -928,34 +908,54 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
           if (_state == RunState.running || _state == RunState.paused) ...[
             // Floating Pause/End Button
             Positioned(
-              top: MediaQuery.of(context).padding.top + 16,
+              top: MediaQuery.of(context).padding.top > 20 ? MediaQuery.of(context).padding.top + 16 : 40,
               right: 16,
               child: _buildFloatingPauseBtn(),
             ),
 
-            // Mini Elevation Strip (Anchored above metric panel)
+            // MAP CONTROLS (during run) - Placed on the RIGHT side above the metric panel
+            if (_state == RunState.running)
+              Positioned(
+                bottom: size.height * 0.4 + 20, // 20px above the metric panel
+                right: 16,
+                child: Column(
+                  children: [
+                    _mapControlBtn(
+                      icon: Icons.my_location,
+                      onTap: _resetLocation,
+                      color: _follow ? AppColors.voltCyan : null,
+                    ),
+                    const SizedBox(height: 12),
+                    _mapControlBtn(
+                      icon: Icons.layers,
+                      onTap: () => _showLayerPicker(context),
+                    ),
+                  ],
+                ),
+              ),
+
+            // Wind & UV Chips - Placed on the LEFT side above the metric panel
+            if (weather != null && _state == RunState.running)
+              Positioned(
+                bottom: size.height * 0.4 + 20, // 20px above the metric panel
+                left: 16,
+                child: Row(
+                  children: [
+                    _smallWeatherBadge(LucideIcons.wind, '${weather.windSpeed} km/h', isDark),
+                    const SizedBox(width: 8),
+                    _smallWeatherBadge(LucideIcons.sun, 'UV ${weather.uvIndex}', isDark),
+                  ],
+                ),
+              ),
+
+            // Mini Elevation Strip (Anchored directly at the top of metric panel)
             Positioned(
               left: 16,
               right: 16,
-              bottom: size.height * 0.4, // Right above the metric panel
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  if (weather != null)
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.end,
-                      children: [
-                        _smallWeatherBadge(LucideIcons.wind, '${weather.windSpeed} km/h', isDark),
-                        const SizedBox(width: 8),
-                        _smallWeatherBadge(LucideIcons.sun, 'UV ${weather.uvIndex}', isDark),
-                      ],
-                    ),
-                  const SizedBox(height: 8),
-                  ElevationStripWidget(
-                    data: const [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], // removed mock elevation
-                    theme: theme,
-                  ),
-                ],
+              bottom: size.height * 0.4,
+              child: ElevationStripWidget(
+                data: const [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], // removed mock elevation
+                theme: theme,
               ),
             ),
 
