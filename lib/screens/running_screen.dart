@@ -19,6 +19,7 @@ import '../widgets/glass_card.dart';
 import 'package:provider/provider.dart';
 import '../providers/app_provider.dart';
 import '../providers/weather_provider.dart';
+import '../providers/theme_provider.dart';
 import 'package:intl/intl.dart';
 import '../constants/activity_types.dart' hide ActivityType;
 import 'fitness_screen.dart';
@@ -59,6 +60,8 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
   
   // Mock Route for Pre-run
   List<LatLng> _mockPreRunRoute = [];
+  LatLng? _startRoutePos;
+  LatLng? _endRoutePos;
 
   // Routing state
   final TextEditingController _startLocCtrl = TextEditingController();
@@ -101,8 +104,9 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
 
     try {
       // 1. Geocode Start and Dest using Nominatim
-      final startRes = await http.get(Uri.parse('https://nominatim.openstreetmap.org/search?q=${Uri.encodeComponent(_startLocCtrl.text)}&format=json&limit=1'));
-      final destRes = await http.get(Uri.parse('https://nominatim.openstreetmap.org/search?q=${Uri.encodeComponent(_destLocCtrl.text)}&format=json&limit=1'));
+      final headers = {'User-Agent': 'LifepulseApp/1.0 (contact@example.com)'};
+      final startRes = await http.get(Uri.parse('https://nominatim.openstreetmap.org/search?q=${Uri.encodeComponent(_startLocCtrl.text)}&format=json&limit=1'), headers: headers);
+      final destRes = await http.get(Uri.parse('https://nominatim.openstreetmap.org/search?q=${Uri.encodeComponent(_destLocCtrl.text)}&format=json&limit=1'), headers: headers);
 
       final startData = jsonDecode(startRes.body) as List;
       final destData = jsonDecode(destRes.body) as List;
@@ -113,6 +117,11 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
       final startLon = double.parse(startData[0]['lon']);
       final destLat = double.parse(destData[0]['lat']);
       final destLon = double.parse(destData[0]['lon']);
+
+      setState(() {
+        _startRoutePos = LatLng(startLat, startLon);
+        _endRoutePos = LatLng(destLat, destLon);
+      });
 
       // Move map to center
       final center = LatLng((startLat + destLat) / 2, (startLon + destLon) / 2);
@@ -492,6 +501,20 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
 
         // User Location Marker
         MarkerLayer(markers: [
+          if (_startRoutePos != null && !isRunningPhase)
+            Marker(
+              point: _startRoutePos!,
+              width: 32,
+              height: 32,
+              child: const Icon(LucideIcons.mapPin, color: AppColors.voltCyan, size: 32),
+            ),
+          if (_endRoutePos != null && !isRunningPhase)
+            Marker(
+              point: _endRoutePos!,
+              width: 32,
+              height: 32,
+              child: const Icon(LucideIcons.flag, color: AppColors.pulseRed, size: 32),
+            ),
           if (_curPos != null)
             Marker(
               point: _curPos!,
@@ -652,6 +675,7 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
 
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
+      resizeToAvoidBottomInset: false,
       body: Stack(
         children: [
           // ── 1. PLANNING VIEW (Scrollable) ──
@@ -705,6 +729,18 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
                                   ],
                                 ),
                               ),
+                              
+                              // Theme Toggle (Inline Map)
+                              Positioned(
+                                top: 16,
+                                left: 16,
+                                child: _mapControlBtn(
+                                  icon: isDark ? Icons.light_mode : Icons.dark_mode,
+                                  onTap: () {
+                                    context.read<ThemeProvider>().toggleTheme();
+                                  },
+                                ),
+                              ),
                             ],
                           ),
                         ),
@@ -720,10 +756,49 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
             ),
 
           // ── 2. RUNNING VIEW (Full-Screen Map) ──
-          if (isRunningPhase || _isFullScreenMap)
+          if (isRunningPhase || _isFullScreenMap) ...[
             Positioned.fill(
               child: _buildMapWidget(mapUrl, isDark, true),
             ),
+            
+            // Map controls for full-screen mode (Top Right)
+            if (!isRunningPhase && _isFullScreenMap)
+              Positioned(
+                top: MediaQuery.of(context).padding.top + 16,
+                right: 16,
+                child: Column(
+                  children: [
+                    _mapControlBtn(
+                      icon: Icons.fullscreen_exit,
+                      onTap: _toggleFullScreen,
+                    ),
+                    const SizedBox(height: 12),
+                    _mapControlBtn(
+                      icon: Icons.my_location,
+                      onTap: _resetLocation,
+                      color: _follow ? AppColors.voltCyan : null,
+                    ),
+                    const SizedBox(height: 12),
+                    _mapControlBtn(
+                      icon: Icons.layers,
+                      onTap: () => _showLayerPicker(context),
+                    ),
+                  ],
+                ),
+              ),
+
+            // Top-Left Theme Toggle (Full Screen)
+            Positioned(
+              top: MediaQuery.of(context).padding.top + 16,
+              left: 16,
+              child: _mapControlBtn(
+                icon: isDark ? Icons.light_mode : Icons.dark_mode,
+                onTap: () {
+                  context.read<ThemeProvider>().toggleTheme();
+                },
+              ),
+            ),
+          ],
 
           // ── MAP CONTROLS (during run) ──
           if (_state == RunState.running)
