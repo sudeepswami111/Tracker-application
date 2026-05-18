@@ -454,8 +454,8 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
       options: MapOptions(
         initialCenter: _curPos ?? const LatLng(20.5937, 78.9629),
         initialZoom: _zoom,
-        interactionOptions: InteractionOptions(
-          flags: (isRunningPhase || _isFullScreenMap) ? InteractiveFlag.all : (InteractiveFlag.all & ~InteractiveFlag.drag),
+        interactionOptions: const InteractionOptions(
+          flags: InteractiveFlag.all,
         ),
         onPositionChanged: (cam, gesture) {
           if (gesture && _follow) setState(() => _follow = false);
