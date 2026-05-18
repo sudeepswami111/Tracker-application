@@ -1,5 +1,8 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:convert';
+import 'package:http/http.dart' as http;
+import 'package:geocoding/geocoding.dart';
 
 import 'dart:ui';
 import 'package:flutter/material.dart';
@@ -55,7 +58,14 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
   int _countdown = 3;
   
   // Mock Route for Pre-run
-  final List<LatLng> _mockPreRunRoute = const [];
+  List<LatLng> _mockPreRunRoute = [];
+
+  // Routing state
+  final TextEditingController _startLocCtrl = TextEditingController();
+  final TextEditingController _destLocCtrl = TextEditingController();
+  bool _isLoadingRoute = false;
+  List<List<LatLng>> _alternativeRoutes = [];
+  int _selectedRouteIndex = 0;
 
   String _selectedRunType = 'Outdoor Run';
   String _selectedSportCategory = 'Cardio';
@@ -79,6 +89,78 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
   ];
 
 
+
+  Future<void> _findRoute() async {
+    if (_startLocCtrl.text.isEmpty || _destLocCtrl.text.isEmpty) return;
+
+    setState(() {
+      _isLoadingRoute = true;
+      _alternativeRoutes.clear();
+      _mockPreRunRoute.clear();
+    });
+
+    try {
+      // 1. Geocode Start and Dest
+      List<Location> startLocs = await locationFromAddress(_startLocCtrl.text);
+      List<Location> destLocs = await locationFromAddress(_destLocCtrl.text);
+
+      if (startLocs.isEmpty || destLocs.isEmpty) throw Exception('Location not found');
+
+      final startPos = startLocs.first;
+      final destPos = destLocs.first;
+
+      // Move map to center
+      final center = LatLng((startPos.latitude + destPos.latitude) / 2, (startPos.longitude + destPos.longitude) / 2);
+      _mapCtrl.move(center, 13); // Zoom out a bit
+
+      // 2. Fetch OSRM
+      final url = 'http://router.project-osrm.org/route/v1/foot/${startPos.longitude},${startPos.latitude};${destPos.longitude},${destPos.latitude}?geometries=geojson&overview=full&alternatives=true';
+      final res = await http.get(Uri.parse(url));
+
+      if (res.statusCode == 200) {
+        final data = jsonDecode(res.body);
+        final routes = data['routes'] as List;
+
+        List<List<LatLng>> parsedRoutes = [];
+
+        for (var route in routes) {
+          final geometry = route['geometry']['coordinates'] as List;
+          List<LatLng> polyline = geometry.map((c) => LatLng(c[1], c[0])).toList();
+          parsedRoutes.add(polyline);
+        }
+
+        if (parsedRoutes.isNotEmpty) {
+          setState(() {
+            _alternativeRoutes = parsedRoutes;
+            _selectedRouteIndex = 0;
+            _mockPreRunRoute = parsedRoutes[0];
+
+            // Update distance target
+            final distanceMeters = routes[0]['distance'] as num;
+            final distKm = distanceMeters / 1000.0;
+            _targetRightLabel = 'Distance';
+            _targetRightValue = '${distKm.toStringAsFixed(2)} km';
+            
+            // Update time estimation
+            final durationSecs = routes[0]['duration'] as num;
+            final minutes = (durationSecs / 60).round();
+            _targetLeftLabel = 'Est. Time';
+            _targetLeftValue = '$minutes min';
+          });
+        }
+      } else {
+        throw Exception('Routing failed: ${res.statusCode}');
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Could not find route: $e')));
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isLoadingRoute = false);
+      }
+    }
+  }
 
   void _toggleFullScreen() {
     setState(() {
@@ -346,6 +428,17 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
     final m = p.floor();
     final s = ((p - m) * 60).round();
     return '$m:${s.toString().padLeft(2, '0')}';
+  }
+
+  @override
+  void dispose() {
+    _startLocCtrl.dispose();
+    _destLocCtrl.dispose();
+    _posSub?.cancel();
+    _timer?.cancel();
+    _pulseCtrl.dispose();
+    widget.onFullscreenChanged?.call(false);
+    super.dispose();
   }
 
   @override
@@ -684,6 +777,86 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
               _infoPill('Est. Time', '28:40', isDark),
               _infoPill('Elevation', '42 m', isDark),
             ],
+          ),
+          const SizedBox(height: AppSpacing.xl),
+
+          // Route Planning Section
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: (isDark ? Colors.white : Colors.black).withValues(alpha: 0.05),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: (isDark ? Colors.white : Colors.black).withValues(alpha: 0.1)),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Plan Your Route', style: TextStyle(color: isDark ? Colors.white : Colors.black, fontWeight: FontWeight.bold, fontSize: 16)),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: _startLocCtrl,
+                  decoration: InputDecoration(
+                    hintText: 'Start (e.g. Central Park)',
+                    prefixIcon: const Icon(LucideIcons.mapPin, color: AppColors.voltCyan),
+                    filled: true,
+                    fillColor: (isDark ? Colors.white : Colors.black).withValues(alpha: 0.05),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                  ),
+                  style: TextStyle(color: isDark ? Colors.white : Colors.black),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: _destLocCtrl,
+                  decoration: InputDecoration(
+                    hintText: 'Destination (e.g. Times Square)',
+                    prefixIcon: const Icon(LucideIcons.flag, color: AppColors.pulseRed),
+                    filled: true,
+                    fillColor: (isDark ? Colors.white : Colors.black).withValues(alpha: 0.05),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                  ),
+                  style: TextStyle(color: isDark ? Colors.white : Colors.black),
+                ),
+                const SizedBox(height: 16),
+                SizedBox(
+                  width: double.infinity,
+                  height: 48,
+                  child: ElevatedButton(
+                    onPressed: _isLoadingRoute ? null : _findRoute,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.voltCyan,
+                      foregroundColor: Colors.black,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                    child: _isLoadingRoute
+                        ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.black, strokeWidth: 2))
+                        : const Text('Find Routes', style: TextStyle(fontWeight: FontWeight.bold)),
+                  ),
+                ),
+                if (_alternativeRoutes.length > 1) ...[
+                  const SizedBox(height: 16),
+                  Text('Alternative Routes', style: TextStyle(color: isDark ? Colors.white : Colors.black, fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 8,
+                    children: List.generate(_alternativeRoutes.length, (index) {
+                      final isSelected = _selectedRouteIndex == index;
+                      return ChoiceChip(
+                        label: Text('Route ${index + 1}'),
+                        selected: isSelected,
+                        selectedColor: AppColors.voltCyan.withValues(alpha: 0.2),
+                        labelStyle: TextStyle(color: isSelected ? AppColors.voltCyan : (isDark ? Colors.white : Colors.black)),
+                        onSelected: (val) {
+                          setState(() {
+                            _selectedRouteIndex = index;
+                            _mockPreRunRoute = _alternativeRoutes[index];
+                          });
+                        },
+                      );
+                    }),
+                  ),
+                ]
+              ],
+            ),
           ),
           const SizedBox(height: AppSpacing.xl),
 
@@ -1192,12 +1365,5 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
     );
   }
 
-  @override
-  void dispose() {
-    _posSub?.cancel();
-    _timer?.cancel();
-    _pulseCtrl.dispose();
-    widget.onFullscreenChanged?.call(false);
-    super.dispose();
-  }
+
 }
