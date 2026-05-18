@@ -83,6 +83,7 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
 
   // Map layer selection
   int _selectedMapLayer = 0;
+  bool? _mapIsDark;
   final List<Map<String, String>> _mapLayers = [
     {'name': 'Standard', 'dark': 'https://a.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}@2x.png', 'light': 'https://tile.openstreetmap.org/{z}/{x}/{y}.png'},
     {'name': 'Humanitarian', 'dark': 'https://a.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}@2x.png', 'light': 'https://a.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png'},
@@ -667,8 +668,9 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
     final isDark = theme.brightness == Brightness.dark;
     
     // Map URL from selected layer
+    final mapModeIsDark = _mapIsDark ?? isDark;
     final layer = _mapLayers[_selectedMapLayer];
-    final mapUrl = isDark ? layer['dark']! : layer['light']!;
+    final mapUrl = mapModeIsDark ? layer['dark']! : layer['light']!;
 
     final isRunningPhase = _state == RunState.running || _state == RunState.paused || _state == RunState.countdown;
     final weather = context.watch<WeatherProvider>().weather;
@@ -735,9 +737,11 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
                                 top: 16,
                                 left: 16,
                                 child: _mapControlBtn(
-                                  icon: isDark ? Icons.light_mode : Icons.dark_mode,
+                                  icon: mapModeIsDark ? Icons.light_mode : Icons.dark_mode,
                                   onTap: () {
-                                    context.read<ThemeProvider>().toggleTheme();
+                                    setState(() {
+                                      _mapIsDark = !mapModeIsDark;
+                                    });
                                   },
                                 ),
                               ),
@@ -792,9 +796,11 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
               top: MediaQuery.of(context).padding.top + 16,
               left: 16,
               child: _mapControlBtn(
-                icon: isDark ? Icons.light_mode : Icons.dark_mode,
+                icon: mapModeIsDark ? Icons.light_mode : Icons.dark_mode,
                 onTap: () {
-                  context.read<ThemeProvider>().toggleTheme();
+                  setState(() {
+                    _mapIsDark = !mapModeIsDark;
+                  });
                 },
               ),
             ),
