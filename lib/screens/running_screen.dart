@@ -881,26 +881,42 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
               ),
           ],
 
-          // ── MAP WEATHER OVERLAY ──
-          if (isRunningPhase && weather != null)
+          // ── MAP WEATHER OVERLAY & THEME TOGGLE (DURING RUN) ──
+          if (isRunningPhase)
             Positioned(
               top: MediaQuery.of(context).padding.top > 20 ? MediaQuery.of(context).padding.top + 16 : 40,
               left: 16,
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                decoration: BoxDecoration(
-                  color: isDark ? Colors.black.withValues(alpha: 0.6) : Colors.white.withValues(alpha: 0.8),
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: AppColors.voltCyan.withValues(alpha: 0.3)),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(weather.condition.toLowerCase().contains('rain') ? LucideIcons.cloudRain : LucideIcons.cloudSun, size: 16, color: AppColors.voltCyan),
-                    const SizedBox(width: 8),
-                    Text('${weather.currentTemp.round()}°C', style: TextStyle(color: isDark ? Colors.white : Colors.black, fontWeight: FontWeight.bold)),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (weather != null) ...[
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: isDark ? Colors.black.withValues(alpha: 0.6) : Colors.white.withValues(alpha: 0.8),
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(color: AppColors.voltCyan.withValues(alpha: 0.3)),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(weather.condition.toLowerCase().contains('rain') ? LucideIcons.cloudRain : LucideIcons.cloudSun, size: 16, color: AppColors.voltCyan),
+                          const SizedBox(width: 8),
+                          Text('${weather.currentTemp.round()}°C', style: TextStyle(color: isDark ? Colors.white : Colors.black, fontWeight: FontWeight.bold)),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 12),
                   ],
-                ),
+                  _mapControlBtn(
+                    icon: mapModeIsDark ? Icons.light_mode : Icons.dark_mode,
+                    onTap: () {
+                      setState(() {
+                        _mapIsDark = !mapModeIsDark;
+                      });
+                    },
+                  ),
+                ],
               ),
             ),
 
@@ -913,10 +929,10 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
               child: _buildFloatingPauseBtn(),
             ),
 
-            // MAP CONTROLS (during run) - Placed on the RIGHT side above the metric panel
+            // MAP CONTROLS (during run) - Placed on the RIGHT side above the elevation strip
             if (_state == RunState.running)
               Positioned(
-                bottom: size.height * 0.4 + 20, // 20px above the metric panel
+                bottom: size.height * 0.4 + 60, // 60px above the metric panel (above elevation strip)
                 right: 16,
                 child: Column(
                   children: [
@@ -934,10 +950,10 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
                 ),
               ),
 
-            // Wind & UV Chips - Placed on the LEFT side above the metric panel
+            // Wind & UV Chips - Placed on the LEFT side above the elevation strip
             if (weather != null && _state == RunState.running)
               Positioned(
-                bottom: size.height * 0.4 + 20, // 20px above the metric panel
+                bottom: size.height * 0.4 + 60, // 60px above the metric panel (above elevation strip)
                 left: 16,
                 child: Row(
                   children: [
