@@ -51,15 +51,38 @@ class StepTrackerProvider extends ChangeNotifier with WidgetsBindingObserver {
   int get activeMinutes => (_steps / 100).round(); // ~100 steps per active minute
 
   Timer? _midnightTimer;
+  Timer? _exactMidnightTimer;
 
   StepTrackerProvider() {
     _initPlatformState();
     WidgetsBinding.instance.addObserver(this);
     _startMidnightTimer();
+    _scheduleExactMidnightReset();
   }
 
   void _startMidnightTimer() {
-    _midnightTimer = Timer.periodic(const Duration(minutes: 1), (_) => _checkDayReset());
+    // Safety net: check every 30 seconds
+    _midnightTimer = Timer.periodic(const Duration(seconds: 30), (_) => _checkDayReset());
+  }
+
+  void _scheduleExactMidnightReset() {
+    final now = DateTime.now();
+    final nextMidnight = DateTime(now.year, now.month, now.day + 1);
+    final untilMidnight = nextMidnight.difference(now);
+
+    _exactMidnightTimer?.cancel();
+    _exactMidnightTimer = Timer(untilMidnight, () {
+      if (kDebugMode) {
+        print('[StepTracker] Exact midnight timer fired!');
+      }
+      _checkDayReset();
+      // Re-arm for next midnight
+      _scheduleExactMidnightReset();
+    });
+
+    if (kDebugMode) {
+      print('[StepTracker] Next midnight reset in ${untilMidnight.inSeconds}s');
+    }
   }
 
   @override
@@ -295,6 +318,7 @@ class StepTrackerProvider extends ChangeNotifier with WidgetsBindingObserver {
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _midnightTimer?.cancel();
+    _exactMidnightTimer?.cancel();
     _stepCountSub?.cancel();
     _pedestrianStatusSub?.cancel();
     super.dispose();

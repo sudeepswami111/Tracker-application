@@ -21,12 +21,22 @@ class _StudyScreenState extends State<StudyScreen> with TickerProviderStateMixin
   int _totalSeconds = 25 * 60;
   Timer? _timer;
   bool _isRunning = false;
+  int _completedSessionsToday = 0;
 
   // Task list (mock data removed)
   final List<Map<String, dynamic>> _tasks = [];
   final List<Map<String, dynamic>> _completedTasks = [];
   
   bool _showCompleted = false;
+
+  // Weekly focus time in seconds
+  final List<double> _weeklyFocusSeconds = [0, 0, 0, 0, 0, 0, 0];
+
+  final List<Map<String, dynamic>> _suggestions = [
+    {'title': 'Deep Work', 'desc': '50m focused session', 'minutes': 50, 'icon': LucideIcons.brain},
+    {'title': 'Pomodoro', 'desc': '25m standard focus', 'minutes': 25, 'icon': LucideIcons.timer},
+    {'title': 'Quick Review', 'desc': '15m quick sprint', 'minutes': 15, 'icon': LucideIcons.zap},
+  ];
 
   @override
   void dispose() {
@@ -42,14 +52,20 @@ class _StudyScreenState extends State<StudyScreen> with TickerProviderStateMixin
     } else {
       setState(() => _isRunning = true);
       _timer = Timer.periodic(const Duration(seconds: 1), (_) {
+        final dayIndex = DateTime.now().weekday - 1;
+        setState(() {
+          _weeklyFocusSeconds[dayIndex] += 1.0;
+        });
+
         if (_timerSeconds <= 1) {
           _timer?.cancel();
           HapticFeedback.heavyImpact();
           setState(() {
             _isRunning = false;
             _timerSeconds = _totalSeconds;
+            _completedSessionsToday++;
           });
-          context.read<AppProvider>().completeFocusSession(_totalSeconds);
+          context.read<AppProvider>().completeFocusSession();
           return;
         }
         setState(() => _timerSeconds--);
@@ -66,98 +82,92 @@ class _StudyScreenState extends State<StudyScreen> with TickerProviderStateMixin
     });
   }
 
-  void _showTimePicker() {
+  void _showTimePickerDialog() {
     if (_isRunning) return;
-    showModalBottomSheet(
+    int minutes = _totalSeconds ~/ 60;
+    showDialog(
       context: context,
-      backgroundColor: Colors.transparent,
-      builder: (context) => Container(
-        padding: const EdgeInsets.all(24),
-        decoration: BoxDecoration(
-          color: Theme.of(context).colorScheme.surface,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+      builder: (context) => AlertDialog(
+        title: const Text('Set Timer Duration'),
+        content: TextField(
+          keyboardType: TextInputType.number,
+          decoration: const InputDecoration(labelText: 'Minutes (e.g., 25)'),
+          onChanged: (v) {
+            minutes = int.tryParse(v) ?? minutes;
+          },
         ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text('Set Custom Time', style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
-            const SizedBox(height: 24),
-            Wrap(
-              spacing: 12,
-              runSpacing: 12,
-              alignment: WrapAlignment.center,
-              children: [5, 10, 15, 25, 45, 50, 60, 90].map((m) {
-                return ActionChip(
-                  backgroundColor: _totalSeconds == m * 60 ? AppColors.irisViolet : null,
-                  labelStyle: TextStyle(color: _totalSeconds == m * 60 ? Colors.white : null),
-                  label: Text('$m min'),
-                  onPressed: () {
-                    setState(() {
-                      _totalSeconds = m * 60;
-                      _timerSeconds = _totalSeconds;
-                    });
-                    Navigator.pop(context);
-                  },
-                );
-              }).toList(),
-            ),
-            const SizedBox(height: 24),
-          ],
-        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+          ElevatedButton(
+            onPressed: () {
+              setState(() {
+                _totalSeconds = (minutes > 0 ? minutes : 25) * 60;
+                _timerSeconds = _totalSeconds;
+              });
+              Navigator.pop(context);
+            },
+            child: const Text('Set'),
+          ),
+        ],
       ),
     );
   }
 
-  void _showAddTask() {
-    final titleCtrl = TextEditingController();
-    String selectedPriority = 'Cyan';
-    
+  void _showAddTaskDialog() {
+    String title = '';
+    String time = '30m';
+    String priority = 'Cyan';
+
     showDialog(
       context: context,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setDialogState) => AlertDialog(
-          title: const Text('Add Task'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: titleCtrl,
-                decoration: const InputDecoration(labelText: 'Task Title', hintText: 'e.g. Read Chapter 4'),
-                autofocus: true,
-              ),
-              const SizedBox(height: 16),
-              DropdownButtonFormField<String>(
-                value: selectedPriority,
-                items: ['Cyan', 'Amber', 'Red'].map((c) => DropdownMenuItem(value: c, child: Text('$c Priority'))).toList(),
-                onChanged: (v) => setDialogState(() => selectedPriority = v!),
-                decoration: const InputDecoration(labelText: 'Priority'),
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(backgroundColor: AppColors.irisViolet, foregroundColor: Colors.white),
-              onPressed: () {
-                if (titleCtrl.text.isNotEmpty) {
-                  setState(() {
-                    _tasks.add({
-                      'id': DateTime.now().toString(),
-                      'title': titleCtrl.text,
-                      'time': '30m',
-                      'priority': selectedPriority,
-                      'done': false,
-                    });
-                  });
-                  Navigator.pop(context);
-                }
-              },
-              child: const Text('Add'),
+      builder: (context) => AlertDialog(
+        title: const Text('Add Task'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              decoration: const InputDecoration(labelText: 'Task Title'),
+              onChanged: (v) => title = v,
+            ),
+            TextField(
+              decoration: const InputDecoration(labelText: 'Estimated Time (e.g., 30m)'),
+              onChanged: (v) => time = v,
+            ),
+            DropdownButtonFormField<String>(
+              value: priority,
+              decoration: const InputDecoration(labelText: 'Priority'),
+              items: ['Red', 'Amber', 'Cyan', 'Grey'].map((p) => DropdownMenuItem(value: p, child: Text(p))).toList(),
+              onChanged: (v) => priority = v!,
             ),
           ],
         ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+          ElevatedButton(
+            onPressed: () {
+              if (title.isNotEmpty) {
+                setState(() {
+                  _tasks.add({
+                    'id': DateTime.now().millisecondsSinceEpoch.toString(),
+                    'title': title,
+                    'time': time,
+                    'priority': priority,
+                    'done': false,
+                  });
+                });
+                Navigator.pop(context);
+              }
+            },
+            child: const Text('Add'),
+          ),
+        ],
       ),
     );
+  }
+
+  String _formatHours(double seconds) {
+    if (seconds == 0) return '0h';
+    return '${(seconds / 3600).toStringAsFixed(1)}h';
   }
 
   String _fmt(int s) {
@@ -241,7 +251,7 @@ class _StudyScreenState extends State<StudyScreen> with TickerProviderStateMixin
                               mainAxisSize: MainAxisSize.min,
                               children: [
                                 GestureDetector(
-                                  onTap: _showTimePicker,
+                                  onTap: _showTimePickerDialog,
                                   child: Text(
                                     _fmt(_timerSeconds),
                                     style: theme.textTheme.displayLarge?.copyWith(
@@ -263,12 +273,12 @@ class _StudyScreenState extends State<StudyScreen> with TickerProviderStateMixin
                           Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text('Deep Work #${app.focusSessionsCompleted + 1}', style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold)),
+                              Text('Deep Work #${_completedSessionsToday + 1}', style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold)),
                               const SizedBox(height: 6),
                               Row(
                                 children: List.generate(4, (index) {
-                                  final bool completed = index < (app.focusSessionsCompleted % 4);
-                                  final bool active = index == (app.focusSessionsCompleted % 4);
+                                  final bool completed = index < _completedSessionsToday;
+                                  final bool active = index == _completedSessionsToday;
                                   return Container(
                                     margin: const EdgeInsets.only(right: 6),
                                     width: 8,
@@ -329,7 +339,7 @@ class _StudyScreenState extends State<StudyScreen> with TickerProviderStateMixin
               ),
               const SizedBox(height: AppSpacing.lg),
 
-              // 3. SUGGESTED SESSIONS
+              // 3. SUGGESTIONS
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -338,13 +348,7 @@ class _StudyScreenState extends State<StudyScreen> with TickerProviderStateMixin
                   SingleChildScrollView(
                     scrollDirection: Axis.horizontal,
                     child: Row(
-                      children: [
-                        _buildSuggestion(context, 'Pomodoro', 25, LucideIcons.timer),
-                        const SizedBox(width: 12),
-                        _buildSuggestion(context, 'Deep Work', 50, LucideIcons.brain),
-                        const SizedBox(width: 12),
-                        _buildSuggestion(context, 'Flow State', 90, LucideIcons.zap),
-                      ],
+                      children: _suggestions.map((s) => _buildSuggestionCard(s, isDark, theme)).toList(),
                     ),
                   ),
                 ],
@@ -352,15 +356,35 @@ class _StudyScreenState extends State<StudyScreen> with TickerProviderStateMixin
               const SizedBox(height: AppSpacing.lg),
 
               // 4. FOCUS STATS ROW
-              Row(
-                children: [
-                  Expanded(child: _miniStatCard('Today', '${app.studyHrs.toStringAsFixed(1)}h', AppColors.irisViolet, isDark)),
-                  const SizedBox(width: 12),
-                  Expanded(child: _miniStatCard('Longest Session', '${app.longestFocusSession}m', theme.colorScheme.onSurface, isDark)),
-                  const SizedBox(width: 12),
-                  Expanded(child: _miniStatCard('Total Sessions', '${app.focusSessionsCompleted}', AppColors.solarAmber, isDark)),
-                ],
-              ),
+              Builder(builder: (context) {
+                final todayFocus = _weeklyFocusSeconds[DateTime.now().weekday - 1];
+                final validDays = _weeklyFocusSeconds.where((s) => s > 0).toList();
+                final avgFocus = validDays.isEmpty ? 0.0 : validDays.reduce((a, b) => a + b) / validDays.length;
+                final maxFocus = validDays.isEmpty ? 0.0 : validDays.reduce(max);
+                final minFocus = validDays.isEmpty ? 0.0 : validDays.reduce(min);
+
+                return Column(
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(child: _miniStatCard('Today', _formatHours(todayFocus), AppColors.irisViolet, isDark)),
+                        const SizedBox(width: 12),
+                        Expanded(child: _miniStatCard('Weekly Avg', _formatHours(avgFocus), theme.colorScheme.onSurface, isDark)),
+                        const SizedBox(width: 12),
+                        Expanded(child: _miniStatCard('Streak', '${app.studyStreak}d', AppColors.solarAmber, isDark)),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        Expanded(child: _miniStatCard('Most Focus', _formatHours(maxFocus), AppColors.green, isDark)),
+                        const SizedBox(width: 12),
+                        Expanded(child: _miniStatCard('Least Focus', _formatHours(minFocus), AppColors.pulseRed, isDark)),
+                      ],
+                    ),
+                  ],
+                );
+              }),
               const SizedBox(height: AppSpacing.lg),
 
               // 5. WEEKLY BAR CHART
@@ -374,7 +398,7 @@ class _StudyScreenState extends State<StudyScreen> with TickerProviderStateMixin
                       height: 100,
                       child: CustomPaint(
                         size: const Size(double.infinity, 100),
-                        painter: _WeeklyChartPainter(isDark: isDark, history: app.history, todayStudyHrs: app.studyHrs),
+                        painter: _WeeklyChartPainter(isDark: isDark, data: _weeklyFocusSeconds),
                       ),
                     ),
                   ],
@@ -398,7 +422,7 @@ class _StudyScreenState extends State<StudyScreen> with TickerProviderStateMixin
                     ],
                   ),
                   TextButton.icon(
-                    onPressed: _showAddTask,
+                    onPressed: _showAddTaskDialog,
                     icon: const Icon(LucideIcons.plus, size: 16, color: AppColors.irisViolet),
                     label: const Text('Add Task', style: TextStyle(color: AppColors.irisViolet, fontWeight: FontWeight.bold)),
                   ),
@@ -543,6 +567,39 @@ class _StudyScreenState extends State<StudyScreen> with TickerProviderStateMixin
       ),
     );
   }
+
+  Widget _buildSuggestionCard(Map<String, dynamic> s, bool isDark, ThemeData theme) {
+    return GestureDetector(
+      onTap: () {
+        if (_isRunning) return;
+        setState(() {
+          _totalSeconds = (s['minutes'] as int) * 60;
+          _timerSeconds = _totalSeconds;
+        });
+        _toggleTimer();
+      },
+      child: Container(
+        width: 160,
+        margin: const EdgeInsets.only(right: 12),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: isDark ? AppColors.backgroundDeep.withValues(alpha: 0.5) : Colors.white.withValues(alpha: 0.5),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: AppColors.irisViolet.withValues(alpha: 0.4)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(s['icon'] as IconData, color: AppColors.irisViolet, size: 24),
+            const SizedBox(height: 12),
+            Text(s['title'] as String, style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.bold)),
+            const SizedBox(height: 4),
+            Text(s['desc'] as String, style: theme.textTheme.labelSmall?.copyWith(color: AppColors.textSecondary)),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 class _PomodoroRingPainter extends CustomPainter {
@@ -595,71 +652,18 @@ class _PomodoroRingPainter extends CustomPainter {
   }
 }
 
-extension on _StudyScreenState {
-  Widget _buildSuggestion(BuildContext context, String title, int mins, IconData icon) {
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
-    return GestureDetector(
-      onTap: () {
-        if (_isRunning) return;
-        setState(() {
-          _totalSeconds = mins * 60;
-          _timerSeconds = _totalSeconds;
-          _toggleTimer();
-        });
-      },
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        decoration: BoxDecoration(
-          color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.black.withValues(alpha: 0.03),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: AppColors.irisViolet.withValues(alpha: 0.2)),
-        ),
-        child: Row(
-          children: [
-            Icon(icon, size: 16, color: AppColors.irisViolet),
-            const SizedBox(width: 8),
-            Text('$title ($mins m)', style: theme.textTheme.labelLarge?.copyWith(fontWeight: FontWeight.bold)),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
 class _WeeklyChartPainter extends CustomPainter {
   final bool isDark;
-  final List<DailySnapshot> history;
-  final double todayStudyHrs;
+  final List<double> data;
 
-  _WeeklyChartPainter({required this.isDark, required this.history, required this.todayStudyHrs});
+  _WeeklyChartPainter({required this.isDark, required this.data});
 
   @override
   void paint(Canvas canvas, Size size) {
-    // Collect last 7 days including today
-    final data = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]; // Mon-Sun
-    
-    // Fill from history (history is sorted newest first)
-    final now = DateTime.now();
-    data[now.weekday - 1] = todayStudyHrs;
-    for (var snap in history.take(7)) {
-      try {
-        final d = DateTime.parse(snap.date);
-        // Only if within last 7 days
-        if (now.difference(d).inDays < 7) {
-          if (d.day != now.day) {
-            data[d.weekday - 1] = snap.studyHrs;
-          }
-        }
-      } catch (_) {}
-    }
-
-    double maxVal = data.reduce(max);
-    if (maxVal < 1.0) maxVal = 1.0; // Avoid division by zero
-
+    final maxVal = data.isEmpty || data.reduce(max) == 0 ? 3600.0 : data.reduce(max);
     final barWidth = 16.0;
     final spacing = (size.width - (barWidth * 7)) / 6;
-    final currentDayIndex = now.weekday - 1;
+    final currentDayIndex = DateTime.now().weekday - 1; // Real day index
 
     final bgPaint = Paint()..color = isDark ? Colors.white.withValues(alpha: 0.1) : Colors.black.withValues(alpha: 0.05);
     final activePaint = Paint()..color = AppColors.irisViolet;
@@ -694,7 +698,7 @@ class _WeeklyChartPainter extends CustomPainter {
     }
 
     // Draw average dashed line
-    final avgHeight = (data.reduce((a,b)=>a+b)/7) / maxVal * size.height;
+    final avgHeight = 0.0; // removed mock average
     final dashPaint = Paint()
       ..color = AppColors.solarAmber.withValues(alpha: 0.6)
       ..strokeWidth = 1.5
@@ -708,7 +712,5 @@ class _WeeklyChartPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant _WeeklyChartPainter oldDelegate) {
-    return oldDelegate.todayStudyHrs != todayStudyHrs || oldDelegate.isDark != isDark;
-  }
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }

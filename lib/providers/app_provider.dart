@@ -143,12 +143,20 @@ class PrefsKeys {
   static const lastSavedDate = 'lastSavedDate';
 }
 
-class AppProvider extends ChangeNotifier {
+class AppProvider extends ChangeNotifier with WidgetsBindingObserver {
   final SharedPreferences prefs;
   DateTime Function() clock;
 
   AppProvider(this.prefs, {this.clock = DateTime.now}) {
+    WidgetsBinding.instance.addObserver(this);
     _loadData();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _checkDailyReset();
+    }
   }
   // ──── User ────
   String userName = 'User';
@@ -390,8 +398,8 @@ class AppProvider extends ChangeNotifier {
       notifyListeners();
       _saveData();
     });
-    // 2.2 — also check for midnight reset every hour
-    _resetTimer = Timer.periodic(const Duration(hours: 1), (_) => _checkDailyReset());
+    // Check for midnight reset every 30 seconds for near-instant detection
+    _resetTimer = Timer.periodic(const Duration(seconds: 30), (_) => _checkDailyReset());
   }
 
   void stopLiveSimulation() {
@@ -455,7 +463,9 @@ class AppProvider extends ChangeNotifier {
     final lastSaved = prefs.getString(PrefsKeys.lastSavedDate) ?? '';
     if (lastSaved == today) return; // same day, no reset needed
 
-    // Snapshot yesterday's data before reset
+    debugPrint('[LifePulse] Day changed: $lastSaved → $today — resetting daily counters');
+
+    // Snapshot yesterday's data before reset (only if we had a previous day)
     if (lastSaved.isNotEmpty) {
       final snapshot = DailySnapshot(
         date: lastSaved,
@@ -475,7 +485,7 @@ class AppProvider extends ChangeNotifier {
       prefs.setString(PrefsKeys.dailyHistory, encoded);
     }
 
-    // Reset daily counters
+    // Reset ALL daily counters to zero
     steps = 0;
     calories = 0;
     distance = 0.0;
@@ -488,6 +498,7 @@ class AppProvider extends ChangeNotifier {
     todayExercises = 0;
     workouts = [];
 
+    // Stamp today so we don't reset again until tomorrow
     prefs.setString(PrefsKeys.lastSavedDate, today);
     _saveData();
     notifyListeners();
@@ -715,19 +726,12 @@ class AppProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  void completeFocusSession(int durationSeconds) {
+  void completeFocusSession() {
     focusSessionsCompleted++;
     focusTimerRunning = false;
-    studyHrs += durationSeconds / 3600.0;
-    final int mins = durationSeconds ~/ 60;
-    if (mins > (prefs.getInt('longestFocusSession') ?? 0)) {
-      prefs.setInt('longestFocusSession', mins);
-    }
     _saveData();
     notifyListeners();
   }
-
-  int get longestFocusSession => prefs.getInt('longestFocusSession') ?? 0;
 
   // ──── Feature 4 — Weekly Challenge Generator ────
   void generateWeeklyChallenges() {
@@ -790,6 +794,7 @@ class AppProvider extends ChangeNotifier {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _liveTimer?.cancel();
     _resetTimer?.cancel();
     super.dispose();
