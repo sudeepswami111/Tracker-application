@@ -14,6 +14,7 @@ import '../theme/app_spacing.dart';
 import '../widgets/live_run_metric_panel.dart';
 import '../widgets/glass_card.dart';
 import 'package:provider/provider.dart';
+import '../providers/app_provider.dart';
 import '../providers/weather_provider.dart';
 import 'package:intl/intl.dart';
 import '../constants/activity_types.dart' hide ActivityType;
@@ -61,6 +62,12 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
   bool _audioPrompts = true;
   bool _isFullScreenMap = false;
 
+  // Pre-run target inputs
+  String _targetLeftLabel = 'Target Pace';
+  String _targetLeftValue = '5:30 /km';
+  String _targetRightLabel = 'Distance';
+  String _targetRightValue = '5.0 km';
+
   // Map layer selection
   int _selectedMapLayer = 0;
   final List<Map<String, String>> _mapLayers = [
@@ -95,6 +102,36 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
     _pulseCtrl = AnimationController(vsync: this, duration: const Duration(seconds: 1))..repeat(reverse: true);
     _pulseAnim = Tween<double>(begin: 0.85, end: 1.15).animate(CurvedAnimation(parent: _pulseCtrl, curve: Curves.easeInOut));
     _initLocation();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final app = context.read<AppProvider>();
+    if (app.activeRunPlan != null && _state == RunState.planning) {
+      final plan = app.activeRunPlan!;
+      
+      String foundCat = 'Cardio';
+      for (final cat in kSportsCategories.keys) {
+        if (kSportsCategories[cat]!.any((s) => s.label == plan.type)) {
+          foundCat = cat;
+          break;
+        }
+      }
+
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        setState(() {
+          _selectedSportCategory = foundCat;
+          _selectedRunType = plan.type;
+          _targetLeftLabel = 'Duration';
+          _targetLeftValue = plan.duration;
+          _targetRightLabel = 'Target Burn';
+          _targetRightValue = '${plan.kcal} kcal';
+        });
+        app.setActiveRunPlan(null);
+      });
+    }
   }
 
   Future<void> _initLocation() async {
@@ -694,9 +731,9 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
           // Target pace / distance input row
           Row(
             children: [
-              Expanded(child: _ghostInput('Target Pace', '5:30 /km', isDark)),
+              Expanded(child: _ghostInput(_targetLeftLabel, _targetLeftValue, isDark)),
               const SizedBox(width: 16),
-              Expanded(child: _ghostInput('Distance', '5.0 km', isDark)),
+              Expanded(child: _ghostInput(_targetRightLabel, _targetRightValue, isDark)),
             ],
           ),
           const SizedBox(height: AppSpacing.xl),

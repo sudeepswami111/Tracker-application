@@ -326,8 +326,12 @@ class DashboardScreen extends StatelessWidget {
             isCompleted: plans.first.isCompleted,
             accentColor: _getAccentColor(plans.first.type),
             onStart: () {
-              app.togglePlanComplete(plans.first.id);
-              if (!plans.first.isCompleted) app.setTabIndex(2);
+              if (!plans.first.isCompleted) {
+                app.setActiveRunPlan(plans.first);
+                app.setTabIndex(2);
+              } else {
+                app.togglePlanComplete(plans.first.id);
+              }
             },
             onDelete: () => app.removeDailyPlan(plans.first.id),
           )
@@ -352,8 +356,12 @@ class DashboardScreen extends StatelessWidget {
                       isCompleted: plan.isCompleted,
                       accentColor: _getAccentColor(plan.type),
                       onStart: () {
-                        app.togglePlanComplete(plan.id);
-                        if (!plan.isCompleted) app.setTabIndex(2);
+                        if (!plan.isCompleted) {
+                          app.setActiveRunPlan(plan);
+                          app.setTabIndex(2);
+                        } else {
+                          app.togglePlanComplete(plan.id);
+                        }
                       },
                       onDelete: () => app.removeDailyPlan(plan.id),
                     ),

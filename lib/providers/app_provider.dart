@@ -336,6 +336,12 @@ class AppProvider extends ChangeNotifier with WidgetsBindingObserver {
 
   // ──── Daily Plans ────
   List<DailyPlan> dailyPlans = [];
+  DailyPlan? activeRunPlan;
+
+  void setActiveRunPlan(DailyPlan? plan) {
+    activeRunPlan = plan;
+    notifyListeners();
+  }
 
   void addDailyPlan(DailyPlan plan) {
     dailyPlans.add(plan);
