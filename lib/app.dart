@@ -57,6 +57,7 @@ class _AppShellState extends State<AppShell> {
     final app = context.watch<AppProvider>();
 
     return Scaffold(
+      resizeToAvoidBottomInset: false,
       appBar: _isMapFullscreen ? null : AppBar(
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,

@@ -3,6 +3,11 @@ import 'dart:io';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:geocoding/geocoding.dart';
+import '../services/geocoding_service.dart';
+import '../services/route_service.dart';
+import '../services/exceptions.dart';
+import '../models/geocoding_result.dart';
+import '../models/route_result.dart';
 
 import 'dart:ui';
 import 'package:flutter/material.dart';
@@ -67,8 +72,13 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
   final TextEditingController _startLocCtrl = TextEditingController();
   final TextEditingController _destLocCtrl = TextEditingController();
   bool _isLoadingRoute = false;
+  String? _routeError;
+  bool _isRetryableError = false;
   List<List<LatLng>> _alternativeRoutes = [];
   int _selectedRouteIndex = 0;
+
+  final GeocodingService _geocodingService = GeocodingService();
+  final RouteService _routeService = RouteService();
 
   String _selectedRunType = 'Outdoor Run';
   String _selectedSportCategory = 'Cardio';
@@ -99,76 +109,57 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
 
     setState(() {
       _isLoadingRoute = true;
+      _routeError = null;
       _alternativeRoutes.clear();
       _mockPreRunRoute.clear();
+      _startRoutePos = null;
+      _endRoutePos = null;
     });
 
     try {
-      // 1. Geocode Start and Dest using Nominatim
-      final headers = {'User-Agent': 'LifepulseApp/1.0 (contact@example.com)'};
-      final startRes = await http.get(Uri.parse('https://nominatim.openstreetmap.org/search?q=${Uri.encodeComponent(_startLocCtrl.text)}&format=json&limit=1'), headers: headers);
-      final destRes = await http.get(Uri.parse('https://nominatim.openstreetmap.org/search?q=${Uri.encodeComponent(_destLocCtrl.text)}&format=json&limit=1'), headers: headers);
-
-      final startData = jsonDecode(startRes.body) as List;
-      final destData = jsonDecode(destRes.body) as List;
-
-      if (startData.isEmpty || destData.isEmpty) throw Exception('Location not found');
-
-      final startLat = double.parse(startData[0]['lat']);
-      final startLon = double.parse(startData[0]['lon']);
-      final destLat = double.parse(destData[0]['lat']);
-      final destLon = double.parse(destData[0]['lon']);
+      final startRes = await _geocodingService.geocode(_startLocCtrl.text);
+      await Future.delayed(const Duration(milliseconds: 1100)); // Respect Nominatim limits
+      final destRes = await _geocodingService.geocode(_destLocCtrl.text);
 
       setState(() {
-        _startRoutePos = LatLng(startLat, startLon);
-        _endRoutePos = LatLng(destLat, destLon);
+        _startRoutePos = startRes.coordinates;
+        _endRoutePos = destRes.coordinates;
       });
 
-      // Move map to center
-      final center = LatLng((startLat + destLat) / 2, (startLon + destLon) / 2);
-      _mapCtrl.move(center, 13); // Zoom out a bit
+      final center = LatLng(
+        (startRes.coordinates.latitude + destRes.coordinates.latitude) / 2,
+        (startRes.coordinates.longitude + destRes.coordinates.longitude) / 2,
+      );
+      _mapCtrl.move(center, 13);
 
-      // 2. Fetch OSRM
-      final url = 'http://router.project-osrm.org/route/v1/foot/$startLon,$startLat;$destLon,$destLat?geometries=geojson&overview=full&alternatives=true';
-      final res = await http.get(Uri.parse(url));
+      final routeRes = await _routeService.getRoute(startRes.coordinates, destRes.coordinates);
 
-      if (res.statusCode == 200) {
-        final data = jsonDecode(res.body);
-        final routes = data['routes'] as List;
+      if (routeRes.alternatives.isNotEmpty) {
+        setState(() {
+          _alternativeRoutes = routeRes.alternatives;
+          _selectedRouteIndex = 0;
+          _mockPreRunRoute = routeRes.alternatives[0];
 
-        List<List<LatLng>> parsedRoutes = [];
-
-        for (var route in routes) {
-          final geometry = route['geometry']['coordinates'] as List;
-          List<LatLng> polyline = geometry.map((c) => LatLng(c[1], c[0])).toList();
-          parsedRoutes.add(polyline);
-        }
-
-        if (parsedRoutes.isNotEmpty) {
-          setState(() {
-            _alternativeRoutes = parsedRoutes;
-            _selectedRouteIndex = 0;
-            _mockPreRunRoute = parsedRoutes[0];
-
-            // Update distance target
-            final distanceMeters = routes[0]['distance'] as num;
-            final distKm = distanceMeters / 1000.0;
-            _targetRightLabel = 'Distance';
-            _targetRightValue = '${distKm.toStringAsFixed(2)} km';
-            
-            // Update time estimation
-            final durationSecs = routes[0]['duration'] as num;
-            final minutes = (durationSecs / 60).round();
-            _targetLeftLabel = 'Est. Time';
-            _targetLeftValue = '$minutes min';
-          });
-        }
-      } else {
-        throw Exception('Routing failed: ${res.statusCode}');
+          _targetRightLabel = 'Distance';
+          _targetRightValue = '${routeRes.distanceKm.toStringAsFixed(2)} km';
+          _targetLeftLabel = 'Est. Time';
+          _targetLeftValue = '${routeRes.durationMinutes.round()} min';
+        });
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Could not find route: $e')));
+        setState(() {
+          if (e is GeocodingException) {
+            _routeError = e.userMessage;
+            _isRetryableError = e.retryable;
+          } else if (e is RouteException) {
+            _routeError = e.userMessage;
+            _isRetryableError = e.retryable;
+          } else {
+            _routeError = 'An unexpected error occurred. Please try again.';
+            _isRetryableError = true;
+          }
+        });
       }
     } finally {
       if (mounted) {
@@ -579,57 +570,140 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
               const Icon(LucideIcons.navigation, color: AppColors.voltCyan, size: 18),
               const SizedBox(width: 8),
               Text('Plan Your Route', style: TextStyle(color: isDark ? Colors.white : Colors.black, fontWeight: FontWeight.bold, fontSize: 15)),
+              const Spacer(),
+              if (_alternativeRoutes.isNotEmpty)
+                TextButton.icon(
+                  onPressed: () {
+                    setState(() {
+                      _alternativeRoutes.clear();
+                      _mockPreRunRoute.clear();
+                      _startRoutePos = null;
+                      _endRoutePos = null;
+                      _startLocCtrl.clear();
+                      _destLocCtrl.clear();
+                      _routeError = null;
+                    });
+                  },
+                  icon: const Icon(Icons.clear, size: 14, color: AppColors.pulseRed),
+                  label: const Text('Clear', style: TextStyle(fontSize: 12, color: AppColors.pulseRed)),
+                  style: TextButton.styleFrom(padding: EdgeInsets.zero, minimumSize: const Size(50, 30)),
+                ),
             ],
           ),
           const SizedBox(height: 12),
-          SizedBox(
-            height: 40,
-            child: TextField(
-              controller: _startLocCtrl,
-              decoration: InputDecoration(
-                hintText: 'Start (e.g. Central Park)',
-                hintStyle: TextStyle(fontSize: 13, color: (isDark ? Colors.white : Colors.black).withValues(alpha: 0.5)),
-                prefixIcon: const Icon(LucideIcons.mapPin, color: AppColors.voltCyan, size: 16),
-                filled: true,
-                fillColor: (isDark ? Colors.white : Colors.black).withValues(alpha: 0.05),
-                contentPadding: EdgeInsets.zero,
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),
+          Stack(
+            alignment: Alignment.centerRight,
+            children: [
+              Column(
+                children: [
+                  SizedBox(
+                    height: 40,
+                    child: TextField(
+                      controller: _startLocCtrl,
+                      decoration: InputDecoration(
+                        hintText: 'Start (e.g. Central Park)',
+                        hintStyle: TextStyle(fontSize: 13, color: (isDark ? Colors.white : Colors.black).withValues(alpha: 0.5)),
+                        prefixIcon: const Icon(LucideIcons.mapPin, color: AppColors.voltCyan, size: 16),
+                        suffixIcon: IconButton(
+                          icon: const Icon(Icons.my_location, size: 16),
+                          onPressed: () async {
+                            if (_curPos != null) {
+                              try {
+                                final placemarks = await placemarkFromCoordinates(_curPos!.latitude, _curPos!.longitude);
+                                if (placemarks.isNotEmpty) {
+                                  _startLocCtrl.text = '${placemarks.first.locality}, ${placemarks.first.country}';
+                                }
+                              } catch (_) {
+                                _startLocCtrl.text = '${_curPos!.latitude}, ${_curPos!.longitude}';
+                              }
+                            }
+                          },
+                        ),
+                        filled: true,
+                        fillColor: (isDark ? Colors.white : Colors.black).withValues(alpha: 0.05),
+                        contentPadding: EdgeInsets.zero,
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),
+                      ),
+                      style: TextStyle(color: isDark ? Colors.white : Colors.black, fontSize: 13),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  SizedBox(
+                    height: 40,
+                    child: TextField(
+                      controller: _destLocCtrl,
+                      decoration: InputDecoration(
+                        hintText: 'Destination (e.g. Times Square)',
+                        hintStyle: TextStyle(fontSize: 13, color: (isDark ? Colors.white : Colors.black).withValues(alpha: 0.5)),
+                        prefixIcon: const Icon(LucideIcons.flag, color: AppColors.pulseRed, size: 16),
+                        filled: true,
+                        fillColor: (isDark ? Colors.white : Colors.black).withValues(alpha: 0.05),
+                        contentPadding: EdgeInsets.zero,
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),
+                      ),
+                      style: TextStyle(color: isDark ? Colors.white : Colors.black, fontSize: 13),
+                    ),
+                  ),
+                ],
               ),
-              style: TextStyle(color: isDark ? Colors.white : Colors.black, fontSize: 13),
-            ),
-          ),
-          const SizedBox(height: 8),
-          SizedBox(
-            height: 40,
-            child: TextField(
-              controller: _destLocCtrl,
-              decoration: InputDecoration(
-                hintText: 'Destination (e.g. Times Square)',
-                hintStyle: TextStyle(fontSize: 13, color: (isDark ? Colors.white : Colors.black).withValues(alpha: 0.5)),
-                prefixIcon: const Icon(LucideIcons.flag, color: AppColors.pulseRed, size: 16),
-                filled: true,
-                fillColor: (isDark ? Colors.white : Colors.black).withValues(alpha: 0.05),
-                contentPadding: EdgeInsets.zero,
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),
+              Positioned(
+                right: 8,
+                top: 30,
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: isDark ? const Color(0xFF2C2C2E) : Colors.white,
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(color: Colors.black.withValues(alpha: 0.1), blurRadius: 4),
+                    ]
+                  ),
+                  child: IconButton(
+                    icon: Icon(Icons.swap_vert, size: 20, color: isDark ? Colors.white : Colors.black),
+                    onPressed: () {
+                      final temp = _startLocCtrl.text;
+                      _startLocCtrl.text = _destLocCtrl.text;
+                      _destLocCtrl.text = temp;
+                    },
+                  ),
+                ),
               ),
-              style: TextStyle(color: isDark ? Colors.white : Colors.black, fontSize: 13),
-            ),
+            ],
           ),
           const SizedBox(height: 12),
+          if (_routeError != null) ...[
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: AppColors.pulseRed.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: AppColors.pulseRed.withValues(alpha: 0.3)),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.error_outline, color: AppColors.pulseRed, size: 20),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(_routeError!, style: const TextStyle(color: AppColors.pulseRed, fontSize: 12)),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+          ],
           SizedBox(
             width: double.infinity,
             height: 40,
             child: ElevatedButton(
               onPressed: _isLoadingRoute ? null : _findRoute,
               style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.voltCyan,
+                backgroundColor: _routeError != null && _isRetryableError ? AppColors.solarAmber : AppColors.voltCyan,
                 foregroundColor: Colors.black,
                 elevation: 0,
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
               ),
               child: _isLoadingRoute
                   ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(color: Colors.black, strokeWidth: 2))
-                  : const Text('Find Routes', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                  : Text(_routeError != null && _isRetryableError ? 'Retry Search' : 'Find Routes', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
             ),
           ),
           if (_alternativeRoutes.length > 1) ...[
