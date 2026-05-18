@@ -16,6 +16,7 @@ import '../widgets/glass_card.dart';
 import 'package:provider/provider.dart';
 import '../providers/weather_provider.dart';
 import 'package:intl/intl.dart';
+import '../constants/activity_types.dart' hide ActivityType;
 import 'fitness_screen.dart';
 
 enum RunState { planning, countdown, running, paused, finished }
@@ -70,39 +71,7 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
     {'name': 'Topo', 'dark': 'https://a.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}@2x.png', 'light': 'https://tile.opentopomap.org/{z}/{x}/{y}.png'},
   ];
 
-  final Map<String, List<Map<String, dynamic>>> _sportsCategories = {
-    'Cardio': [
-      {'name': 'Outdoor Run', 'icon': Icons.directions_run},
-      {'name': 'Treadmill', 'icon': Icons.fitness_center},
-      {'name': 'Trail Run', 'icon': Icons.park},
-      {'name': 'Cycling', 'icon': Icons.directions_bike},
-    ],
-    'Fitness': [
-      {'name': 'Workout', 'icon': Icons.fitness_center},
-      {'name': 'HIIT', 'icon': Icons.timer},
-      {'name': 'Dance', 'icon': Icons.music_note},
-    ],
-    'Water': [
-      {'name': 'Swim', 'icon': Icons.pool},
-      {'name': 'Surf', 'icon': Icons.surfing},
-      {'name': 'Stand Up Paddle', 'icon': Icons.rowing},
-      {'name': 'Kayak', 'icon': Icons.kayaking},
-    ],
-    'Winter': [
-      {'name': 'Ice Skate', 'icon': Icons.ice_skating},
-      {'name': 'Snowboard', 'icon': Icons.snowboarding},
-    ],
-    'Team': [
-      {'name': 'Football', 'icon': Icons.sports_soccer},
-      {'name': 'Basketball', 'icon': Icons.sports_basketball},
-      {'name': 'Volleyball', 'icon': Icons.sports_volleyball},
-      {'name': 'Cricket', 'icon': Icons.sports_cricket},
-    ],
-    'Other': [
-      {'name': 'Skateboard', 'icon': Icons.skateboarding},
-      {'name': 'Golf', 'icon': Icons.sports_golf},
-    ],
-  };
+
 
   void _toggleFullScreen() {
     setState(() {
@@ -685,14 +654,14 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
           SingleChildScrollView(
             scrollDirection: Axis.horizontal,
             child: Row(
-              children: _sportsCategories.keys.map((cat) {
+              children: kSportsCategories.keys.map((cat) {
                 final isActive = _selectedSportCategory == cat;
                 return GestureDetector(
                   onTap: () {
                     HapticFeedback.lightImpact();
                     setState(() {
                       _selectedSportCategory = cat;
-                      _selectedRunType = _sportsCategories[cat]!.first['name'];
+                      _selectedRunType = kSportsCategories[cat]!.first.label;
                     });
                   },
                   child: AnimatedContainer(
@@ -715,8 +684,8 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
           SingleChildScrollView(
             scrollDirection: Axis.horizontal,
             child: Row(
-              children: _sportsCategories[_selectedSportCategory]!.map((sport) {
-                return _typeChip(sport['name'], sport['icon'], isDark);
+              children: kSportsCategories[_selectedSportCategory]!.map((sport) {
+                return _typeChip(sport.label, sport.icon, isDark);
               }).toList(),
             ),
           ),

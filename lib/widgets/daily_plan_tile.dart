@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:lucide_icons/lucide_icons.dart';
@@ -91,23 +92,26 @@ class DailyPlanTile extends StatelessWidget {
             // ── Left: Activity image 80×80 ──
             ClipRRect(
               borderRadius: BorderRadius.circular(16),
-              child: CachedNetworkImage(
-                imageUrl: imageUrl,
+              child: SizedBox(
                 width: 80,
                 height: 80,
-                fit: BoxFit.cover,
-                placeholder: (context, url) => Container(
-                  width: 80,
-                  height: 80,
-                  color: AppColors.surfaceElevated,
-                  child: const Icon(LucideIcons.dumbbell, color: AppColors.textSecondary, size: 28),
-                ),
-                errorWidget: (context, url, error) => Container(
-                  width: 80,
-                  height: 80,
-                  color: AppColors.surfaceElevated,
-                  child: const Icon(LucideIcons.dumbbell, color: AppColors.textSecondary, size: 28),
-                ),
+                child: imageUrl.startsWith('http')
+                    ? CachedNetworkImage(
+                        imageUrl: imageUrl,
+                        fit: BoxFit.cover,
+                        placeholder: (context, url) => Container(
+                          color: AppColors.surfaceElevated,
+                          child: const Icon(LucideIcons.dumbbell, color: AppColors.textSecondary, size: 28),
+                        ),
+                        errorWidget: (context, url, error) => Container(
+                          color: AppColors.surfaceElevated,
+                          child: const Icon(LucideIcons.dumbbell, color: AppColors.textSecondary, size: 28),
+                        ),
+                      )
+                    : Image.file(
+                        File(imageUrl),
+                        fit: BoxFit.cover,
+                      ),
               ),
             ),
             const SizedBox(width: 14),
