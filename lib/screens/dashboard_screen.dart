@@ -15,6 +15,7 @@ import '../widgets/add_plan_sheet.dart';
 import '../widgets/dashboard_fun_widgets.dart';
 import '../widgets/view_all_plans_sheet.dart';
 import '../widgets/weather_widgets.dart';
+import '../widgets/people_suggestion_section.dart';
 
 class DashboardScreen extends StatelessWidget {
   const DashboardScreen({super.key});
@@ -109,6 +110,13 @@ class DashboardScreen extends StatelessWidget {
               AnimatedCardEnter(
                 index: 4,
                 child: _buildTodaysPlan(theme, isDark, app, context),
+              ),
+              const SizedBox(height: AppSpacing.xl),
+
+              // 5. People Suggestions
+              AnimatedCardEnter(
+                index: 5,
+                child: const PeopleSuggestionSection(),
               ),
               const SizedBox(height: AppSpacing.xl),
 

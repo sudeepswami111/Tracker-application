@@ -186,4 +186,61 @@ class FriendService {
           if (kDebugMode) print('Realtime status: $status ${error ?? ""}');
         });
   }
+
+  // ──────────────────────────────────────────────────────────────────
+  // 8. GET SUGGESTIONS (Phase 1)
+  // ──────────────────────────────────────────────────────────────────
+  Future<List<FitnessProfile>> getSuggestions(String currentUserId) async {
+    try {
+      // Step 1: Get IDs of users already connected (friends or pending requests)
+      final sentRequests = await _client
+          .from('friend_requests')
+          .select('receiver_id')
+          .eq('sender_id', currentUserId);
+
+      final receivedRequests = await _client
+          .from('friend_requests')
+          .select('sender_id')
+          .eq('receiver_id', currentUserId);
+
+      final friendships = await _client
+          .from('friendships')
+          .select('user1_id, user2_id')
+          .or('user1_id.eq.$currentUserId,user2_id.eq.$currentUserId');
+
+      // Collect all excluded IDs
+      final excludedIds = <String>{currentUserId};
+
+      for (final r in sentRequests as List) {
+        excludedIds.add(r['receiver_id'] as String);
+      }
+      for (final r in receivedRequests as List) {
+        excludedIds.add(r['sender_id'] as String);
+      }
+      for (final f in friendships as List) {
+        excludedIds.add(f['user1_id'] as String);
+        excludedIds.add(f['user2_id'] as String);
+      }
+
+      // Step 2: Fetch all profiles NOT in excluded set
+      final profiles = await _client
+          .from('profiles')
+          .select('id, full_name, username, avatar_url, fitness_goal, city')
+          .not('id', 'in', '(${excludedIds.join(',')})')
+          .limit(50)
+          .order('created_at', ascending: false);
+
+      return (profiles as List)
+          .map((e) => FitnessProfile.fromJson(e as Map<String, dynamic>))
+          .toList();
+    } catch (e) {
+      if (kDebugMode) print('getSuggestions error: $e');
+      return [];
+    }
+  }
+
+  Future<List<FitnessProfile>> getContactSuggestions(String currentUserId) async {
+    // Skipping contact matching for Phase 1 as instructed.
+    return [];
+  }
 }
