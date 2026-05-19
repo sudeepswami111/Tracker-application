@@ -36,9 +36,18 @@ class PeopleSuggestionSection extends StatelessWidget {
           children: [
             // ── From Contacts ──
             if (contactSuggestions.isNotEmpty) ...[
-              const _SectionHeader(
-                title: 'From Your Contacts',
-                icon: Icons.contacts_rounded,
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const _SectionHeader(
+                    title: 'From Your Contacts',
+                    icon: Icons.contacts_rounded,
+                  ),
+                  GestureDetector(
+                    onTap: () => context.read<FriendProvider>().loadSuggestions(),
+                    child: const Icon(Icons.refresh_rounded, size: 18, color: AppColors.textSecondary),
+                  ),
+                ],
               ),
               const SizedBox(height: 10),
               _HorizontalSuggestionList(profiles: contactSuggestions),
@@ -47,9 +56,19 @@ class PeopleSuggestionSection extends StatelessWidget {
 
             // ── People You May Know ──
             if (otherSuggestions.isNotEmpty) ...[
-              const _SectionHeader(
-                title: 'People You May Know',
-                icon: Icons.people_rounded,
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const _SectionHeader(
+                    title: 'People You May Know',
+                    icon: Icons.people_rounded,
+                  ),
+                  if (contactSuggestions.isEmpty) // Only show refresh here if no contacts section above
+                    GestureDetector(
+                      onTap: () => context.read<FriendProvider>().loadSuggestions(),
+                      child: const Icon(Icons.refresh_rounded, size: 18, color: AppColors.textSecondary),
+                    ),
+                ],
               ),
               const SizedBox(height: 10),
               _HorizontalSuggestionList(profiles: otherSuggestions),

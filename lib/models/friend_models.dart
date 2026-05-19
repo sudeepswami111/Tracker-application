@@ -38,8 +38,8 @@ class FitnessProfile {
   factory FitnessProfile.fromJson(Map<String, dynamic> json) {
     return FitnessProfile(
       id: json['id'] as String,
-      username: json['username'] as String? ?? 'user',
-      fullName: json['full_name'] as String? ?? '',
+      username: json['username'] as String? ?? json['name'] as String? ?? 'user',
+      fullName: json['full_name'] as String? ?? json['name'] as String? ?? '',
       avatarUrl: json['avatar_url'] as String?,
       bio: json['bio'] as String?,
       city: json['city'] as String?,

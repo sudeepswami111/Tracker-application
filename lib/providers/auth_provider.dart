@@ -36,10 +36,16 @@ class AuthProvider extends ChangeNotifier {
 
   Future<void> signInWithEmail(String email, String password) async {
     try {
-      await _supabase.auth.signInWithPassword(
+      final response = await _supabase.auth.signInWithPassword(
         email: email,
         password: password,
       );
+
+      // Safety net: ensure profile row exists (handles users who signed up before DB trigger)
+      final userId = response.user?.id;
+      if (userId != null) {
+        await _ensureProfileExists(userId, email);
+      }
     } catch (e) {
       debugPrint("Error signing in with Email: \$e");
       rethrow;
@@ -48,10 +54,16 @@ class AuthProvider extends ChangeNotifier {
 
   Future<void> signUpWithEmail(String email, String password) async {
     try {
-      await _supabase.auth.signUp(
+      final response = await _supabase.auth.signUp(
         email: email,
         password: password,
       );
+
+      // Safety net: upsert profile row in case DB trigger didn't fire
+      final userId = response.user?.id;
+      if (userId != null) {
+        await _ensureProfileExists(userId, email);
+      }
     } catch (e) {
       debugPrint("Error signing up with Email: \$e");
       rethrow;
@@ -63,6 +75,25 @@ class AuthProvider extends ChangeNotifier {
       await _supabase.auth.signOut();
     } catch (e) {
       debugPrint("Error signing out: \$e");
+    }
+  }
+
+  // ─── Upserts a minimal profile row — safe to call on every login ──
+  Future<void> _ensureProfileExists(String userId, String email) async {
+    try {
+      final name = email.split('@')[0];
+      await _supabase.from('profiles').upsert(
+        {
+          'id': userId,
+          'name': name,
+        },
+        onConflict: 'id',
+        ignoreDuplicates: true,  // Don't overwrite existing name if profile already exists
+      );
+      debugPrint('✅ Profile ensured for $userId');
+    } catch (e) {
+      debugPrint('⚠️ _ensureProfileExists error (non-fatal): $e');
+      // Non-fatal — don't rethrow, let login proceed
     }
   }
 }
