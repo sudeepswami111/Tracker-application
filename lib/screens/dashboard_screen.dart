@@ -3,6 +3,7 @@ import 'package:lucide_icons/lucide_icons.dart';
 import 'package:provider/provider.dart';
 
 import '../providers/app_provider.dart';
+import '../providers/friend_provider.dart';
 import '../providers/watch_metrics_provider.dart';
 import '../providers/step_tracker_provider.dart';
 import '../theme/app_colors.dart';
@@ -113,7 +114,7 @@ class DashboardScreen extends StatelessWidget {
               ),
               const SizedBox(height: AppSpacing.xl),
 
-              // 5. People Suggestions
+              // 5. People You May Know
               AnimatedCardEnter(
                 index: 5,
                 child: const PeopleSuggestionSection(),

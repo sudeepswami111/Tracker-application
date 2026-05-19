@@ -11,24 +11,25 @@ class FriendProvider extends ChangeNotifier {
   List<FriendRequest> _incomingRequests = [];
   final Set<String> _sentRequestIds = {};
 
+  // ─── Suggestion state ───────────────────────────────────────────
+  List<FitnessProfile> _suggestions = [];
+  List<FitnessProfile> _contactSuggestions = [];
+  bool _suggestionsLoading = false;
+
+  List<FitnessProfile> get suggestions => _suggestions;
+  List<FitnessProfile> get contactSuggestions => _contactSuggestions;
+  bool get suggestionsLoading => _suggestionsLoading;
+
   FriendProviderState _state = FriendProviderState.idle;
   String _error = '';
   RealtimeChannel? _realtimeChannel;
 
-
-  List<FitnessProfile> _suggestions = [];
-  List<FitnessProfile> _contactSuggestions = [];
-  bool _suggestionsLoading = false;
 
   List<FriendRequest> get incomingRequests => _incomingRequests;
   Set<String> get sentRequestIds => _sentRequestIds;
   FriendProviderState get state => _state;
   String get error => _error;
   bool get isLoading => _state == FriendProviderState.loading;
-  
-  List<FitnessProfile> get suggestions => _suggestions;
-  List<FitnessProfile> get contactSuggestions => _contactSuggestions;
-  bool get suggestionsLoading => _suggestionsLoading;
 
   String? get _userId => Supabase.instance.client.auth.currentUser?.id;
 
@@ -49,19 +50,59 @@ class FriendProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
-      await Future.wait([
-        _service.getIncomingRequests(uid).then((r) => _incomingRequests = r),
-        loadSuggestions(),
-      ]);
+      _incomingRequests = await _service.getIncomingRequests(uid);
       _state = FriendProviderState.loaded;
 
       _subscribeRealtime(uid);
+
+      // Load suggestions separately (doesn't block init)
+      loadSuggestions();
     } catch (e) {
       _error = e.toString();
       _state = FriendProviderState.error;
       if (kDebugMode) print('FriendProvider.init error: $e');
     }
 
+    notifyListeners();
+  }
+
+  // ─── Load suggestions ─────────────────────────────────────────────
+  Future<void> loadSuggestions() async {
+    final uid = _userId;
+    if (uid == null) return;
+
+    _suggestionsLoading = true;
+    notifyListeners();
+
+    try {
+      if (kDebugMode) print('👥 Loading suggestions for user: $uid');
+
+      final results = await Future.wait([
+        _service.getSuggestions(uid),
+        _service.getContactSuggestions(uid),
+      ]);
+
+      _suggestions = results[0];
+      _contactSuggestions = results[1];
+
+      if (kDebugMode) {
+        print('👥 Suggestions loaded: ${_suggestions.length} general, ${_contactSuggestions.length} contacts');
+        for (final s in _suggestions) {
+          print('  → ${s.fullName} (${s.city ?? "no city"})');
+        }
+      }
+    } catch (e) {
+      if (kDebugMode) print('❌ loadSuggestions error: $e');
+    }
+
+    _suggestionsLoading = false;
+    notifyListeners();
+  }
+
+  // ─── Dismiss a suggestion (session-only) ──────────────────────────
+  void dismissSuggestion(String userId) {
+    _suggestions.removeWhere((p) => p.id == userId);
+    _contactSuggestions.removeWhere((p) => p.id == userId);
     notifyListeners();
   }
 
@@ -100,31 +141,6 @@ class FriendProvider extends ChangeNotifier {
     }
   }
 
-  // ─── Load Suggestions ────────────────────────────────────────────
-  Future<void> loadSuggestions() async {
-    final uid = _userId;
-    if (uid == null) return;
-
-    _suggestionsLoading = true;
-    notifyListeners();
-
-    final results = await Future.wait([
-      _service.getSuggestions(uid),
-      _service.getContactSuggestions(uid),
-    ]);
-
-    _suggestions = results[0];
-    _contactSuggestions = results[1];
-    _suggestionsLoading = false;
-    notifyListeners();
-  }
-
-  // ─── Dismiss Suggestion ──────────────────────────────────────────
-  void dismissSuggestion(String userId) {
-    _suggestions.removeWhere((p) => p.id == userId);
-    _contactSuggestions.removeWhere((p) => p.id == userId);
-    notifyListeners();
-  }
 
   // ─── Realtime subscription (mirrors JS useEffect cleanup pattern) ──
   void _subscribeRealtime(String uid) {

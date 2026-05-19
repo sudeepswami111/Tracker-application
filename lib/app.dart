@@ -14,6 +14,7 @@ import 'screens/settings_screen.dart';
 import 'screens/challenge_screen.dart';
 import 'screens/community_screen.dart';
 import 'screens/notifications_screen.dart';
+import 'providers/friend_provider.dart';
 import 'theme/app_colors.dart';
 import 'widgets/glass_nav_bar.dart';
 
@@ -33,6 +34,7 @@ class _AppShellState extends State<AppShell> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       Permission.notification.request();
       context.read<AppProvider>().syncProfileWithSupabase();
+      context.read<FriendProvider>().init();
     });
   }
 

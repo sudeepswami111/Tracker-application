@@ -6,6 +6,76 @@ class FriendService {
   final SupabaseClient _client = Supabase.instance.client;
 
   // ──────────────────────────────────────────────────────────────────
+  // 1A. GET SUGGESTIONS (People You May Know)
+  //     Fetches all users NOT already friends / pending requests.
+  // ──────────────────────────────────────────────────────────────────
+  Future<List<FitnessProfile>> getSuggestions(String currentUserId) async {
+    try {
+      if (kDebugMode) print('👥 getSuggestions: fetching for user $currentUserId');
+
+      // Step 1: Get IDs of users already connected (friends or pending requests)
+      final sentRequests = await _client
+          .from('friend_requests')
+          .select('receiver_id')
+          .eq('sender_id', currentUserId);
+
+      final receivedRequests = await _client
+          .from('friend_requests')
+          .select('sender_id')
+          .eq('receiver_id', currentUserId);
+
+      final friendships = await _client
+          .from('friendships')
+          .select('user1_id, user2_id')
+          .or('user1_id.eq.$currentUserId,user2_id.eq.$currentUserId');
+
+      // Collect all excluded IDs
+      final excludedIds = <String>{currentUserId};
+
+      for (final r in sentRequests as List) {
+        excludedIds.add(r['receiver_id'] as String);
+      }
+      for (final r in receivedRequests as List) {
+        excludedIds.add(r['sender_id'] as String);
+      }
+      for (final f in friendships as List) {
+        excludedIds.add(f['user1_id'] as String);
+        excludedIds.add(f['user2_id'] as String);
+      }
+
+      if (kDebugMode) print('👥 Excluded ${excludedIds.length} IDs');
+
+      // Step 2: Fetch all profiles NOT in excluded set
+      final profiles = await _client
+          .from('profiles')
+          .select()
+          .not('id', 'in', '(${excludedIds.join(',')})')
+          .limit(50)
+          .order('created_at', ascending: false);
+
+      if (kDebugMode) print('👥 Found ${(profiles as List).length} suggestion profiles');
+
+      return (profiles)
+          .map((e) => FitnessProfile.fromJson(e as Map<String, dynamic>))
+          .toList();
+    } catch (e) {
+      if (kDebugMode) print('❌ getSuggestions error: $e');
+      return [];
+    }
+  }
+
+  // ──────────────────────────────────────────────────────────────────
+  // 1B. GET CONTACT SUGGESTIONS (Phase 2 — stubbed for now)
+  //     Will match device contacts against profiles table.
+  //     Returns empty list until phone_last10 column is added.
+  // ──────────────────────────────────────────────────────────────────
+  Future<List<FitnessProfile>> getContactSuggestions(String currentUserId) async {
+    // Contact matching requires phone_last10 column in profiles table.
+    // Returning empty list for Phase 1 — will be implemented in Phase 2.
+    return [];
+  }
+
+  // ──────────────────────────────────────────────────────────────────
   // 2. SEND FRIEND REQUEST
   // ──────────────────────────────────────────────────────────────────
   Future<bool> sendFriendRequest(String senderId, String receiverId) async {
@@ -185,62 +255,5 @@ class FriendService {
         .subscribe((status, [error]) {
           if (kDebugMode) print('Realtime status: $status ${error ?? ""}');
         });
-  }
-
-  // ──────────────────────────────────────────────────────────────────
-  // 8. GET SUGGESTIONS (Phase 1)
-  // ──────────────────────────────────────────────────────────────────
-  Future<List<FitnessProfile>> getSuggestions(String currentUserId) async {
-    try {
-      // Step 1: Get IDs of users already connected (friends or pending requests)
-      final sentRequests = await _client
-          .from('friend_requests')
-          .select('receiver_id')
-          .eq('sender_id', currentUserId);
-
-      final receivedRequests = await _client
-          .from('friend_requests')
-          .select('sender_id')
-          .eq('receiver_id', currentUserId);
-
-      final friendships = await _client
-          .from('friendships')
-          .select('user1_id, user2_id')
-          .or('user1_id.eq.$currentUserId,user2_id.eq.$currentUserId');
-
-      // Collect all excluded IDs
-      final excludedIds = <String>{currentUserId};
-
-      for (final r in sentRequests as List) {
-        excludedIds.add(r['receiver_id'] as String);
-      }
-      for (final r in receivedRequests as List) {
-        excludedIds.add(r['sender_id'] as String);
-      }
-      for (final f in friendships as List) {
-        excludedIds.add(f['user1_id'] as String);
-        excludedIds.add(f['user2_id'] as String);
-      }
-
-      // Step 2: Fetch all profiles NOT in excluded set
-      final profiles = await _client
-          .from('profiles')
-          .select('id, full_name, username, avatar_url, fitness_goal, city')
-          .not('id', 'in', '(${excludedIds.join(',')})')
-          .limit(50)
-          .order('created_at', ascending: false);
-
-      return (profiles as List)
-          .map((e) => FitnessProfile.fromJson(e as Map<String, dynamic>))
-          .toList();
-    } catch (e) {
-      if (kDebugMode) print('getSuggestions error: $e');
-      return [];
-    }
-  }
-
-  Future<List<FitnessProfile>> getContactSuggestions(String currentUserId) async {
-    // Skipping contact matching for Phase 1 as instructed.
-    return [];
   }
 }
