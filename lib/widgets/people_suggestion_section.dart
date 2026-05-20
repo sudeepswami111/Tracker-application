@@ -28,7 +28,46 @@ class PeopleSuggestionSection extends StatelessWidget {
         }
 
         if (contactSuggestions.isEmpty && otherSuggestions.isEmpty) {
-          return const SizedBox.shrink(); // hide section if no suggestions
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const _SectionHeader(
+                    title: 'People You May Know',
+                    icon: Icons.people_rounded,
+                  ),
+                  GestureDetector(
+                    onTap: () => context.read<FriendProvider>().loadSuggestions(),
+                    child: const Icon(Icons.refresh_rounded, size: 18, color: AppColors.textSecondary),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.surface,
+                  borderRadius: BorderRadius.circular(AppSpacing.cardRadius),
+                  border: Border.all(
+                    color: Theme.of(context).brightness == Brightness.dark
+                        ? Colors.white.withValues(alpha: 0.06)
+                        : Colors.black.withValues(alpha: 0.06),
+                  ),
+                ),
+                child: const Text(
+                  "No new suggestions right now.\nInvite some friends to join!",
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: AppColors.textSecondary,
+                    height: 1.4,
+                  ),
+                ),
+              ),
+            ],
+          );
         }
 
         return Column(
