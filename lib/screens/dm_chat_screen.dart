@@ -1,5 +1,5 @@
-import 'dart:ui';
 import 'dart:async';
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -7,10 +7,11 @@ import 'package:lucide_icons/lucide_icons.dart';
 import '../models/chat_models.dart';
 import '../services/chat_service.dart';
 import '../theme/app_colors.dart';
+import '../services/follow_service.dart'; // adjust path
 
-// ====================================================
-// PREMIUM DM LIST SCREEN
-// ====================================================
+// ═════════════════════════════════════════════════════════════════
+// DM LIST SCREEN — shows all conversations + search bar
+// ═════════════════════════════════════════════════════════════════
 class DMListScreen extends StatefulWidget {
   const DMListScreen({super.key});
 
@@ -19,25 +20,106 @@ class DMListScreen extends StatefulWidget {
 }
 
 class _DMListScreenState extends State<DMListScreen> {
-  final ChatService _service = ChatService();
-  List<ChatRoom> _chats = [];
-  bool _loading = true;
+  final _chatService   = ChatService();
+  final _followService = FollowService();
+  final _searchCtrl    = TextEditingController();
+
+  List<ChatRoom>   _chats       = [];
+  List<FollowUser> _searchResults = [];
+  bool _loadingChats    = true;
+  bool _loadingSearch   = false;
+  bool _showSearch      = false;
+
+  Timer? _searchDebounce;
 
   @override
   void initState() {
     super.initState();
-    _load();
+    _loadChats();
   }
 
-  Future<void> _load() async {
-    setState(() => _loading = true);
-    _chats = await _service.getMyChats();
-    setState(() => _loading = false);
+  @override
+  void dispose() {
+    _searchCtrl.dispose();
+    _searchDebounce?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _loadChats() async {
+    setState(() => _loadingChats = true);
+    _chats = await _chatService.getMyChats();
+    if (mounted) setState(() => _loadingChats = false);
+  }
+
+  // ── Username search (debounced 500ms) ──────────────────────────
+  void _onSearchChanged(String value) {
+    _searchDebounce?.cancel();
+    if (value.trim().isEmpty) {
+      setState(() { _searchResults = []; _loadingSearch = false; });
+      return;
+    }
+    setState(() => _loadingSearch = true);
+    _searchDebounce = Timer(const Duration(milliseconds: 500), () async {
+      final results = await _followService.searchUsers(value.trim());
+      if (mounted) setState(() { _searchResults = results; _loadingSearch = false; });
+    });
+  }
+
+  // ── Open chat with a user found via search ─────────────────────
+  /// Opens existing chat room if present, otherwise shows "not connected" hint.
+  void _openChatWithUser(FollowUser user) async {
+    // Check if a chat exists (both must have accepted follow)
+    final supabase = Supabase.instance.client;
+    final me = supabase.auth.currentUser?.id ?? '';
+
+    final u1 = me.compareTo(user.id) < 0 ? me : user.id;
+    final u2 = me.compareTo(user.id) < 0 ? user.id : me;
+
+    try {
+      final res = await supabase
+          .from('chats')
+          .select('id')
+          .eq('user1_id', u1)
+          .eq('user2_id', u2)
+          .maybeSingle();
+
+      if (res == null) {
+        if (mounted) {
+          // They are not connected yet
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text(
+              user.followStatus == FollowStatus.accepted
+                  ? 'Waiting for ${user.username} to follow you back to unlock chat.'
+                  : 'Follow @${user.username} and wait for them to accept to start chatting.',
+            ),
+            behavior: SnackBarBehavior.floating,
+            backgroundColor: AppColors.irisViolet,
+          ));
+        }
+        return;
+      }
+
+      // Chat exists → navigate
+      if (mounted) {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => DMChatScreen(
+              chatId: res['id'] as String,
+              otherUserName: user.fullName.isNotEmpty
+                  ? user.fullName
+                  : '@${user.username}',
+              otherUserId: user.id,
+            ),
+          ),
+        );
+      }
+    } catch (_) {}
   }
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
+    final theme  = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
 
     return Scaffold(
@@ -45,536 +127,587 @@ class _DMListScreenState extends State<DMListScreen> {
       appBar: AppBar(
         elevation: 0,
         backgroundColor: Colors.transparent,
-        title: Text('Messages', style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
-        centerTitle: true,
-        leading: IconButton(
-          icon: const Icon(LucideIcons.arrowLeft),
-          onPressed: () => Navigator.pop(context),
-        ),
+        title: _showSearch
+            ? TextField(
+                controller: _searchCtrl,
+                autofocus: true,
+                onChanged: _onSearchChanged,
+                style: TextStyle(
+                    color: isDark ? Colors.white : Colors.black),
+                decoration: InputDecoration(
+                  hintText: 'Search by username…',
+                  border: InputBorder.none,
+                  hintStyle: TextStyle(
+                      color: theme.colorScheme.onSurfaceVariant),
+                ),
+              )
+            : Text('Messages',
+                style: theme.textTheme.titleLarge
+                    ?.copyWith(fontWeight: FontWeight.bold)),
+        centerTitle: !_showSearch,
+        leading: Navigator.canPop(context)
+            ? IconButton(
+                icon: const Icon(LucideIcons.arrowLeft),
+                onPressed: () => Navigator.pop(context))
+            : null,
         actions: [
           IconButton(
-            icon: const Icon(LucideIcons.edit3, size: 20),
-            onPressed: () {},
+            icon: Icon(_showSearch ? LucideIcons.x : LucideIcons.search,
+                size: 20),
+            onPressed: () {
+              setState(() {
+                _showSearch = !_showSearch;
+                if (!_showSearch) {
+                  _searchCtrl.clear();
+                  _searchResults = [];
+                }
+              });
+            },
           ),
           const SizedBox(width: 8),
         ],
       ),
-      body: _loading
-          ? Center(child: CircularProgressIndicator(color: AppColors.irisViolet))
-          : _chats.isEmpty
-              ? _buildEmpty(theme)
-              : RefreshIndicator(
-                  color: AppColors.irisViolet,
-                  onRefresh: _load,
-                  child: ListView.separated(
-                    physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
-                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
-                    itemCount: _chats.length,
-                    separatorBuilder: (context, index) => const SizedBox(height: 12),
-                    itemBuilder: (context, i) => _buildChatTile(_chats[i], theme, isDark, i % 3 == 0),
-                  ),
-                ),
+      body: _showSearch
+          ? _buildSearchResults(theme, isDark)
+          : _buildChatList(theme, isDark),
     );
   }
 
-  Widget _buildChatTile(ChatRoom chat, ThemeData theme, bool isDark, bool isOnline) {
-    final friend = chat.friend;
-    return GestureDetector(
-      onTap: () {
-        HapticFeedback.selectionClick();
-        Navigator.push(context, MaterialPageRoute(builder: (_) => DMChatScreen(chatRoom: chat)));
+  // ── Search Results View ─────────────────────────────────────────
+  Widget _buildSearchResults(ThemeData theme, bool isDark) {
+    if (_searchCtrl.text.trim().isEmpty) {
+      return Center(
+        child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+          Icon(LucideIcons.atSign,
+              size: 60,
+              color: theme.colorScheme.onSurfaceVariant
+                  .withValues(alpha: 0.3)),
+          const SizedBox(height: 16),
+          Text('Search by username to start a chat',
+              style: theme.textTheme.bodyLarge?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant)),
+        ]),
+      );
+    }
+
+    if (_loadingSearch) {
+      return const Center(
+          child: CircularProgressIndicator(color: AppColors.primary));
+    }
+
+    if (_searchResults.isEmpty) {
+      return Center(
+        child: Text('No users found for "${_searchCtrl.text}"',
+            style: theme.textTheme.bodyLarge?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant)),
+      );
+    }
+
+    return ListView.separated(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
+      itemCount: _searchResults.length,
+      separatorBuilder: (_, __) => const SizedBox(height: 8),
+      itemBuilder: (_, i) {
+        final user = _searchResults[i];
+        return _SearchUserTile(
+          user: user,
+          theme: theme,
+          isDark: isDark,
+          onTap: () => _openChatWithUser(user),
+        );
       },
+    );
+  }
+
+  // ── Chat List View ──────────────────────────────────────────────
+  Widget _buildChatList(ThemeData theme, bool isDark) {
+    if (_loadingChats) {
+      return const Center(
+          child: CircularProgressIndicator(color: AppColors.irisViolet));
+    }
+    if (_chats.isEmpty) {
+      return _buildEmpty(theme);
+    }
+    return RefreshIndicator(
+      color: AppColors.irisViolet,
+      onRefresh: _loadChats,
+      child: ListView.separated(
+        physics: const BouncingScrollPhysics(
+            parent: AlwaysScrollableScrollPhysics()),
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
+        itemCount: _chats.length,
+        separatorBuilder: (_, __) => const SizedBox(height: 10),
+        itemBuilder: (_, i) => _buildChatTile(_chats[i], theme, isDark),
+      ),
+    );
+  }
+
+  Widget _buildChatTile(ChatRoom chat, ThemeData theme, bool isDark) {
+    final name    = chat.otherUserName;
+    final initials = name.trim().split(' ').map((e) => e[0]).take(2).join().toUpperCase();
+
+    return GestureDetector(
+      onTap: () => Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => DMChatScreen(
+            chatId:        chat.id,
+            otherUserName: chat.otherUserName,
+            otherUserId:   chat.otherUserId,
+          ),
+        ),
+      ).then((_) => _loadChats()),
       child: Container(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
           color: isDark ? AppColors.surfaceElevated : Colors.white,
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: BorderRadius.circular(18),
           border: Border.all(
-            color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.black.withValues(alpha: 0.05),
-          ),
+              color: theme.colorScheme.outline.withValues(alpha: 0.08)),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.03),
-              blurRadius: 10,
-              offset: const Offset(0, 4),
-            ),
+                color: Colors.black.withValues(alpha: 0.04),
+                blurRadius: 10,
+                offset: const Offset(0, 2)),
           ],
         ),
-        child: Row(
-          children: [
-            // Avatar with Online Badge
-            Stack(
-              clipBehavior: Clip.none,
-              children: [
-                CircleAvatar(
-                  radius: 26,
-                  backgroundColor: AppColors.irisViolet.withValues(alpha: 0.15),
-                  backgroundImage: friend.avatarUrl != null && friend.avatarUrl!.isNotEmpty
-                      ? NetworkImage(friend.avatarUrl!)
-                      : null,
-                  child: friend.avatarUrl == null || friend.avatarUrl!.isEmpty
-                      ? Text(friend.initials, style: const TextStyle(color: AppColors.irisViolet, fontWeight: FontWeight.bold, fontSize: 16))
-                      : null,
-                ),
-                if (isOnline)
-                  Positioned(
-                    right: -2,
-                    bottom: -2,
-                    child: Container(
-                      width: 14,
-                      height: 14,
-                      decoration: BoxDecoration(
-                        color: AppColors.voltCyan,
-                        shape: BoxShape.circle,
-                        border: Border.all(color: isDark ? AppColors.surfaceElevated : Colors.white, width: 2.5),
-                      ),
-                    ),
-                  ),
-              ],
-            ),
-            const SizedBox(width: 16),
-            
-            // Name & Message Preview
-            Expanded(
-              child: Column(
+        child: Row(children: [
+          // Avatar
+          CircleAvatar(
+            radius: 26,
+            backgroundColor: AppColors.irisViolet.withValues(alpha: 0.15),
+            backgroundImage: chat.otherAvatarUrl != null &&
+                    chat.otherAvatarUrl!.isNotEmpty
+                ? NetworkImage(chat.otherAvatarUrl!)
+                : null,
+            child: chat.otherAvatarUrl == null || chat.otherAvatarUrl!.isEmpty
+                ? Text(initials,
+                    style: const TextStyle(
+                        color: AppColors.irisViolet,
+                        fontWeight: FontWeight.bold))
+                : null,
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        friend.displayName,
-                        style: theme.textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      Text(
-                        '', // removed mock timestamp
-                        style: const TextStyle(
-                          color: AppColors.textSecondary,
-                          fontSize: 12,
-                          fontWeight: FontWeight.normal,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 4),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          chat.lastMessage ?? 'Tap to start chatting...',
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: theme.textTheme.bodyMedium?.copyWith(
-                            color: AppColors.textSecondary,
-                            fontWeight: FontWeight.normal,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
+                  Text(name,
+                      style: theme.textTheme.titleMedium
+                          ?.copyWith(fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 3),
+                  Text('Tap to open conversation',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant)),
+                ]),
+          ),
+          const Icon(LucideIcons.chevronRight,
+              size: 18, color: Colors.grey),
+        ]),
       ),
     );
   }
 
   Widget _buildEmpty(ThemeData theme) {
     return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Container(
-            padding: const EdgeInsets.all(24),
-            decoration: BoxDecoration(
-              color: AppColors.irisViolet.withValues(alpha: 0.1),
-              shape: BoxShape.circle,
-            ),
-            child: const Icon(LucideIcons.messageSquare, size: 48, color: AppColors.irisViolet),
+      child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+        Icon(LucideIcons.messageCircle,
+            size: 80,
+            color: theme.colorScheme.onSurfaceVariant
+                .withValues(alpha: 0.25)),
+        const SizedBox(height: 24),
+        Text('No conversations yet',
+            style: theme.textTheme.headlineSmall
+                ?.copyWith(fontWeight: FontWeight.bold)),
+        const SizedBox(height: 10),
+        Text(
+          'Follow someone and when they accept,\nyou can start chatting.',
+          textAlign: TextAlign.center,
+          style: theme.textTheme.bodyMedium?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant),
+        ),
+        const SizedBox(height: 24),
+        ElevatedButton.icon(
+          onPressed: () {
+            setState(() => _showSearch = true);
+          },
+          icon: const Icon(LucideIcons.search, size: 18),
+          label: const Text('Search Users'),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: AppColors.primary,
+            foregroundColor: Colors.white,
+            padding:
+                const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+            shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(14)),
           ),
-          const SizedBox(height: 24),
-          Text('No messages yet', style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
-          const SizedBox(height: 8),
-          Text('Connect with friends to start chatting', style: theme.textTheme.bodyMedium?.copyWith(color: AppColors.textSecondary)),
-        ],
+        ),
+      ]),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────
+// Search result tile
+// ─────────────────────────────────────────────────────────────────
+class _SearchUserTile extends StatelessWidget {
+  final FollowUser user;
+  final ThemeData theme;
+  final bool isDark;
+  final VoidCallback onTap;
+
+  const _SearchUserTile({
+    required this.user,
+    required this.theme,
+    required this.isDark,
+    required this.onTap,
+  });
+
+  String get _followLabel {
+    switch (user.followStatus) {
+      case FollowStatus.accepted: return 'Following';
+      case FollowStatus.pending:  return 'Requested';
+      case FollowStatus.none:     return 'Not following';
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final name     = user.fullName.isNotEmpty ? user.fullName : user.username;
+    final initials = name.trim().split(' ').map((e) => e[0]).take(2).join().toUpperCase();
+
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: isDark ? AppColors.surfaceElevated : Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+              color: theme.colorScheme.outline.withValues(alpha: 0.1)),
+        ),
+        child: Row(children: [
+          CircleAvatar(
+            radius: 24,
+            backgroundColor: AppColors.primary.withValues(alpha: 0.15),
+            backgroundImage:
+                user.avatarUrl != null && user.avatarUrl!.isNotEmpty
+                    ? NetworkImage(user.avatarUrl!)
+                    : null,
+            child: user.avatarUrl == null || user.avatarUrl!.isEmpty
+                ? Text(initials,
+                    style: const TextStyle(
+                        color: AppColors.primary,
+                        fontWeight: FontWeight.bold))
+                : null,
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(name,
+                      style: theme.textTheme.titleSmall
+                          ?.copyWith(fontWeight: FontWeight.bold)),
+                  Text('@${user.username}  •  $_followLabel',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant)),
+                ]),
+          ),
+          Icon(
+            user.followStatus == FollowStatus.accepted
+                ? LucideIcons.messageCircle
+                : LucideIcons.userPlus,
+            size: 20,
+            color: user.followStatus == FollowStatus.accepted
+                ? AppColors.primary
+                : Colors.grey,
+          ),
+        ]),
       ),
     );
   }
 }
 
-// ====================================================
-// PREMIUM DM CONVERSATION SCREEN
-// ====================================================
+// ═════════════════════════════════════════════════════════════════
+// DM CHAT SCREEN — the actual 1-on-1 conversation view
+// ═════════════════════════════════════════════════════════════════
 class DMChatScreen extends StatefulWidget {
-  final ChatRoom chatRoom;
-  const DMChatScreen({super.key, required this.chatRoom});
+  final String chatId;
+  final String otherUserName;
+  final String otherUserId;
+
+  const DMChatScreen({
+    super.key,
+    required this.chatId,
+    required this.otherUserName,
+    required this.otherUserId,
+  });
 
   @override
   State<DMChatScreen> createState() => _DMChatScreenState();
 }
 
 class _DMChatScreenState extends State<DMChatScreen> {
-  final ChatService _service = ChatService();
-  final TextEditingController _ctrl = TextEditingController();
-  final ScrollController _scroll = ScrollController();
-  late final Stream<List<ChatMessage>> _stream;
-  bool _hasText = false;
+  final _chatService = ChatService();
+  final _inputCtrl   = TextEditingController();
+  final _scrollCtrl  = ScrollController();
+  final _supabase    = Supabase.instance.client;
 
-  // Realtime Presence State
-  Timer? _typingTimer;
-  bool _isFriendTyping = false;
-  bool _isFriendOnline = false;
-  dynamic _presenceChannel; // RealtimeChannel
+  List<ChatMessage> _messages = [];
+  bool _loading = true;
+  bool _sending = false;
+
+  RealtimeChannel? _channel;
+  StreamSubscription<List<ChatMessage>>? _sub;
 
   @override
   void initState() {
     super.initState();
-    _stream = _service.getDMMessagesStream(widget.chatRoom.chatId);
-    
-    // Mark messages as read when opening
-    _service.markAsRead(widget.chatRoom.chatId);
-
-    // Subscribe to typing and online status
-    _presenceChannel = _service.subscribeToPresence(
-      widget.chatRoom.chatId,
-      onTypingChanged: (typingUsers) {
-        if (mounted) {
-          setState(() {
-            _isFriendTyping = typingUsers.contains(widget.chatRoom.friend.id);
-            if (_isFriendTyping) _scrollToBottom();
-          });
-        }
-      },
-      onOnlineChanged: (onlineUsers) {
-        if (mounted) {
-          setState(() {
-            _isFriendOnline = onlineUsers.contains(widget.chatRoom.friend.id);
-          });
-        }
-      },
-    );
-
-    _ctrl.addListener(() {
-      final has = _ctrl.text.trim().isNotEmpty;
-      if (has != _hasText) setState(() => _hasText = has);
-
-      // Typing debouncer
-      if (_presenceChannel != null) {
-        _service.setTyping(_presenceChannel!, true);
-        _typingTimer?.cancel();
-        _typingTimer = Timer(const Duration(seconds: 2), () {
-          _service.setTyping(_presenceChannel!, false);
-        });
-      }
-    });
+    _loadMessages();
+    _subscribeRealtime();
   }
 
   @override
   void dispose() {
-    _typingTimer?.cancel();
-    if (_presenceChannel != null) {
-      _service.setTyping(_presenceChannel!, false);
-      Supabase.instance.client.removeChannel(_presenceChannel!);
-    }
-    _ctrl.dispose();
-    _scroll.dispose();
+    _inputCtrl.dispose();
+    _scrollCtrl.dispose();
+    _channel?.unsubscribe();
+    _sub?.cancel();
     super.dispose();
   }
 
-  void _send() async {
-    final text = _ctrl.text.trim();
-    if (text.isEmpty) return;
-    _ctrl.clear();
-    HapticFeedback.lightImpact();
-    await _service.sendDM(widget.chatRoom.chatId, text);
+  Future<void> _loadMessages() async {
+    setState(() => _loading = true);
+    final msgs = await _chatService.getMessages(widget.chatId);
+    if (mounted) setState(() { _messages = msgs; _loading = false; });
     _scrollToBottom();
   }
 
+  void _subscribeRealtime() {
+    _channel = _supabase
+        .channel('chat-${widget.chatId}')
+        .onPostgresChanges(
+          event: PostgresChangeEvent.insert,
+          schema: 'public',
+          table: 'messages',
+          filter: PostgresChangeFilter(
+            type: PostgresChangeFilterType.eq,
+            column: 'chat_id',
+            value: widget.chatId,
+          ),
+          callback: (_) => _loadMessages(),
+        )
+        .subscribe();
+  }
+
   void _scrollToBottom() {
-    Future.delayed(const Duration(milliseconds: 150), () {
-      if (_scroll.hasClients) {
-        _scroll.animateTo(_scroll.position.maxScrollExtent, duration: const Duration(milliseconds: 300), curve: Curves.easeOutCubic);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_scrollCtrl.hasClients) {
+        _scrollCtrl.animateTo(
+          _scrollCtrl.position.maxScrollExtent,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeOut,
+        );
       }
     });
   }
 
+  Future<void> _send() async {
+    final text = _inputCtrl.text.trim();
+    if (text.isEmpty || _sending) return;
+    HapticFeedback.lightImpact();
+    setState(() => _sending = true);
+    _inputCtrl.clear();
+    try {
+      await _chatService.sendDM(widget.chatId, text);
+    } finally {
+      if (mounted) setState(() => _sending = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
-    final friend = widget.chatRoom.friend;
+    final theme   = Theme.of(context);
+    final isDark  = theme.brightness == Brightness.dark;
+    final myId    = _supabase.auth.currentUser?.id ?? '';
 
     return Scaffold(
-      backgroundColor: isDark ? AppColors.backgroundDeep : AppColors.lightBg,
-      appBar: _buildAppBar(theme, friend),
-      body: Column(
-        children: [
-          Expanded(
-            child: StreamBuilder<List<ChatMessage>>(
-              stream: _stream,
-              builder: (context, snap) {
-                if (snap.connectionState == ConnectionState.waiting) {
-                  return const Center(child: CircularProgressIndicator());
-                }
-                final messages = snap.data ?? [];
-                if (messages.isEmpty) {
-                  return _buildEmptyChatState(theme, friend);
-                }
-
-                WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToBottom());
-
-                return ListView.builder(
-                  controller: _scroll,
-                  padding: const EdgeInsets.only(left: 16, right: 16, top: 16, bottom: 24),
-                  itemCount: messages.length,
-                  itemBuilder: (context, i) {
-                    final msg = messages[i];
-                    final isMe = msg.senderId == _service.currentUserId;
-                    return _buildBubble(msg, isMe, theme, isDark);
-                  },
-                );
-              },
+      backgroundColor: theme.scaffoldBackgroundColor,
+      appBar: AppBar(
+        elevation: 0,
+        backgroundColor: Colors.transparent,
+        leading: IconButton(
+          icon: const Icon(LucideIcons.arrowLeft),
+          onPressed: () => Navigator.pop(context),
+        ),
+        title: Row(children: [
+          CircleAvatar(
+            radius: 18,
+            backgroundColor: AppColors.irisViolet.withValues(alpha: 0.2),
+            child: Text(
+              widget.otherUserName.isNotEmpty
+                  ? widget.otherUserName[0].toUpperCase()
+                  : '?',
+              style: const TextStyle(
+                  color: AppColors.irisViolet, fontWeight: FontWeight.bold),
             ),
           ),
-          if (_isFriendTyping) _buildTypingIndicator(theme, isDark, friend),
-          _buildInputArea(theme, isDark),
-        ],
+          const SizedBox(width: 10),
+          Text(widget.otherUserName,
+              style: theme.textTheme.titleMedium
+                  ?.copyWith(fontWeight: FontWeight.bold)),
+        ]),
       ),
-    );
-  }
+      body: Column(children: [
+        // Messages
+        Expanded(
+          child: _loading
+              ? const Center(
+                  child: CircularProgressIndicator(
+                      color: AppColors.irisViolet))
+              : _messages.isEmpty
+                  ? _buildEmptyChat(theme)
+                  : ListView.builder(
+                      controller: _scrollCtrl,
+                      padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+                      itemCount: _messages.length,
+                      itemBuilder: (_, i) {
+                        final msg   = _messages[i];
+                        final isMe  = msg.senderId == myId;
+                        return _Bubble(
+                            msg: msg, isMe: isMe, theme: theme, isDark: isDark);
+                      },
+                    ),
+        ),
 
-  PreferredSizeWidget _buildAppBar(ThemeData theme, ChatFriend friend) {
-    return AppBar(
-      backgroundColor: theme.scaffoldBackgroundColor,
-      elevation: 0,
-      titleSpacing: 0,
-      centerTitle: false,
-      bottom: PreferredSize(
-        preferredSize: const Size.fromHeight(1),
-        child: Divider(height: 1, color: theme.colorScheme.outline.withValues(alpha: 0.1)),
-      ),
-      leading: IconButton(icon: const Icon(LucideIcons.chevronLeft, size: 28), onPressed: () => Navigator.pop(context)),
-      title: Row(
-        children: [
-          Stack(
-            clipBehavior: Clip.none,
-            children: [
-              CircleAvatar(
-                radius: 18,
-                backgroundColor: AppColors.irisViolet.withValues(alpha: 0.15),
-                backgroundImage: friend.avatarUrl != null && friend.avatarUrl!.isNotEmpty ? NetworkImage(friend.avatarUrl!) : null,
-                child: friend.avatarUrl == null || friend.avatarUrl!.isEmpty ? Text(friend.initials, style: const TextStyle(color: AppColors.irisViolet, fontWeight: FontWeight.bold, fontSize: 12)) : null,
-              ),
-              if (_isFriendOnline)
-                Positioned(
-                  right: -2, bottom: -2,
-                  child: Container(width: 10, height: 10, decoration: BoxDecoration(color: AppColors.voltCyan, shape: BoxShape.circle, border: Border.all(color: theme.scaffoldBackgroundColor, width: 2))),
+        // Input bar
+        Container(
+          padding: EdgeInsets.only(
+            left: 16,
+            right: 8,
+            top: 8,
+            bottom: MediaQuery.of(context).viewInsets.bottom + 12,
+          ),
+          decoration: BoxDecoration(
+            color: isDark ? AppColors.backgroundDeep : Colors.white,
+            border: Border(
+              top: BorderSide(
+                  color: theme.colorScheme.outlineVariant
+                      .withValues(alpha: 0.3)),
+            ),
+          ),
+          child: Row(children: [
+            Expanded(
+              child: TextField(
+                controller: _inputCtrl,
+                minLines: 1,
+                maxLines: 4,
+                decoration: InputDecoration(
+                  hintText: 'Message…',
+                  filled: true,
+                  fillColor: isDark
+                      ? AppColors.surfaceElevated
+                      : AppColors.lightSurfaceContainer,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(22),
+                    borderSide: BorderSide.none,
+                  ),
+                  contentPadding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                 ),
-            ],
-          ),
-          const SizedBox(width: 12),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(friend.displayName, style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold, fontSize: 16)),
-              Text(_isFriendOnline ? 'Active now' : 'Offline', style: TextStyle(color: _isFriendOnline ? AppColors.voltCyan : AppColors.textSecondary, fontSize: 12, fontWeight: FontWeight.w500)),
-            ],
-          ),
-        ],
-      ),
-      actions: [
-        IconButton(icon: const Icon(LucideIcons.phone, size: 20), onPressed: () {}),
-        IconButton(icon: const Icon(LucideIcons.video, size: 20), onPressed: () {}),
-        const SizedBox(width: 4),
-      ],
+                onSubmitted: (_) => _send(),
+              ),
+            ),
+            const SizedBox(width: 8),
+            GestureDetector(
+              onTap: _sending ? null : _send,
+              child: Container(
+                width: 46,
+                height: 46,
+                decoration: const BoxDecoration(
+                  color: AppColors.primary,
+                  shape: BoxShape.circle,
+                ),
+                child: _sending
+                    ? const Padding(
+                        padding: EdgeInsets.all(12),
+                        child: CircularProgressIndicator(
+                            color: Colors.white, strokeWidth: 2))
+                    : const Icon(LucideIcons.send,
+                        color: Colors.white, size: 20),
+              ),
+            ),
+          ]),
+        ),
+      ]),
     );
   }
 
-  Widget _buildEmptyChatState(ThemeData theme, ChatFriend friend) {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          CircleAvatar(
-            radius: 40,
-            backgroundColor: AppColors.irisViolet.withValues(alpha: 0.1),
-            backgroundImage: friend.avatarUrl != null ? NetworkImage(friend.avatarUrl!) : null,
-            child: friend.avatarUrl == null ? Text(friend.initials, style: const TextStyle(fontSize: 24, color: AppColors.irisViolet)) : null,
-          ),
+  Widget _buildEmptyChat(ThemeData theme) => Center(
+        child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+          Icon(LucideIcons.messageCircle,
+              size: 64,
+              color: theme.colorScheme.onSurfaceVariant
+                  .withValues(alpha: 0.25)),
           const SizedBox(height: 16),
-          Text(friend.displayName, style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
+          Text('Say hello!',
+              style: theme.textTheme.headlineSmall
+                  ?.copyWith(fontWeight: FontWeight.bold)),
           const SizedBox(height: 8),
-          Text('You are now connected on LifePulse.\nSay hi!', textAlign: TextAlign.center, style: theme.textTheme.bodyMedium?.copyWith(color: AppColors.textSecondary)),
-        ],
-      ),
-    );
-  }
+          Text('Start the conversation.',
+              style: theme.textTheme.bodyMedium?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant)),
+        ]),
+      );
+}
 
-  Widget _buildBubble(ChatMessage msg, bool isMe, ThemeData theme, bool isDark) {
+// ─────────────────────────────────────────────────────────────────
+// Message Bubble
+// ─────────────────────────────────────────────────────────────────
+class _Bubble extends StatelessWidget {
+  final ChatMessage msg;
+  final bool isMe;
+  final ThemeData theme;
+  final bool isDark;
+
+  const _Bubble({
+    required this.msg,
+    required this.isMe,
+    required this.theme,
+    required this.isDark,
+  });
+
+  @override
+  Widget build(BuildContext context) {
     return Align(
       alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
       child: Container(
-        margin: const EdgeInsets.only(bottom: 12),
-        constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.75),
+        margin: const EdgeInsets.symmetric(vertical: 4),
+        constraints: BoxConstraints(
+            maxWidth: MediaQuery.of(context).size.width * 0.72),
+        padding:
+            const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
         decoration: BoxDecoration(
-          color: isMe ? AppColors.irisViolet : (isDark ? AppColors.surfaceElevated : Colors.white),
+          color: isMe
+              ? AppColors.primary
+              : (isDark ? AppColors.surfaceElevated : Colors.grey.shade200),
           borderRadius: BorderRadius.only(
-            topLeft: const Radius.circular(20),
-            topRight: const Radius.circular(20),
-            bottomLeft: Radius.circular(isMe ? 20 : 4),
-            bottomRight: Radius.circular(isMe ? 4 : 20),
+            topLeft: const Radius.circular(18),
+            topRight: const Radius.circular(18),
+            bottomLeft: Radius.circular(isMe ? 18 : 4),
+            bottomRight: Radius.circular(isMe ? 4 : 18),
           ),
-          boxShadow: isMe ? [BoxShadow(color: AppColors.irisViolet.withValues(alpha: 0.3), blurRadius: 10, offset: const Offset(0, 4))] : [BoxShadow(color: Colors.black.withValues(alpha: 0.03), blurRadius: 8, offset: const Offset(0, 2))],
-          border: isMe ? null : Border.all(color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.black.withValues(alpha: 0.05)),
         ),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        child: Column(
-          crossAxisAlignment: isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
-          children: [
-            Text(
-              msg.message,
-              style: TextStyle(
-                color: isMe ? Colors.white : theme.colorScheme.onSurface,
-                fontSize: 15,
-                height: 1.3,
-              ),
-            ),
-            const SizedBox(height: 4),
-            Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  _formatTime(msg.createdAt),
-                  style: TextStyle(fontSize: 10, color: isMe ? Colors.white.withValues(alpha: 0.7) : AppColors.textSecondary),
-                ),
-                if (isMe) ...[
-                  const SizedBox(width: 4),
-                  Icon(LucideIcons.checkCheck, size: 12, color: msg.isRead ? AppColors.voltCyan : Colors.white70),
-                ],
-              ],
-            ),
-          ],
+        child: Text(
+          msg.message,
+          style: TextStyle(
+              color: isMe
+                  ? Colors.white
+                  : (isDark ? Colors.white : Colors.black87),
+              fontSize: 15),
         ),
       ),
     );
-  }
-
-  Widget _buildInputArea(ThemeData theme, bool isDark) {
-    return Container(
-      decoration: BoxDecoration(
-        color: isDark ? AppColors.backgroundDeep : AppColors.lightBg,
-        boxShadow: [
-          BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 10, offset: const Offset(0, -4)),
-        ],
-      ),
-      child: ClipRRect(
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-          child: SafeArea(
-            top: false,
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Container(
-                    margin: const EdgeInsets.only(bottom: 4),
-                    decoration: BoxDecoration(color: isDark ? AppColors.surfaceElevated : Colors.white, shape: BoxShape.circle),
-                    child: IconButton(icon: const Icon(LucideIcons.plus, size: 22), color: AppColors.textSecondary, onPressed: () {}),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Container(
-                      decoration: BoxDecoration(
-                        color: isDark ? AppColors.surfaceElevated : Colors.white,
-                        borderRadius: BorderRadius.circular(24),
-                        border: Border.all(color: isDark ? Colors.white.withValues(alpha: 0.1) : Colors.black.withValues(alpha: 0.1)),
-                      ),
-                      child: TextField(
-                        controller: _ctrl,
-                        maxLines: 4,
-                        minLines: 1,
-                        textInputAction: TextInputAction.send,
-                        onSubmitted: (_) => _send(),
-                        style: const TextStyle(fontSize: 15),
-                        decoration: InputDecoration(
-                          hintText: 'Message...',
-                          hintStyle: TextStyle(color: AppColors.textSecondary.withValues(alpha: 0.6)),
-                          border: InputBorder.none,
-                          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                          suffixIcon: IconButton(
-                            icon: const Icon(LucideIcons.smile, size: 20),
-                            color: AppColors.textSecondary,
-                            onPressed: () {},
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  GestureDetector(
-                    onTap: _hasText ? _send : null,
-                    child: Container(
-                      margin: const EdgeInsets.only(bottom: 4),
-                      width: 44, height: 44,
-                      decoration: BoxDecoration(
-                        color: _hasText ? AppColors.irisViolet : (isDark ? AppColors.surfaceElevated : Colors.white),
-                        shape: BoxShape.circle,
-                        boxShadow: _hasText ? [BoxShadow(color: AppColors.irisViolet.withValues(alpha: 0.4), blurRadius: 12, offset: const Offset(0, 4))] : null,
-                      ),
-                      child: Icon(LucideIcons.send, color: _hasText ? Colors.white : AppColors.textSecondary, size: 18),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildTypingIndicator(ThemeData theme, bool isDark, ChatFriend friend) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      alignment: Alignment.centerLeft,
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          CircleAvatar(
-            radius: 12,
-            backgroundImage: friend.avatarUrl != null ? NetworkImage(friend.avatarUrl!) : null,
-            backgroundColor: AppColors.irisViolet.withValues(alpha: 0.2),
-          ),
-          const SizedBox(width: 8),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            decoration: BoxDecoration(
-              color: isDark ? AppColors.surfaceElevated : Colors.white,
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.black.withValues(alpha: 0.05)),
-            ),
-            child: Text('typing...', style: TextStyle(color: AppColors.textSecondary, fontSize: 12, fontStyle: FontStyle.italic)),
-          ),
-        ],
-      ),
-    );
-  }
-
-  String _formatTime(DateTime dt) {
-    final now = DateTime.now();
-    final diff = now.difference(dt);
-    if (diff.inMinutes < 1) return 'now';
-    if (diff.inHours < 1) return '${diff.inMinutes}m';
-    if (diff.inDays < 1) {
-      final h = dt.hour.toString().padLeft(2, '0');
-      final m = dt.minute.toString().padLeft(2, '0');
-      return '$h:$m';
-    }
-    return '${dt.day}/${dt.month}';
   }
 }

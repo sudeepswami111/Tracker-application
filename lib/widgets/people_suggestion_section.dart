@@ -1,308 +1,245 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
-import '../providers/friend_provider.dart';
-import '../models/friend_models.dart';
+import 'package:flutter/services.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 import '../theme/app_colors.dart';
-import '../theme/app_spacing.dart';
+import '../services/follow_service.dart'; // adjust path
 
-class PeopleSuggestionSection extends StatelessWidget {
+// ─────────────────────────────────────────────────────────────────
+// PEOPLE SUGGESTION SECTION
+// Instagram-style horizontal scroll of suggested users.
+// Shows: avatar, name, username, follow status button.
+// ─────────────────────────────────────────────────────────────────
+class PeopleSuggestionSection extends StatefulWidget {
   const PeopleSuggestionSection({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    return Consumer<FriendProvider>(
-      builder: (context, friends, _) {
-        final contactSuggestions = friends.contactSuggestions;
-        final otherSuggestions = friends.suggestions;
-
-        if (friends.suggestionsLoading) {
-          return const SizedBox(
-            height: 160,
-            child: Center(
-              child: CircularProgressIndicator(
-                color: AppColors.voltCyan,
-                strokeWidth: 2,
-              ),
-            ),
-          );
-        }
-
-        if (contactSuggestions.isEmpty && otherSuggestions.isEmpty) {
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const _SectionHeader(
-                    title: 'People You May Know',
-                    icon: Icons.people_rounded,
-                  ),
-                  GestureDetector(
-                    onTap: () => context.read<FriendProvider>().loadSuggestions(),
-                    child: const Icon(Icons.refresh_rounded, size: 18, color: AppColors.textSecondary),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 10),
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.surface,
-                  borderRadius: BorderRadius.circular(AppSpacing.cardRadius),
-                  border: Border.all(
-                    color: Theme.of(context).brightness == Brightness.dark
-                        ? Colors.white.withValues(alpha: 0.06)
-                        : Colors.black.withValues(alpha: 0.06),
-                  ),
-                ),
-                child: const Text(
-                  "No new suggestions right now.\nInvite some friends to join!",
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    color: AppColors.textSecondary,
-                    height: 1.4,
-                  ),
-                ),
-              ),
-            ],
-          );
-        }
-
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // ── From Contacts ──
-            if (contactSuggestions.isNotEmpty) ...[
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const _SectionHeader(
-                    title: 'From Your Contacts',
-                    icon: Icons.contacts_rounded,
-                  ),
-                  GestureDetector(
-                    onTap: () => context.read<FriendProvider>().loadSuggestions(),
-                    child: const Icon(Icons.refresh_rounded, size: 18, color: AppColors.textSecondary),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 10),
-              _HorizontalSuggestionList(profiles: contactSuggestions),
-              const SizedBox(height: 20),
-            ],
-
-            // ── People You May Know ──
-            if (otherSuggestions.isNotEmpty) ...[
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const _SectionHeader(
-                    title: 'People You May Know',
-                    icon: Icons.people_rounded,
-                  ),
-                  if (contactSuggestions.isEmpty) // Only show refresh here if no contacts section above
-                    GestureDetector(
-                      onTap: () => context.read<FriendProvider>().loadSuggestions(),
-                      child: const Icon(Icons.refresh_rounded, size: 18, color: AppColors.textSecondary),
-                    ),
-                ],
-              ),
-              const SizedBox(height: 10),
-              _HorizontalSuggestionList(profiles: otherSuggestions),
-            ],
-          ],
-        );
-      },
-    );
-  }
+  State<PeopleSuggestionSection> createState() =>
+      _PeopleSuggestionSectionState();
 }
 
-class _SectionHeader extends StatelessWidget {
-  final String title;
-  final IconData icon;
-  const _SectionHeader({required this.title, required this.icon});
+class _PeopleSuggestionSectionState extends State<PeopleSuggestionSection> {
+  final _followService = FollowService();
+  List<FollowUser> _suggestions = [];
+  bool _loading = true;
+
+  // Track which user IDs are mid-request
+  final Set<String> _pendingActions = {};
+  // Local override of follow status (so UI responds instantly)
+  final Map<String, FollowStatus> _statusOverride = {};
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    setState(() => _loading = true);
+    final s = await _followService.getSuggestions(limit: 20);
+    if (mounted) setState(() { _suggestions = s; _loading = false; });
+  }
+
+  FollowStatus _statusFor(FollowUser u) =>
+      _statusOverride[u.id] ?? u.followStatus;
+
+  Future<void> _handleFollow(FollowUser user) async {
+    if (_pendingActions.contains(user.id)) return;
+    HapticFeedback.mediumImpact();
+
+    setState(() => _pendingActions.add(user.id));
+
+    final current = _statusFor(user);
+
+    if (current == FollowStatus.none) {
+      final id = await _followService.sendFollowRequest(user.id);
+      if (id != null && mounted) {
+        setState(() => _statusOverride[user.id] = FollowStatus.pending);
+      }
+    } else if (current == FollowStatus.pending ||
+        current == FollowStatus.accepted) {
+      await _followService.unfollow(user.id);
+      if (mounted) {
+        setState(() {
+          _statusOverride[user.id] = FollowStatus.none;
+          // Remove from suggestions list after unfollow if we want to keep it clean
+        });
+      }
+    }
+
+    if (mounted) setState(() => _pendingActions.remove(user.id));
+  }
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Icon(icon, size: 18, color: AppColors.voltCyan),
-        const SizedBox(width: 8),
-        Text(
-          title,
-          style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.bold,
-              ),
-        ),
-      ],
-    );
-  }
-}
-
-class _HorizontalSuggestionList extends StatelessWidget {
-  final List<FitnessProfile> profiles;
-  const _HorizontalSuggestionList({required this.profiles});
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      height: 200,
-      child: ListView.builder(
-        scrollDirection: Axis.horizontal,
-        physics: const BouncingScrollPhysics(),
-        itemCount: profiles.length,
-        itemBuilder: (context, i) => _SuggestionCard(profile: profiles[i]),
-      ),
-    );
-  }
-}
-
-class _SuggestionCard extends StatelessWidget {
-  final FitnessProfile profile;
-  const _SuggestionCard({required this.profile});
-
-  @override
-  Widget build(BuildContext context) {
-    final friends = context.watch<FriendProvider>();
-    final isSent = friends.sentRequestIds.contains(profile.id);
-    final theme = Theme.of(context);
+    final theme  = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
 
-    return Container(
-      width: 140,
-      margin: const EdgeInsets.only(right: 12),
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surface,
-        borderRadius: BorderRadius.circular(AppSpacing.cardRadius),
-        border: Border.all(
-          color: isDark
-              ? Colors.white.withValues(alpha: 0.06)
-              : Colors.black.withValues(alpha: 0.06),
+    if (_loading) {
+      return SizedBox(
+        height: 200,
+        child: Center(
+            child: CircularProgressIndicator(color: AppColors.primary)),
+      );
+    }
+
+    if (_suggestions.isEmpty) return const SizedBox.shrink();
+
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      // Header
+      Padding(
+        padding: const EdgeInsets.fromLTRB(20, 20, 20, 12),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text('People You May Know',
+                style: theme.textTheme.titleMedium
+                    ?.copyWith(fontWeight: FontWeight.bold)),
+            TextButton(
+              onPressed: _load,
+              child: Text('Refresh',
+                  style: TextStyle(
+                      color: AppColors.primary, fontSize: 13)),
+            ),
+          ],
         ),
-        boxShadow: isDark
-            ? []
-            : [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.04),
-                  blurRadius: 8,
-                  offset: const Offset(0, 2),
-                ),
-              ],
       ),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          // ── Avatar ──
-          CircleAvatar(
-            radius: 30,
-            backgroundColor: AppColors.irisViolet.withValues(alpha: 0.3),
-            backgroundImage: profile.avatarUrl != null && profile.avatarUrl!.isNotEmpty
-                ? NetworkImage(profile.avatarUrl!)
-                : null,
-            child: profile.avatarUrl == null || profile.avatarUrl!.isEmpty
-                ? Text(
-                    profile.fullName.isNotEmpty
-                        ? profile.fullName[0].toUpperCase()
-                        : '?',
-                    style: const TextStyle(
-                      fontSize: 22,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white,
-                    ),
-                  )
-                : null,
-          ),
-          const SizedBox(height: 10),
 
-          // ── Name ──
-          Text(
-            profile.fullName.isNotEmpty ? profile.fullName : profile.username,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-              fontWeight: FontWeight.w600,
-              fontSize: 13,
-              color: theme.colorScheme.onSurface,
-            ),
-          ),
+      // Horizontal scroll
+      SizedBox(
+        height: 210,
+        child: ListView.separated(
+          scrollDirection: Axis.horizontal,
+          padding:
+              const EdgeInsets.symmetric(horizontal: 16),
+          itemCount: _suggestions.length,
+          separatorBuilder: (_, __) => const SizedBox(width: 12),
+          itemBuilder: (_, i) {
+            final user   = _suggestions[i];
+            final status = _statusFor(user);
+            final name   = user.fullName.isNotEmpty
+                ? user.fullName
+                : user.username;
+            final initials = name.trim().split(' ').map((e) => e[0]).take(2).join().toUpperCase();
 
-          // ── City / fitness goal ──
-          if (profile.city != null || profile.fitnessGoal != null)
-            Padding(
-              padding: const EdgeInsets.only(top: 2),
-              child: Text(
-                profile.city ?? profile.fitnessGoal ?? '',
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  fontSize: 11,
-                  color: AppColors.textSecondary,
-                ),
+            return Container(
+              width: 150,
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: isDark
+                    ? AppColors.surfaceElevated
+                    : Colors.white,
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(
+                    color: theme.colorScheme.outline
+                        .withValues(alpha: 0.08)),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.04),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
               ),
-            ),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  // Avatar
+                  CircleAvatar(
+                    radius: 32,
+                    backgroundColor:
+                        AppColors.primary.withValues(alpha: 0.15),
+                    backgroundImage: user.avatarUrl != null &&
+                            user.avatarUrl!.isNotEmpty
+                        ? NetworkImage(user.avatarUrl!)
+                        : null,
+                    child: user.avatarUrl == null ||
+                            user.avatarUrl!.isEmpty
+                        ? Text(initials,
+                            style: const TextStyle(
+                                color: AppColors.primary,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 18))
+                        : null,
+                  ),
+                  const SizedBox(height: 10),
 
-          const SizedBox(height: 12),
+                  // Name
+                  Text(
+                    name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    textAlign: TextAlign.center,
+                    style: theme.textTheme.bodyMedium
+                        ?.copyWith(fontWeight: FontWeight.w600),
+                  ),
 
-          // ── Follow / Requested + Dismiss row ──
-          Row(
-            children: [
-              Expanded(
-                child: GestureDetector(
-                  onTap: isSent
-                      ? null
-                      : () {
-                          context.read<FriendProvider>().sendRequest(profile.id);
-                        },
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 200),
-                    padding: const EdgeInsets.symmetric(vertical: 7),
-                    decoration: BoxDecoration(
-                      color: isSent ? Colors.transparent : AppColors.voltCyan,
-                      borderRadius: BorderRadius.circular(10),
-                      border: isSent
-                          ? Border.all(color: AppColors.borderSubtle)
-                          : null,
+                  // Username
+                  Text(
+                    '@${user.username}',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant),
+                  ),
+
+                  // Follower count
+                  if (user.followersCount > 0) ...[
+                    const SizedBox(height: 2),
+                    Text(
+                      '${user.followersCount} followers',
+                      style: const TextStyle(
+                          fontSize: 10, color: Colors.grey),
                     ),
-                    child: Center(
-                      child: Text(
-                        isSent ? 'Requested' : 'Follow',
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                          color: isSent ? AppColors.textSecondary : Colors.black,
-                        ),
+                  ],
+
+                  const SizedBox(height: 10),
+
+                  // Follow button
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      onPressed: _pendingActions.contains(user.id)
+                          ? null
+                          : () => _handleFollow(user),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor:
+                            status == FollowStatus.accepted
+                                ? Colors.grey.shade600
+                                : status == FollowStatus.pending
+                                    ? AppColors.solarAmber
+                                    : AppColors.primary,
+                        foregroundColor: Colors.white,
+                        padding:
+                            const EdgeInsets.symmetric(vertical: 8),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10)),
+                        textStyle: const TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold),
+                        minimumSize: Size.zero,
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                       ),
+                      child: _pendingActions.contains(user.id)
+                          ? const SizedBox(
+                              height: 14,
+                              width: 14,
+                              child: CircularProgressIndicator(
+                                  color: Colors.white,
+                                  strokeWidth: 2))
+                          : Text(
+                              status == FollowStatus.accepted
+                                  ? 'Following'
+                                  : status == FollowStatus.pending
+                                      ? 'Requested'
+                                      : 'Follow'),
                     ),
                   ),
-                ),
+                ],
               ),
-              const SizedBox(width: 6),
-              // Dismiss (X) button
-              GestureDetector(
-                onTap: () =>
-                    context.read<FriendProvider>().dismissSuggestion(profile.id),
-                child: Container(
-                  padding: const EdgeInsets.all(4),
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: isDark
-                        ? Colors.white.withValues(alpha: 0.06)
-                        : Colors.black.withValues(alpha: 0.05),
-                  ),
-                  child: const Icon(
-                    Icons.close_rounded,
-                    size: 14,
-                    color: AppColors.textSecondary,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ],
+            );
+          },
+        ),
       ),
-    );
+    ]);
   }
 }
