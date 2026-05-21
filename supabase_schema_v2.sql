@@ -178,10 +178,14 @@ $$ LANGUAGE plpgsql;
 
 -- Trigger function to handle follow acceptance
 CREATE OR REPLACE FUNCTION handle_follow_accepted()
-RETURNS TRIGGER AS $$
+RETURNS TRIGGER
+SECURITY DEFINER
+SET search_path = public
+AS $$
 DECLARE
   v_user1 UUID;
   v_user2 UUID;
+  v_follower_name TEXT;
 BEGIN
   IF NEW.status = 'accepted' AND (OLD.status IS NULL OR OLD.status = 'pending') THEN
     -- 1. Increment counts
@@ -196,14 +200,18 @@ BEGIN
     VALUES (v_user1, v_user2) 
     ON CONFLICT (user1_id, user2_id) DO NOTHING;
 
-    -- 3. Send Notification to the person being followed
+    -- 3. Get follower's display name for the notification
+    SELECT COALESCE(full_name, username, 'Someone') INTO v_follower_name
+    FROM public.profiles WHERE id = NEW.follower_id;
+
+    -- 4. Send Notification to the follower that their request was accepted
     INSERT INTO public.notifications (user_id, actor_id, type, title, body)
     VALUES (
-      NEW.following_id, 
       NEW.follower_id, 
+      NEW.following_id, 
       'follow_accepted', 
       'Follow Request Accepted', 
-      'Someone started following you!'
+      'Your follow request was accepted!'
     );
   END IF;
   RETURN NEW;
@@ -218,7 +226,10 @@ CREATE TRIGGER on_follow_accepted
 
 -- Trigger function to handle unfollow / deleting a request
 CREATE OR REPLACE FUNCTION handle_unfollow()
-RETURNS TRIGGER AS $$
+RETURNS TRIGGER
+SECURITY DEFINER
+SET search_path = public
+AS $$
 BEGIN
   IF OLD.status = 'accepted' THEN
     -- Decrement counts
@@ -272,6 +283,9 @@ CREATE POLICY "System can insert notifications" ON public.notifications FOR INSE
 -- Chats Policies
 DROP POLICY IF EXISTS "Users can read their chats" ON public.chats;
 CREATE POLICY "Users can read their chats" ON public.chats FOR SELECT USING (auth.uid() = user1_id OR auth.uid() = user2_id);
+
+DROP POLICY IF EXISTS "Users can insert their chats" ON public.chats;
+CREATE POLICY "Users can insert their chats" ON public.chats FOR INSERT WITH CHECK (auth.uid() = user1_id OR auth.uid() = user2_id);
 
 -- Messages Policies
 DROP POLICY IF EXISTS "Users can read messages in their chats" ON public.messages;

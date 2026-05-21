@@ -1,4 +1,4 @@
-﻿import 'package:flutter/foundation.dart';
+import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 // ─────────────────────────────────────────────────────────────────
@@ -80,15 +80,17 @@ class FollowService {
   // ──────────────────────────────────────────────────────────────
   Future<bool> acceptFollowRequest(String followId) async {
     try {
-      await _supabase
+      if (kDebugMode) print('🔄 Accepting follow: id=$followId, me=$_me');
+      final res = await _supabase
           .from('follows')
           .update({'status': 'accepted'})
           .eq('id', followId)
-          .eq('following_id', _me); // RLS: only target can accept
-      if (kDebugMode) print('✅ Follow accepted: $followId');
-      return true;
+          .eq('following_id', _me) // RLS: only target can accept
+          .select();
+      if (kDebugMode) print('✅ Follow accepted: $followId, rows: ${(res as List).length}');
+      return (res as List).isNotEmpty;
     } catch (e) {
-      if (kDebugMode) print('acceptFollowRequest error: $e');
+      if (kDebugMode) print('❌ acceptFollowRequest error: $e');
       return false;
     }
   }

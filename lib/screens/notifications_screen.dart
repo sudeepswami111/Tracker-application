@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -84,11 +84,17 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     if (!mounted) return;
     if (ok) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text('You are now following $name back! 🎉'),
+        content: Text('You accepted $name\'s follow request! 🎉'),
         backgroundColor: AppColors.irisViolet,
         behavior: SnackBarBehavior.floating,
       ));
       _loadRequests();
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: const Text('Failed to accept request. Please try again.'),
+        backgroundColor: AppColors.coral,
+        behavior: SnackBarBehavior.floating,
+      ));
     }
   }
 
