@@ -173,56 +173,65 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- =================================================================================
--- 4. TRIGGERS
+-- 4. ACCEPT FOLLOW REQUEST RPC (called from Dart, bypasses RLS)
 -- =================================================================================
 
--- Trigger function to handle follow acceptance
-CREATE OR REPLACE FUNCTION handle_follow_accepted()
-RETURNS TRIGGER
+CREATE OR REPLACE FUNCTION accept_follow_request(p_follow_id UUID, p_user_id UUID)
+RETURNS VOID
 SECURITY DEFINER
 SET search_path = public
 AS $$
 DECLARE
+  v_follower_id UUID;
+  v_following_id UUID;
   v_user1 UUID;
   v_user2 UUID;
-  v_follower_name TEXT;
 BEGIN
-  IF NEW.status = 'accepted' AND (OLD.status IS NULL OR OLD.status = 'pending') THEN
-    -- 1. Increment counts
-    UPDATE public.profiles SET followers_count = COALESCE(followers_count, 0) + 1 WHERE id = NEW.following_id;
-    UPDATE public.profiles SET following_count = COALESCE(following_count, 0) + 1 WHERE id = NEW.follower_id;
+  -- 1. Verify this follow request exists and is directed at p_user_id
+  SELECT follower_id, following_id INTO v_follower_id, v_following_id
+  FROM public.follows
+  WHERE id = p_follow_id AND following_id = p_user_id AND status = 'pending';
 
-    -- 2. Create Chat Room automatically
-    v_user1 := LEAST(NEW.follower_id, NEW.following_id);
-    v_user2 := GREATEST(NEW.follower_id, NEW.following_id);
-    
-    INSERT INTO public.chats (user1_id, user2_id) 
-    VALUES (v_user1, v_user2) 
-    ON CONFLICT (user1_id, user2_id) DO NOTHING;
-
-    -- 3. Get follower's display name for the notification
-    SELECT COALESCE(full_name, username, 'Someone') INTO v_follower_name
-    FROM public.profiles WHERE id = NEW.follower_id;
-
-    -- 4. Send Notification to the follower that their request was accepted
-    INSERT INTO public.notifications (user_id, actor_id, type, title, body)
-    VALUES (
-      NEW.follower_id, 
-      NEW.following_id, 
-      'follow_accepted', 
-      'Follow Request Accepted', 
-      'Your follow request was accepted!'
-    );
+  IF v_follower_id IS NULL THEN
+    RAISE EXCEPTION 'Follow request not found or not authorized';
   END IF;
-  RETURN NEW;
+
+  -- 2. Update status to accepted
+  UPDATE public.follows SET status = 'accepted', updated_at = NOW()
+  WHERE id = p_follow_id;
+
+  -- 3. Increment follower/following counts
+  UPDATE public.profiles SET followers_count = COALESCE(followers_count, 0) + 1 WHERE id = v_following_id;
+  UPDATE public.profiles SET following_count = COALESCE(following_count, 0) + 1 WHERE id = v_follower_id;
+
+  -- 4. Create chat room (deterministic ordering to avoid duplicates)
+  v_user1 := LEAST(v_follower_id, v_following_id);
+  v_user2 := GREATEST(v_follower_id, v_following_id);
+  INSERT INTO public.chats (user1_id, user2_id)
+  VALUES (v_user1, v_user2)
+  ON CONFLICT (user1_id, user2_id) DO NOTHING;
+
+  -- 5. Notify the follower that their request was accepted
+  INSERT INTO public.notifications (user_id, actor_id, type, title, body)
+  VALUES (
+    v_follower_id,
+    v_following_id,
+    'follow_accepted',
+    'Follow Request Accepted',
+    'Your follow request was accepted!'
+  );
 END;
 $$ LANGUAGE plpgsql;
 
+-- =================================================================================
+-- 5. TRIGGERS
+-- =================================================================================
+
+-- NOTE: The handle_follow_accepted trigger is NO LONGER NEEDED because
+-- the accept_follow_request RPC function handles all side effects
+-- (count updates, chat creation, notifications) in a single atomic call.
+-- We drop the trigger to prevent double-counting.
 DROP TRIGGER IF EXISTS on_follow_accepted ON public.follows;
-CREATE TRIGGER on_follow_accepted
-  AFTER UPDATE ON public.follows
-  FOR EACH ROW
-  EXECUTE FUNCTION handle_follow_accepted();
 
 -- Trigger function to handle unfollow / deleting a request
 CREATE OR REPLACE FUNCTION handle_unfollow()
