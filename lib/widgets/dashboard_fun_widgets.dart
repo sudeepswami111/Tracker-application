@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import '../theme/app_colors.dart';
 
-// â”€â”€ Daily Quote Data â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Daily Quote Data ─────────────────────────────────────────
 class _QuoteData {
   final String text;
   final String author;
@@ -96,7 +96,7 @@ class DailyQuoteSpark extends StatelessWidget {
                         ),
                         const SizedBox(height: 12),
                         Text(
-                          'â€” ${quote.author}',
+                          '— ${quote.author}',
                           style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                             color: AppColors.textSecondary,
                           ),
@@ -106,7 +106,7 @@ class DailyQuoteSpark extends StatelessWidget {
                           icon: const Icon(LucideIcons.copy, size: 16),
                           label: const Text('Copy'),
                           onPressed: () {
-                            Clipboard.setData(ClipboardData(text: '"${quote.text}" â€” ${quote.author}'));
+                            Clipboard.setData(ClipboardData(text: '"${quote.text}" — ${quote.author}'));
                             ScaffoldMessenger.of(context).showSnackBar(
                               const SnackBar(content: Text('Quote copied!')),
                             );

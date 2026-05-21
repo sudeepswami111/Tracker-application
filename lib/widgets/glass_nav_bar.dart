@@ -4,7 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import '../theme/app_colors.dart';
 
-// â”€â”€â”€ Data â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── Data ─────────────────────────────────────────────────────────────────────
 
 class _NavDestination {
   final IconData icon;
@@ -25,7 +25,7 @@ const _destinations = [
   _NavDestination(icon: LucideIcons.graduationCap, label: 'Study', index: 4),
 ];
 
-// â”€â”€â”€ Main Widget â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── Main Widget ──────────────────────────────────────────────────────────────
 
 class GlassNavBar extends StatelessWidget {
   final int currentIndex;
@@ -55,7 +55,7 @@ class GlassNavBar extends StatelessWidget {
             clipBehavior: Clip.none,
             alignment: Alignment.center,
             children: [
-              // â”€â”€ Glass Container â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+              // ── Glass Container ──────────────────────────────────────────────
               Positioned.fill(
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(36),
@@ -89,7 +89,7 @@ class GlassNavBar extends StatelessWidget {
                 ),
               ),
 
-              // â”€â”€ Nav Items Row â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+              // ── Nav Items Row ────────────────────────────────────────────────
               Row(
                 children: [
                   // Left half: Dashboard, Health
@@ -139,7 +139,7 @@ class GlassNavBar extends StatelessWidget {
                 ],
               ),
 
-              // â”€â”€ Floating Center Button â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+              // ── Floating Center Button ───────────────────────────────────────
               Positioned(
                 top: -24, // Moved slightly higher than nav bar to be prominent
                 child: _FloatingCenterButton(
@@ -155,7 +155,7 @@ class GlassNavBar extends StatelessWidget {
   }
 }
 
-// â”€â”€â”€ Nav Tab â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── Nav Tab ──────────────────────────────────────────────────────────────────
 
 class _NavTab extends StatefulWidget {
   final _NavDestination destination;
@@ -273,7 +273,7 @@ class _NavTabState extends State<_NavTab> with SingleTickerProviderStateMixin {
   }
 }
 
-// â”€â”€â”€ Floating Center Button â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── Floating Center Button ───────────────────────────────────────────────────
 
 class _FloatingCenterButton extends StatefulWidget {
   final bool isActive;

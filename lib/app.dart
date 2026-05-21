@@ -65,7 +65,7 @@ class _AppShellState extends State<AppShell> {
             FittedBox(
               fit: BoxFit.scaleDown,
               child: Text(
-                '${_getGreeting()}, ${app.userName} ðŸ‘‹',
+                '${_getGreeting()}, ${app.userName} 👋',
                 style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
               ),
             ),

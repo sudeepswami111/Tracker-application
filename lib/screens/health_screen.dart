@@ -39,7 +39,7 @@ class _HealthScreenState extends State<HealthScreen> {
               style: theme.textTheme.bodySmall),
           const SizedBox(height: AppSpacing.lg),
 
-          // â”€â”€ Health Date Selector â”€â”€
+          // ── Health Date Selector ──
           HealthDateSelector(
             selectedDate: _selectedDate,
             completedDates: [
@@ -53,11 +53,11 @@ class _HealthScreenState extends State<HealthScreen> {
           ),
           const SizedBox(height: AppSpacing.lg),
 
-          // â”€â”€ Watch Connection Banner (always visible) â”€â”€
+          // ── Watch Connection Banner (always visible) ──
           const WatchConnectBanner(),
           const SizedBox(height: AppSpacing.md),
 
-          // â”€â”€ Conditional UI â”€â”€
+          // ── Conditional UI ──
           AnimatedSwitcher(
             duration: const Duration(milliseconds: 500),
             switchInCurve: Curves.easeOut,
@@ -85,7 +85,7 @@ class _HealthScreenState extends State<HealthScreen> {
     );
   }
 
-  // â”€â”€ Connected: Show full dashboard with live health metrics â”€â”€
+  // ── Connected: Show full dashboard with live health metrics ──
   Widget _buildConnectedView(WatchMetricsProvider watch, AppProvider app,
       ThemeData theme, bool isDark) {
     return Column(
@@ -106,7 +106,7 @@ class _HealthScreenState extends State<HealthScreen> {
     );
   }
 
-  // â”€â”€ Disconnected: Show ONLY the connect card + empty state â”€â”€
+  // ── Disconnected: Show ONLY the connect card + empty state ──
   Widget _buildDisconnectedView(ThemeData theme, bool isDark) {
     return Column(
       key: const ValueKey('disconnected_view'),
@@ -171,7 +171,7 @@ class _HealthScreenState extends State<HealthScreen> {
               ),
               _featureItem(
                 icon: LucideIcons.wind,
-                label: 'Blood Oxygen (SpOâ‚‚)',
+                label: 'Blood Oxygen (SpO₂)',
                 color: AppColors.blue,
                 theme: theme,
                 isDark: isDark,

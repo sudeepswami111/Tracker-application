@@ -51,7 +51,7 @@ class _HistoryScreenState extends State<HistoryScreen> with SingleTickerProvider
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(item['title'] as String, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
-                        Text('${item['time']} â€¢ ${item['detail']}', style: TextStyle(color: isDark ? Colors.white54 : Colors.black54)),
+                        Text('${item['time']} • ${item['detail']}', style: TextStyle(color: isDark ? Colors.white54 : Colors.black54)),
                       ],
                     ),
                   ),

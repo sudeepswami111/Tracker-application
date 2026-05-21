@@ -40,9 +40,9 @@
 
   String get suggestion {
     if (isUnsafe) return 'Unsafe conditions! Stay indoors.';
-    if (currentTemp > 30) return 'Too hot â€” try swimming or indoor gym.';
-    if (condition.toLowerCase().contains('rain')) return 'Rainy â€” great day for yoga or indoor cycling.';
-    if (condition.toLowerCase().contains('snow')) return 'Snowy â€” dress warm if you go out!';
+    if (currentTemp > 30) return 'Too hot — try swimming or indoor gym.';
+    if (condition.toLowerCase().contains('rain')) return 'Rainy — great day for yoga or indoor cycling.';
+    if (condition.toLowerCase().contains('snow')) return 'Snowy — dress warm if you go out!';
     return 'Great day for a run!';
   }
 

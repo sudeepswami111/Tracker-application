@@ -208,7 +208,7 @@ class DashboardScreen extends StatelessWidget {
 
     return Column(
       children: [
-        // â”€â”€ Header row â”€â”€
+        // ── Header row ──
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
@@ -270,7 +270,7 @@ class DashboardScreen extends StatelessWidget {
         ),
         const SizedBox(height: AppSpacing.md),
 
-        // â”€â”€ Empty State â”€â”€
+        // ── Empty State ──
         if (plans.isEmpty)
           GestureDetector(
             onTap: () {
@@ -325,7 +325,7 @@ class DashboardScreen extends StatelessWidget {
             ),
           )
 
-        // â”€â”€ Plans: single full-width or horizontal scroll (up to 3) â”€â”€
+        // ── Plans: single full-width or horizontal scroll (up to 3) ──
         else if (planCount == 1)
           DailyPlanTile(
             activityName: plans.first.title,

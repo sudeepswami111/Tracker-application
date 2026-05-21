@@ -44,7 +44,7 @@ class _CommunityScreenState extends State<CommunityScreen> with SingleTickerProv
 
     return Scaffold(
       backgroundColor: isDark ? AppColors.backgroundDeep : AppColors.lightBg,
-      // â”€â”€ FLOATING ACTION BUTTON WITH GLOW â”€â”€
+      // ── FLOATING ACTION BUTTON WITH GLOW ──
       floatingActionButton: Padding(
         padding: const EdgeInsets.only(bottom: 90.0), // Safely above bottom nav
         child: AnimatedBuilder(
@@ -95,7 +95,7 @@ class _CommunityScreenState extends State<CommunityScreen> with SingleTickerProv
           child: CustomScrollView(
             physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
             slivers: [
-              // â”€â”€ 1. PREMIUM HEADER â”€â”€
+              // ── 1. PREMIUM HEADER ──
               SliverToBoxAdapter(
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(AppSpacing.screenMargin, AppSpacing.lg, AppSpacing.screenMargin, AppSpacing.md),
@@ -142,7 +142,7 @@ class _CommunityScreenState extends State<CommunityScreen> with SingleTickerProv
                 ),
               ),
 
-              // â”€â”€ 2. ANIMATED FILTER CHIPS â”€â”€
+              // ── 2. ANIMATED FILTER CHIPS ──
               SliverToBoxAdapter(
                 child: SizedBox(
                   height: 48,
@@ -199,7 +199,7 @@ class _CommunityScreenState extends State<CommunityScreen> with SingleTickerProv
               ),
               const SliverToBoxAdapter(child: SizedBox(height: AppSpacing.lg)),
 
-              // â”€â”€ 3. ACTIVE CHALLENGES (Horizontal Scroll) â”€â”€
+              // ── 3. ACTIVE CHALLENGES (Horizontal Scroll) ──
               if (_activeFilter == 'All' || _activeFilter == 'Challenges')
                 SliverToBoxAdapter(
                   child: Column(
@@ -230,7 +230,7 @@ class _CommunityScreenState extends State<CommunityScreen> with SingleTickerProv
                   ),
                 ),
 
-              // â”€â”€ 4. PREMIUM FEED â”€â”€
+              // ── 4. PREMIUM FEED ──
               SliverPadding(
                 padding: const EdgeInsets.symmetric(horizontal: AppSpacing.screenMargin),
                 sliver: SliverList(
@@ -246,7 +246,7 @@ class _CommunityScreenState extends State<CommunityScreen> with SingleTickerProv
                 ),
               ),
               
-              // â”€â”€ FIX FOR BOTTOM OVERFLOW â”€â”€
+              // ── FIX FOR BOTTOM OVERFLOW ──
               const SliverSafeArea(
                 top: false,
                 sliver: SliverToBoxAdapter(child: SizedBox(height: 150)),
@@ -413,7 +413,7 @@ class _PremiumFeedCardState extends State<_PremiumFeedCard> with SingleTickerPro
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text('Sarah Jenkins', style: widget.theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold)),
-                            Text('2 hours ago â€¢ Morning Run', style: widget.theme.textTheme.bodySmall?.copyWith(color: AppColors.textSecondary, fontWeight: FontWeight.w500)),
+                            Text('2 hours ago • Morning Run', style: widget.theme.textTheme.bodySmall?.copyWith(color: AppColors.textSecondary, fontWeight: FontWeight.w500)),
                           ],
                         ),
                       ),

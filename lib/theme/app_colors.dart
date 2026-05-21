@@ -1,23 +1,23 @@
 ﻿import 'package:flutter/material.dart';
 
 class AppColors {
-  // â”€â”€â”€ Core Backgrounds â”€â”€â”€
+  // ─── Core Backgrounds ───
   static const backgroundDeep = Color(0xFF0A0A0F);
   static const surfaceCard = Color(0xFF141420);
   static const surfaceElevated = Color(0xFF1E1E2E);
 
-  // â”€â”€â”€ Accents â”€â”€â”€
+  // ─── Accents ───
   static const pulseRed = Color(0xFFFF3B5C);
   static const voltCyan = Color(0xFF00E5CC);
   static const irisViolet = Color(0xFF8B5CF6);
   static const solarAmber = Color(0xFFF59E0B);
 
-  // â”€â”€â”€ Text & Borders â”€â”€â”€
+  // ─── Text & Borders ───
   static const textPrimary = Color(0xFFF2F2F7);
   static const textSecondary = Color(0xFF8E8E9E);
   static const borderSubtle = Color(0xFF2C2C3E);
 
-  // â”€â”€â”€ Legacy Mapping (to prevent immediate build errors during transition) â”€â”€â”€
+  // ─── Legacy Mapping (to prevent immediate build errors during transition) ───
   static const primary = irisViolet;
   static const primaryLight = Color(0xFFA29BFE);
   static const primaryContainer = Color(0xFF8B7CF6);
@@ -47,11 +47,11 @@ class AppColors {
   static const lightOnSurfaceVariant = Color(0xFF6B6B7B);
   static const lightOutline = Color(0xFFD0D0D8);
 
-  // â”€â”€â”€ Glass & Opacity Helpers â”€â”€â”€
+  // ─── Glass & Opacity Helpers ───
   static Color glassWhite(double opacity) => Colors.white.withValues(alpha: opacity);
   static Color glassBlack(double opacity) => Colors.black.withValues(alpha: opacity);
 
-  // â”€â”€â”€ Gradients â”€â”€â”€
+  // ─── Gradients ───
   static const gradientPrimary = LinearGradient(
     colors: [Color(0xFF8B5CF6), Color(0xFFA29BFE)],
     begin: Alignment.topLeft,

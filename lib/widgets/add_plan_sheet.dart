@@ -120,7 +120,7 @@ class _AddPlanSheetState extends State<AddPlanSheet> {
     ],
   };
 
-  // Helper â€” fallback to first generic image if activity not in map yet
+  // Helper — fallback to first generic image if activity not in map yet
   List<String> _sampleImagesFor(String activityLabel) {
     return _activitySampleImages[activityLabel] ??
         _activitySampleImages['Outdoor Run']!;

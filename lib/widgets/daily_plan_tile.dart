@@ -13,7 +13,7 @@ class DailyPlanTile extends StatelessWidget {
   final VoidCallback? onStart;
   final VoidCallback? onDelete;
 
-  // Accent color drives the gradient + shadow â€” default to coral (Run)
+  // Accent color drives the gradient + shadow — default to coral (Run)
   final Color accentColor;
 
   const DailyPlanTile({
@@ -89,7 +89,7 @@ class DailyPlanTile extends StatelessWidget {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // â”€â”€ Left: Activity image 80Ã—80 â”€â”€
+            // ── Left: Activity image 80×80 ──
             ClipRRect(
               borderRadius: BorderRadius.circular(16),
               child: SizedBox(
@@ -116,7 +116,7 @@ class DailyPlanTile extends StatelessWidget {
             ),
             const SizedBox(width: 14),
 
-            // â”€â”€ Right: Info + buttons â”€â”€
+            // ── Right: Info + buttons ──
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -189,7 +189,7 @@ class DailyPlanTile extends StatelessWidget {
                                 onTap: onStart,
                                 child: const Center(
                                   child: Text(
-                                    'Start Workout â†’',
+                                    'Start Workout →',
                                     style: TextStyle(
                                       color: Colors.white,
                                       fontWeight: FontWeight.w700,

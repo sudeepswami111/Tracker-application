@@ -5,12 +5,12 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../theme/app_colors.dart';
 
-// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─────────────────────────────────────────────────────────────────
 // LOGIN / SIGN-UP SCREEN
 // Sign-up collects: full name, username (unique), email, password,
 // confirm password, mobile number (optional).
 // Username is checked live against Supabase for availability.
-// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─────────────────────────────────────────────────────────────────
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
 
@@ -20,7 +20,7 @@ class LoginScreen extends StatefulWidget {
 
 class _LoginScreenState extends State<LoginScreen>
     with SingleTickerProviderStateMixin {
-  // â”€â”€ Controllers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Controllers ───────────────────────────────────────────────
   final _fullNameCtrl    = TextEditingController();
   final _usernameCtrl    = TextEditingController();
   final _emailCtrl       = TextEditingController();
@@ -28,7 +28,7 @@ class _LoginScreenState extends State<LoginScreen>
   final _confirmPwdCtrl  = TextEditingController();
   final _mobileCtrl      = TextEditingController();
 
-  // â”€â”€ State â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── State ─────────────────────────────────────────────────────
   bool _isLogin          = true;
   bool _isLoading        = false;
   bool _obscurePwd       = true;
@@ -54,7 +54,7 @@ class _LoginScreenState extends State<LoginScreen>
     super.dispose();
   }
 
-  // â”€â”€ Username live-check (debounced 600 ms) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Username live-check (debounced 600 ms) ────────────────────
   void _onUsernameChanged(String value) {
     final trimmed = value.trim().toLowerCase();
     _usernameDebounce?.cancel();
@@ -88,7 +88,7 @@ class _LoginScreenState extends State<LoginScreen>
     });
   }
 
-  // â”€â”€ Validation â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Validation ────────────────────────────────────────────────
   String? _validateSignUp() {
     if (_fullNameCtrl.text.trim().isEmpty) return 'Please enter your full name.';
     if (_usernameCtrl.text.trim().isEmpty) return 'Please choose a username.';
@@ -100,7 +100,7 @@ class _LoginScreenState extends State<LoginScreen>
     return null;
   }
 
-  // â”€â”€ Submit â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Submit ────────────────────────────────────────────────────
   Future<void> _submit() async {
     FocusScope.of(context).unfocus();
 
@@ -180,7 +180,7 @@ class _LoginScreenState extends State<LoginScreen>
     ));
   }
 
-  // â”€â”€ Username feedback widget â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Username feedback widget ──────────────────────────────────
   Widget _usernameSuffix() {
     if (_usernameCtrl.text.trim().isEmpty) return const SizedBox.shrink();
     if (_checkingUsername) {
@@ -200,9 +200,9 @@ class _LoginScreenState extends State<LoginScreen>
 
   String? _usernameHelperText() {
     if (_usernameCtrl.text.trim().isEmpty) return null;
-    if (_checkingUsername) return 'Checking availabilityâ€¦';
-    if (_usernameAvailable == true)  return 'âœ“ Username is available';
-    if (_usernameAvailable == false) return 'âœ— Username is already taken';
+    if (_checkingUsername) return 'Checking availability…';
+    if (_usernameAvailable == true)  return '✓ Username is available';
+    if (_usernameAvailable == false) return '✗ Username is already taken';
     return null;
   }
 
@@ -212,7 +212,7 @@ class _LoginScreenState extends State<LoginScreen>
     return null;
   }
 
-  // â”€â”€ Build â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Build ─────────────────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
     final theme  = Theme.of(context);
@@ -259,7 +259,7 @@ class _LoginScreenState extends State<LoginScreen>
                 ),
                 const SizedBox(height: 36),
 
-                // â”€â”€ SIGN-UP ONLY FIELDS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+                // ── SIGN-UP ONLY FIELDS ──────────────────────────
                 if (!_isLogin) ...[
                   // Full Name
                   _buildField(
@@ -451,7 +451,7 @@ class _LoginScreenState extends State<LoginScreen>
     );
   }
 
-  // â”€â”€ Helper to build a standard text field â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Helper to build a standard text field ────────────────────
   Widget _buildField({
     required TextEditingController controller,
     required String label,

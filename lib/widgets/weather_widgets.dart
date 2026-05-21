@@ -73,7 +73,7 @@ class DashboardWeatherSection extends StatelessWidget {
 
   IconData _getIcon(String cond, {bool isDay = true}) {
     final c = cond.toLowerCase();
-    // WeatherAPI keyword matching (order matters â€” most specific first)
+    // WeatherAPI keyword matching (order matters — most specific first)
     if (c.contains('thunder') || c.contains('lightning')) return LucideIcons.cloudLightning;
     if (c.contains('blizzard') || c.contains('sleet') || c.contains('ice pellet')) return LucideIcons.snowflake;
     if (c.contains('snow') || c.contains('flurr')) return LucideIcons.snowflake;
@@ -99,7 +99,7 @@ class DashboardWeatherSection extends StatelessWidget {
   }
 
   Widget _buildWeatherInsightCard(WeatherModel weather, ThemeData theme, bool isDark) {
-    // â”€â”€ Insight Logic â”€â”€
+    // ── Insight Logic ──
     final bool isHot = weather.currentTemp > 30;
     final bool isRainy = weather.condition.toLowerCase().contains('rain');
     final bool isBadAir = weather.aqi > 100;
@@ -134,7 +134,7 @@ class DashboardWeatherSection extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // â”€â”€ TOP: Weather Row â”€â”€
+          // ── TOP: Weather Row ──
           Row(
             children: [
               Icon(_getIcon(weather.condition, isDay: weather.isDay), size: 38, color: AppColors.textSecondary),
@@ -143,7 +143,7 @@ class DashboardWeatherSection extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('${weather.currentTemp.round()}Â°', style: theme.textTheme.displaySmall?.copyWith(fontWeight: FontWeight.bold, height: 1)),
+                    Text('${weather.currentTemp.round()}°', style: theme.textTheme.displaySmall?.copyWith(fontWeight: FontWeight.bold, height: 1)),
                     Text(weather.condition, style: theme.textTheme.bodyMedium?.copyWith(color: AppColors.textSecondary)),
                   ],
                 ),
@@ -172,7 +172,7 @@ class DashboardWeatherSection extends StatelessWidget {
           Divider(color: isDark ? Colors.white.withValues(alpha: 0.06) : Colors.black.withValues(alpha: 0.06), height: 1),
           const SizedBox(height: AppSpacing.md),
 
-          // â”€â”€ BOTTOM: Insights Row â”€â”€
+          // ── BOTTOM: Insights Row ──
           Row(
             children: [
               Icon(insightIcon, color: insightColor, size: 18),
@@ -182,7 +182,7 @@ class DashboardWeatherSection extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(insightTitle, style: theme.textTheme.bodyMedium?.copyWith(color: insightColor, fontWeight: FontWeight.bold)),
-                    Text('Based on ${weather.currentTemp.round()}Â° & AQI ${weather.aqi}', style: theme.textTheme.bodySmall?.copyWith(color: AppColors.textSecondary)),
+                    Text('Based on ${weather.currentTemp.round()}° & AQI ${weather.aqi}', style: theme.textTheme.bodySmall?.copyWith(color: AppColors.textSecondary)),
                   ],
                 ),
               ),
@@ -202,7 +202,7 @@ class DashboardWeatherSection extends StatelessWidget {
           Divider(color: isDark ? Colors.white.withValues(alpha: 0.06) : Colors.black.withValues(alpha: 0.06), height: 1),
           const SizedBox(height: AppSpacing.lg),
 
-          // â”€â”€ 7-Day Forecast â”€â”€
+          // ── 7-Day Forecast ──
           Align(
             alignment: Alignment.centerLeft,
             child: Text("7-Day Forecast", style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
@@ -277,7 +277,7 @@ class DashboardWeatherSection extends StatelessWidget {
                 Icon(_getIcon(day.condition), size: 28, color: badgeColor),
                 const SizedBox(height: 12),
                 Text(
-                  '${day.minTemp.round()}Â° / ${day.maxTemp.round()}Â°',
+                  '${day.minTemp.round()}° / ${day.maxTemp.round()}°',
                   style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600, fontSize: 13),
                 ),
                 const SizedBox(height: 4),

@@ -95,7 +95,7 @@ class PermissionRequestSheet extends StatelessWidget {
           _PermissionItem(
             icon: LucideIcons.heartPulse,
             title: 'Health Connect',
-            description: 'Read heart rate, SpOâ‚‚, sleep from Mi Fitness / Zepp Life.',
+            description: 'Read heart rate, SpO₂, sleep from Mi Fitness / Zepp Life.',
             isDark: isDark,
           ),
           const SizedBox(height: 14),

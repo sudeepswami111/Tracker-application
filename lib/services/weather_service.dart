@@ -7,7 +7,7 @@ import 'package:geocoding/geocoding.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/weather_model.dart';
 
-/// WeatherService â€” powered by Open-Meteo (free, no API key required).
+/// WeatherService — powered by Open-Meteo (free, no API key required).
 /// AQI is calculated using the Indian National Air Quality Index (NAQI)
 /// from PM2.5 and PM10 readings fetched from the Open-Meteo Air Quality API.
 class WeatherService {
@@ -30,7 +30,7 @@ class WeatherService {
             return weather;
           }
         } catch (_) {
-          // Cache invalid â€” re-fetch
+          // Cache invalid — re-fetch
         }
       }
 
@@ -78,7 +78,7 @@ class WeatherService {
         if (lat == 0.0 && lon == 0.0) throw Exception('LocationTimeout');
       }
 
-      // 3. Phase 2D â€” Reverse Geocoding with subLocality priority
+      // 3. Phase 2D — Reverse Geocoding with subLocality priority
       String cityName = 'Unknown Location';
       try {
         final placemarks = await placemarkFromCoordinates(lat, lon);
@@ -150,13 +150,13 @@ class WeatherService {
       final isDay = (current['is_day'] as int?) == 1;
       final currentWeatherCode = current['weather_code'] as int;
 
-      // Phase 2B â€” Hazy condition label when sky is clear but AQI is bad
+      // Phase 2B — Hazy condition label when sky is clear but AQI is bad
       String conditionText = _getConditionFromCode(currentWeatherCode);
       if ((currentWeatherCode == 0 || currentWeatherCode == 1) && aqi > 100) {
         conditionText = aqi > 150 ? 'Hazy' : 'Clear but Hazy';
       }
 
-      // 7. Phase 2C â€” Hourly forecast starting from current hour (not midnight index 0)
+      // 7. Phase 2C — Hourly forecast starting from current hour (not midnight index 0)
       final List<String> hourlyTimes = List<String>.from(hourlyRaw['time'] as List);
       final now = DateTime.now();
       final currentHourStr =
@@ -263,7 +263,7 @@ class WeatherService {
     }
   }
 
-  /// Open-Meteo WMO weather code â†’ human-readable label.
+  /// Open-Meteo WMO weather code → human-readable label.
   static String _getConditionFromCode(int code) {
     if (code == 0) return 'Clear Sky';
     if (code == 1) return 'Mainly Clear';

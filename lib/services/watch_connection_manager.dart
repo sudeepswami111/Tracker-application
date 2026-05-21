@@ -114,7 +114,7 @@ class WatchConnectionManager {
     return null; // Success
   }
 
-  // â”€â”€ BLE Device Scanner â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── BLE Device Scanner ──────────────────────────────────────────────────
 
   /// Scan for ALL nearby BLE devices and return them via [onDevicesFound].
   /// Does NOT auto-connect. The user picks a device from the list.
@@ -178,7 +178,7 @@ class WatchConnectionManager {
     _isScanning = false;
   }
 
-  // â”€â”€ Connect to a specific device the user picked â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Connect to a specific device the user picked ────────────────────────
 
   /// Connect to a user-selected BLE device.
   Future<bool> connectToSelectedDevice(DiscoveredDevice selected) async {
@@ -207,7 +207,7 @@ class WatchConnectionManager {
         }
       });
 
-      // Discover services (for debugging â€” Mi Band has proprietary services)
+      // Discover services (for debugging — Mi Band has proprietary services)
       try {
         List<BluetoothService> services =
             await selected.device.discoverServices();
@@ -233,7 +233,7 @@ class WatchConnectionManager {
     }
   }
 
-  // â”€â”€ Connect via Health Connect Only (No BLE) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Connect via Health Connect Only (No BLE) ──────────────────────────
 
   Future<String?> connectViaHealthConnect() async {
     debugPrint("[WatchManager] Connecting via Health Connect only...");
@@ -246,7 +246,7 @@ class WatchConnectionManager {
     return null;
   }
 
-  // â”€â”€ Disconnect â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Disconnect ──────────────────────────────────────────────────────────
 
   void disconnect() {
     _connectedWatch?.disconnect();
@@ -272,8 +272,8 @@ class WatchConnectionManager {
     }
   }
 
-  // â”€â”€ Health Connect Data Sync â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-  // Mi Band 5 â†’ Mi Fitness / Zepp Life app â†’ Health Connect â†’ Our app
+  // ── Health Connect Data Sync ────────────────────────────────────────────
+  // Mi Band 5 → Mi Fitness / Zepp Life app → Health Connect → Our app
 
   void _startHealthSyncTimer() {
     _syncTimer?.cancel();
@@ -427,7 +427,7 @@ class WatchConnectionManager {
     return data;
   }
 
-  // â”€â”€ Real-time Simulation â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Real-time Simulation ────────────────────────────────────────────────
   // Adds slight jitter to Health Connect base metrics to make the UI look "Live"
 
   Timer? _simTimer;

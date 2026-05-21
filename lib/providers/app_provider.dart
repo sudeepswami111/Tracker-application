@@ -8,7 +8,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../main.dart';
 import '../services/notification_service.dart';
 
-// â”€â”€â”€â”€ 2.1 Daily Snapshot Model â”€â”€â”€â”€
+// ──── 2.1 Daily Snapshot Model ────
 class DailySnapshot {
   final String date; // yyyy-MM-dd
   final int steps;
@@ -97,7 +97,7 @@ class DailyPlan {
       );
 }
 
-// â”€â”€â”€â”€ Feature 4 â€” Challenge Model â”€â”€â”€â”€
+// ──── Feature 4 — Challenge Model ────
 class ChallengeModel {
   final String title;
   final double targetValue;
@@ -158,7 +158,7 @@ class AppProvider extends ChangeNotifier with WidgetsBindingObserver {
       _checkDailyReset();
     }
   }
-  // â”€â”€â”€â”€ User â”€â”€â”€â”€
+  // ──── User ────
   String userName = 'User';
   String email = 'user@example.com';
   String profileImagePath = '';
@@ -167,7 +167,7 @@ class AppProvider extends ChangeNotifier with WidgetsBindingObserver {
   int userXPToNext = 1000;
   bool isMetric = true;
 
-  // â”€â”€â”€â”€ Dashboard Stats â”€â”€â”€â”€
+  // ──── Dashboard Stats ────
   int steps = 0;
   final int stepsGoal = 10000;
   int calories = 0;
@@ -181,7 +181,7 @@ class AppProvider extends ChangeNotifier with WidgetsBindingObserver {
   double studyHrs = 0.0;
   final double studyGoal = 4.0;
 
-  // â”€â”€â”€â”€ Fitness â”€â”€â”€â”€
+  // ──── Fitness ────
   int todayCalories = 0;
   int todayDuration = 0;
   int todayExercises = 0;
@@ -191,7 +191,7 @@ class AppProvider extends ChangeNotifier with WidgetsBindingObserver {
   double bmi = 0.0;
   List<Map<String, dynamic>> workouts = [];
 
-  // â”€â”€â”€â”€ Health â”€â”€â”€â”€
+  // ──── Health ────
   int heartRate = 0;
   final int restingHR = 60;
   final int maxHR = 190;
@@ -216,7 +216,7 @@ class AppProvider extends ChangeNotifier with WidgetsBindingObserver {
   double temperature = 98.6;
   int oxygenLevel = 98;
 
-  // â”€â”€â”€â”€ Study â”€â”€â”€â”€
+  // ──── Study ────
   int studyStreak = 0;
   final int longestStreak = 0;
   int totalStudyMinutes = 0;
@@ -233,7 +233,7 @@ class AppProvider extends ChangeNotifier with WidgetsBindingObserver {
   ];
   List<Map<String, dynamic>> milestones = [];
 
-  // â”€â”€â”€â”€ Streaks â”€â”€â”€â”€
+  // ──── Streaks ────
   int currentStreak = 1;
   int streakFreezes = 0;
   bool isStreakPending = false;
@@ -314,14 +314,14 @@ class AppProvider extends ChangeNotifier with WidgetsBindingObserver {
     }
   }
 
-  // â”€â”€â”€â”€ Navigation â”€â”€â”€â”€
+  // ──── Navigation ────
   int currentTabIndex = 0;
   void setTabIndex(int index) {
     currentTabIndex = index;
     notifyListeners();
   }
 
-  // â”€â”€â”€â”€ Weekly Chart Data â”€â”€â”€â”€
+  // ──── Weekly Chart Data ────
   List<Map<String, dynamic>> get weeklyData {
     final days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
     return days.map((day) => {
@@ -334,7 +334,7 @@ class AppProvider extends ChangeNotifier with WidgetsBindingObserver {
 
   List<Map<String, dynamic>> dailyGoals = [];
 
-  // â”€â”€â”€â”€ Daily Plans â”€â”€â”€â”€
+  // ──── Daily Plans ────
   List<DailyPlan> dailyPlans = [];
   DailyPlan? activeRunPlan;
 
@@ -367,15 +367,15 @@ class AppProvider extends ChangeNotifier with WidgetsBindingObserver {
   bool hasUnreadNotifications = true;
   List<Map<String, dynamic>> notifications = [];
 
-  // â”€â”€â”€â”€ 2.1 History â”€â”€â”€â”€
+  // ──── 2.1 History ────
   List<DailySnapshot> history = [];
 
-  // â”€â”€â”€â”€ Feature 4 Challenges â”€â”€â”€â”€
+  // ──── Feature 4 Challenges ────
   List<ChallengeModel> activeChallenges = [];
 
   bool get hasCompletedTasks => dailyGoals.any((goal) => (goal['progress'] as num) >= 100);
 
-  // â”€â”€â”€â”€ 2.4 Pulse Score (0-100) â€” 5-factor weighted â”€â”€â”€â”€
+  // ──── 2.4 Pulse Score (0-100) — 5-factor weighted ────
   int get pulseScore {
     final stepsP  = (steps / stepsGoal).clamp(0.0, 1.0);
     final calP    = (todayCalories / caloriesGoal).clamp(0.0, 1.0);
@@ -385,13 +385,13 @@ class AppProvider extends ChangeNotifier with WidgetsBindingObserver {
     return ((stepsP * 0.25 + calP * 0.20 + waterP * 0.20 + sleepP * 0.20 + studyP * 0.15) * 100).round();
   }
 
-  // â”€â”€â”€â”€ Insights â”€â”€â”€â”€
+  // ──── Insights ────
   final List<Map<String, String>> insights = [];
 
-  // â”€â”€â”€â”€ Achievements â”€â”€â”€â”€
+  // ──── Achievements ────
   List<Map<String, dynamic>> achievements = [];
 
-  // â”€â”€â”€â”€ Live Data Simulation â”€â”€â”€â”€
+  // ──── Live Data Simulation ────
   Timer? _liveTimer;
   Timer? _resetTimer; // 2.2 Hourly midnight-check timer
 
@@ -424,7 +424,7 @@ class AppProvider extends ChangeNotifier with WidgetsBindingObserver {
     calories = prefs.getInt(PrefsKeys.calories) ?? 0;
     sleepHours = prefs.getDouble(PrefsKeys.sleepHours) ?? 0.0;
     studyHrs = prefs.getDouble(PrefsKeys.studyHrs) ?? 0.0;
-    // 2.1 â€” Load history
+    // 2.1 — Load history
     final histJson = prefs.getString(PrefsKeys.dailyHistory);
     if (histJson != null) {
       try {
@@ -452,13 +452,13 @@ class AppProvider extends ChangeNotifier with WidgetsBindingObserver {
       } catch (_) {}
     }
 
-    // 2.2 â€” Detect midnight and reset if new day
+    // 2.2 — Detect midnight and reset if new day
     _checkDailyReset();
     checkStreakStatus();
     notifyListeners();
   }
 
-  // â”€â”€â”€â”€ 2.2 Midnight Detection â”€â”€â”€â”€
+  // ──── 2.2 Midnight Detection ────
   String _todayStr() {
     final now = clock();
     return '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
@@ -469,7 +469,7 @@ class AppProvider extends ChangeNotifier with WidgetsBindingObserver {
     final lastSaved = prefs.getString(PrefsKeys.lastSavedDate) ?? '';
     if (lastSaved == today) return; // same day, no reset needed
 
-    debugPrint('[LifePulse] Day changed: $lastSaved â†’ $today â€” resetting daily counters');
+    debugPrint('[LifePulse] Day changed: $lastSaved → $today — resetting daily counters');
 
     // Snapshot yesterday's data before reset (only if we had a previous day)
     if (lastSaved.isNotEmpty) {
@@ -530,7 +530,7 @@ class AppProvider extends ChangeNotifier with WidgetsBindingObserver {
     final plansEncoded = jsonEncode(dailyPlans.map((p) => p.toJson()).toList());
     prefs.setString(PrefsKeys.dailyPlans, plansEncoded);
 
-    // Feature 3 â€” fire smart nudges after every save
+    // Feature 3 — fire smart nudges after every save
     NotificationService.scheduleSmartNudges(this);
   }
 
@@ -661,7 +661,7 @@ class AppProvider extends ChangeNotifier with WidgetsBindingObserver {
     }
   }
 
-  // â”€â”€â”€â”€ Actions â”€â”€â”€â”€
+  // ──── Actions ────
   void addWater() {
     recordActivity();
     if (waterGlasses < 12) {
@@ -671,7 +671,7 @@ class AppProvider extends ChangeNotifier with WidgetsBindingObserver {
       notifyListeners();
 
       if (waterGlasses == waterGlassGoal) {
-        addNotification('Hydration Hero! ðŸ’§', 'You reached your daily water goal of $waterGlassGoal glasses!', LucideIcons.droplets, const Color(0xFF00E5CC), type: 'Reminders');
+        addNotification('Hydration Hero! 💧', 'You reached your daily water goal of $waterGlassGoal glasses!', LucideIcons.droplets, const Color(0xFF00E5CC), type: 'Reminders');
         _showGoalPopup('Hydration Hero', 'You reached your daily water goal of $waterGlassGoal glasses!', LucideIcons.droplets);
       }
     }
@@ -687,7 +687,7 @@ class AppProvider extends ChangeNotifier with WidgetsBindingObserver {
     }
   }
 
-  // â”€â”€â”€â”€ 3.3/3.4 Update from HealthService sync â”€â”€â”€â”€
+  // ──── 3.3/3.4 Update from HealthService sync ────
   void updateFromHealth(Map<String, dynamic> data) {
     if (data.isEmpty) return;
     if (data['heartRate'] != null && (data['heartRate'] as int) > 0) {
@@ -739,7 +739,7 @@ class AppProvider extends ChangeNotifier with WidgetsBindingObserver {
     notifyListeners();
   }
 
-  // â”€â”€â”€â”€ Feature 4 â€” Weekly Challenge Generator â”€â”€â”€â”€
+  // ──── Feature 4 — Weekly Challenge Generator ────
   void generateWeeklyChallenges() {
     // Use last 7 snapshots; fall back to current values if not enough history
     final recent = history.take(7).toList();

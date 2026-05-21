@@ -754,7 +754,7 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
       resizeToAvoidBottomInset: false,
       body: Stack(
         children: [
-          // â”€â”€ 1. PLANNING VIEW (Scrollable) â”€â”€
+          // ── 1. PLANNING VIEW (Scrollable) ──
           if (!isRunningPhase && !_isFullScreenMap)
             Positioned.fill(
               child: SingleChildScrollView(
@@ -833,7 +833,7 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
               ),
             ),
 
-          // â”€â”€ 2. RUNNING VIEW (Full-Screen Map) â”€â”€
+          // ── 2. RUNNING VIEW (Full-Screen Map) ──
           if (isRunningPhase || _isFullScreenMap) ...[
             Positioned.fill(
               child: _buildMapWidget(mapUrl, isDark, true),
@@ -881,7 +881,7 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
               ),
           ],
 
-          // â”€â”€ MAP WEATHER OVERLAY & THEME TOGGLE (DURING RUN) â”€â”€
+          // ── MAP WEATHER OVERLAY & THEME TOGGLE (DURING RUN) ──
           if (isRunningPhase)
             Positioned(
               top: MediaQuery.of(context).padding.top > 20 ? MediaQuery.of(context).padding.top + 16 : 40,
@@ -902,7 +902,7 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
                         children: [
                           Icon(weather.condition.toLowerCase().contains('rain') ? LucideIcons.cloudRain : LucideIcons.cloudSun, size: 16, color: AppColors.voltCyan),
                           const SizedBox(width: 8),
-                          Text('${weather.currentTemp.round()}Â°C', style: TextStyle(color: isDark ? Colors.white : Colors.black, fontWeight: FontWeight.bold)),
+                          Text('${weather.currentTemp.round()}°C', style: TextStyle(color: isDark ? Colors.white : Colors.black, fontWeight: FontWeight.bold)),
                         ],
                       ),
                     ),
@@ -920,7 +920,7 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
               ),
             ),
 
-          // â”€â”€ 3. ACTIVE RUN UI â”€â”€
+          // ── 3. ACTIVE RUN UI ──
           if (_state == RunState.running || _state == RunState.paused) ...[
             // Floating Pause/End Button
             Positioned(
@@ -1015,7 +1015,7 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
               ),
           ],
 
-          // â”€â”€ 4. COUNTDOWN OVERLAY â”€â”€
+          // ── 4. COUNTDOWN OVERLAY ──
           if (_state == RunState.countdown)
             Positioned.fill(
               child: Container(
@@ -1143,7 +1143,7 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
                         const SizedBox(height: 4),
                         Icon(h.condition.toLowerCase().contains('rain') ? LucideIcons.cloudRain : LucideIcons.sun, size: 20, color: AppColors.solarAmber),
                         const SizedBox(height: 4),
-                        Text('${h.temp.round()}Â°', style: TextStyle(color: isDark ? Colors.white : Colors.black, fontWeight: FontWeight.bold)),
+                        Text('${h.temp.round()}°', style: TextStyle(color: isDark ? Colors.white : Colors.black, fontWeight: FontWeight.bold)),
                       ],
                     ),
                   );
@@ -1209,7 +1209,7 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
           ),
           const SizedBox(height: 32),
           
-          // â”€â”€ FITNESS SECTION INTEGRATION â”€â”€
+          // ── FITNESS SECTION INTEGRATION ──
           const Divider(height: 1, color: Colors.white10),
           const SizedBox(height: 16),
           const FitnessScreen(),

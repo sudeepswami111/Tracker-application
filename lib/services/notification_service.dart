@@ -49,7 +49,7 @@ class NotificationService {
     );
   }
 
-  // â”€â”€â”€â”€ Feature 3 â€” Smart Nudges (fires at most once per day per nudge) â”€â”€â”€â”€
+  // ──── Feature 3 — Smart Nudges (fires at most once per day per nudge) ────
   static Future<void> scheduleSmartNudges(AppProvider app) async {
     final prefs = await SharedPreferences.getInstance();
     final today = _todayStr();
@@ -66,21 +66,21 @@ class NotificationService {
       iOS: DarwinNotificationDetails(),
     );
 
-    // (a) 14:00 â€” water nudge if < 4 glasses
+    // (a) 14:00 — water nudge if < 4 glasses
     if (hour == 14 && app.waterGlasses < 4) {
       final key = 'nudge_301_$today';
       if (prefs.getString(key) == null) {
         await prefs.setString(key, 'sent');
         await _notificationsPlugin.show(
           id: 301,
-          title: "Don't forget to hydrate! ðŸ’§",
-          body: "You've only had ${app.waterGlasses} glasses â€” drink up!",
+          title: "Don't forget to hydrate! 💧",
+          body: "You've only had ${app.waterGlasses} glasses — drink up!",
           notificationDetails: details,
         );
       }
     }
 
-    // (b) 22:00 â€” sleep nudge if no sleep logged
+    // (b) 22:00 — sleep nudge if no sleep logged
     if (hour == 22 && app.sleepHours == 0) {
       final key = 'nudge_302_$today';
       if (prefs.getString(key) == null) {
@@ -88,21 +88,21 @@ class NotificationService {
         await _notificationsPlugin.show(
           id: 302,
           title: 'Time to wind down ðŸŒ™',
-          body: 'No sleep logged yet â€” you need 8 hours.',
+          body: 'No sleep logged yet — you need 8 hours.',
           notificationDetails: details,
         );
       }
     }
 
-    // (c) 12:00 â€” steps nudge if < 2000 steps
+    // (c) 12:00 — steps nudge if < 2000 steps
     if (hour == 12 && app.steps < 2000) {
       final key = 'nudge_303_$today';
       if (prefs.getString(key) == null) {
         await prefs.setString(key, 'sent');
         await _notificationsPlugin.show(
           id: 303,
-          title: 'Get moving! ðŸš¶',
-          body: 'Only ${app.steps} steps so far â€” take a walk after lunch.',
+          title: 'Get moving! 🚶',
+          body: 'Only ${app.steps} steps so far — take a walk after lunch.',
           notificationDetails: details,
         );
       }

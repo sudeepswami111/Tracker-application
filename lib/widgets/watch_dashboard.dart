@@ -54,14 +54,14 @@ class _WatchDashboardState extends State<WatchDashboard>
         position: _slideUp,
         child: Column(
           children: [
-            // â”€â”€ BLE Wearable Card â”€â”€
+            // ── BLE Wearable Card ──
             BleWearableCard(
               heartRate: watch.pulse,
               isConnected: watch.isConnected,
             ),
             const SizedBox(height: 16),
 
-            // â”€â”€ Health Score Dial â”€â”€
+            // ── Health Score Dial ──
             HealthScoreDial(
               score: watch.wellnessScore > 0 ? watch.wellnessScore : 85,
               heartScore: watch.pulse > 0 ? (100 - (watch.restingHeartRate - 60).abs()).clamp(0, 100) : 80,
@@ -70,12 +70,12 @@ class _WatchDashboardState extends State<WatchDashboard>
             ),
             const SizedBox(height: 16),
 
-            // â”€â”€ Vitals Grid â”€â”€
+            // ── Vitals Grid ──
             Row(
               children: [
                 Expanded(
                   child: MetricGridCard(
-                    label: 'SpOâ‚‚',
+                    label: 'SpO₂',
                     value: '${watch.spO2 > 0 ? watch.spO2.toStringAsFixed(0) : "98"}%',
                     progress: watch.spO2 > 0 ? watch.spO2 / 100 : 0.98,
                     isUpTrend: watch.spO2 >= 95,
@@ -94,7 +94,7 @@ class _WatchDashboardState extends State<WatchDashboard>
             ),
             const SizedBox(height: 16),
 
-            // â”€â”€ Sleep Stage Bar â”€â”€
+            // ── Sleep Stage Bar ──
             SleepStageBar(
               awakeHours: watch.sleepHours > 0 ? watch.sleepHours * 0.1 : 0.8,
               lightHours: watch.sleepHours > 0 ? watch.sleepHours * 0.5 : 4.0,
@@ -103,7 +103,7 @@ class _WatchDashboardState extends State<WatchDashboard>
             ),
             const SizedBox(height: 16),
 
-            // â”€â”€ Trend Chart â”€â”€
+            // ── Trend Chart ──
             TrendChartCard(
               title: 'Activity Trend',
               dataPoints: [

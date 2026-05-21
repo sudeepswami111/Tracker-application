@@ -318,7 +318,7 @@ class _DeviceScannerSheetState extends State<DeviceScannerSheet>
   }
 }
 
-// â”€â”€ Device Tile â”€â”€
+// ── Device Tile ──
 class _DeviceTile extends StatelessWidget {
   final DiscoveredDevice device;
   final bool isDark;
@@ -494,7 +494,7 @@ class _DeviceTile extends StatelessWidget {
   }
 }
 
-// â”€â”€ Scanning animation â”€â”€
+// ── Scanning animation ──
 class _ScanningAnimation extends StatelessWidget {
   final AnimationController controller;
   final bool isDark;

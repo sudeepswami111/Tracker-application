@@ -38,7 +38,7 @@ void main() async {
   );
 
   // Handle OAuth deep links (e.g. after Google sign-in redirects back to the app).
-  // supabase_flutter v2 uses PKCE â€” the redirect URL contains a one-time code
+  // supabase_flutter v2 uses PKCE — the redirect URL contains a one-time code
   // that must be exchanged for a session.
   final appLinks = AppLinks();
 
