@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/watch_metrics_provider.dart';
 import 'health_components.dart';
@@ -54,14 +54,14 @@ class _WatchDashboardState extends State<WatchDashboard>
         position: _slideUp,
         child: Column(
           children: [
-            // ── BLE Wearable Card ──
+            // â”€â”€ BLE Wearable Card â”€â”€
             BleWearableCard(
               heartRate: watch.pulse,
               isConnected: watch.isConnected,
             ),
             const SizedBox(height: 16),
 
-            // ── Health Score Dial ──
+            // â”€â”€ Health Score Dial â”€â”€
             HealthScoreDial(
               score: watch.wellnessScore > 0 ? watch.wellnessScore : 85,
               heartScore: watch.pulse > 0 ? (100 - (watch.restingHeartRate - 60).abs()).clamp(0, 100) : 80,
@@ -70,12 +70,12 @@ class _WatchDashboardState extends State<WatchDashboard>
             ),
             const SizedBox(height: 16),
 
-            // ── Vitals Grid ──
+            // â”€â”€ Vitals Grid â”€â”€
             Row(
               children: [
                 Expanded(
                   child: MetricGridCard(
-                    label: 'SpO₂',
+                    label: 'SpOâ‚‚',
                     value: '${watch.spO2 > 0 ? watch.spO2.toStringAsFixed(0) : "98"}%',
                     progress: watch.spO2 > 0 ? watch.spO2 / 100 : 0.98,
                     isUpTrend: watch.spO2 >= 95,
@@ -94,7 +94,7 @@ class _WatchDashboardState extends State<WatchDashboard>
             ),
             const SizedBox(height: 16),
 
-            // ── Sleep Stage Bar ──
+            // â”€â”€ Sleep Stage Bar â”€â”€
             SleepStageBar(
               awakeHours: watch.sleepHours > 0 ? watch.sleepHours * 0.1 : 0.8,
               lightHours: watch.sleepHours > 0 ? watch.sleepHours * 0.5 : 4.0,
@@ -103,7 +103,7 @@ class _WatchDashboardState extends State<WatchDashboard>
             ),
             const SizedBox(height: 16),
 
-            // ── Trend Chart ──
+            // â”€â”€ Trend Chart â”€â”€
             TrendChartCard(
               title: 'Activity Trend',
               dataPoints: [

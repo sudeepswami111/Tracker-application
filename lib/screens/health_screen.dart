@@ -1,6 +1,6 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:lucide_icons/lucide_icons.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import '../providers/app_provider.dart';
 
 import '../theme/app_colors.dart';
@@ -39,7 +39,7 @@ class _HealthScreenState extends State<HealthScreen> {
               style: theme.textTheme.bodySmall),
           const SizedBox(height: AppSpacing.lg),
 
-          // ── Health Date Selector ──
+          // â”€â”€ Health Date Selector â”€â”€
           HealthDateSelector(
             selectedDate: _selectedDate,
             completedDates: [
@@ -53,11 +53,11 @@ class _HealthScreenState extends State<HealthScreen> {
           ),
           const SizedBox(height: AppSpacing.lg),
 
-          // ── Watch Connection Banner (always visible) ──
+          // â”€â”€ Watch Connection Banner (always visible) â”€â”€
           const WatchConnectBanner(),
           const SizedBox(height: AppSpacing.md),
 
-          // ── Conditional UI ──
+          // â”€â”€ Conditional UI â”€â”€
           AnimatedSwitcher(
             duration: const Duration(milliseconds: 500),
             switchInCurve: Curves.easeOut,
@@ -85,7 +85,7 @@ class _HealthScreenState extends State<HealthScreen> {
     );
   }
 
-  // ── Connected: Show full dashboard with live health metrics ──
+  // â”€â”€ Connected: Show full dashboard with live health metrics â”€â”€
   Widget _buildConnectedView(WatchMetricsProvider watch, AppProvider app,
       ThemeData theme, bool isDark) {
     return Column(
@@ -106,7 +106,7 @@ class _HealthScreenState extends State<HealthScreen> {
     );
   }
 
-  // ── Disconnected: Show ONLY the connect card + empty state ──
+  // â”€â”€ Disconnected: Show ONLY the connect card + empty state â”€â”€
   Widget _buildDisconnectedView(ThemeData theme, bool isDark) {
     return Column(
       key: const ValueKey('disconnected_view'),
@@ -171,7 +171,7 @@ class _HealthScreenState extends State<HealthScreen> {
               ),
               _featureItem(
                 icon: LucideIcons.wind,
-                label: 'Blood Oxygen (SpO₂)',
+                label: 'Blood Oxygen (SpOâ‚‚)',
                 color: AppColors.blue,
                 theme: theme,
                 isDark: isDark,

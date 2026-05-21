@@ -1,9 +1,9 @@
-import 'package:flutter/material.dart';
-import 'package:lucide_icons/lucide_icons.dart';
+﻿import 'package:flutter/material.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:provider/provider.dart';
 
 import '../providers/app_provider.dart';
-import '../providers/friend_provider.dart';
+
 import '../providers/watch_metrics_provider.dart';
 import '../providers/step_tracker_provider.dart';
 import '../theme/app_colors.dart';
@@ -208,7 +208,7 @@ class DashboardScreen extends StatelessWidget {
 
     return Column(
       children: [
-        // ── Header row ──
+        // â”€â”€ Header row â”€â”€
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
@@ -270,7 +270,7 @@ class DashboardScreen extends StatelessWidget {
         ),
         const SizedBox(height: AppSpacing.md),
 
-        // ── Empty State ──
+        // â”€â”€ Empty State â”€â”€
         if (plans.isEmpty)
           GestureDetector(
             onTap: () {
@@ -325,7 +325,7 @@ class DashboardScreen extends StatelessWidget {
             ),
           )
 
-        // ── Plans: single full-width or horizontal scroll (up to 3) ──
+        // â”€â”€ Plans: single full-width or horizontal scroll (up to 3) â”€â”€
         else if (planCount == 1)
           DailyPlanTile(
             activityName: plans.first.title,

@@ -1,7 +1,7 @@
-import 'dart:io';
+﻿import 'dart:io';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
-import 'package:lucide_icons/lucide_icons.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import '../theme/app_colors.dart';
 
 class DailyPlanTile extends StatelessWidget {
@@ -13,7 +13,7 @@ class DailyPlanTile extends StatelessWidget {
   final VoidCallback? onStart;
   final VoidCallback? onDelete;
 
-  // Accent color drives the gradient + shadow — default to coral (Run)
+  // Accent color drives the gradient + shadow â€” default to coral (Run)
   final Color accentColor;
 
   const DailyPlanTile({
@@ -89,7 +89,7 @@ class DailyPlanTile extends StatelessWidget {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // ── Left: Activity image 80×80 ──
+            // â”€â”€ Left: Activity image 80Ã—80 â”€â”€
             ClipRRect(
               borderRadius: BorderRadius.circular(16),
               child: SizedBox(
@@ -116,7 +116,7 @@ class DailyPlanTile extends StatelessWidget {
             ),
             const SizedBox(width: 14),
 
-            // ── Right: Info + buttons ──
+            // â”€â”€ Right: Info + buttons â”€â”€
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -189,7 +189,7 @@ class DailyPlanTile extends StatelessWidget {
                                 onTap: onStart,
                                 child: const Center(
                                   child: Text(
-                                    'Start Workout →',
+                                    'Start Workout â†’',
                                     style: TextStyle(
                                       color: Colors.white,
                                       fontWeight: FontWeight.w700,

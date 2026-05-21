@@ -1,6 +1,6 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:lucide_icons/lucide_icons.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import '../providers/watch_metrics_provider.dart';
 import '../services/watch_connection_manager.dart';
 import '../theme/app_colors.dart';
@@ -318,7 +318,7 @@ class _DeviceScannerSheetState extends State<DeviceScannerSheet>
   }
 }
 
-// ── Device Tile ──
+// â”€â”€ Device Tile â”€â”€
 class _DeviceTile extends StatelessWidget {
   final DiscoveredDevice device;
   final bool isDark;
@@ -494,7 +494,7 @@ class _DeviceTile extends StatelessWidget {
   }
 }
 
-// ── Scanning animation ──
+// â”€â”€ Scanning animation â”€â”€
 class _ScanningAnimation extends StatelessWidget {
   final AnimationController controller;
   final bool isDark;

@@ -1,6 +1,6 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:lucide_icons/lucide_icons.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../providers/app_provider.dart';
@@ -8,15 +8,15 @@ import '../theme/app_colors.dart';
 import '../widgets/glass_card.dart';
 import '../services/follow_service.dart'; // adjust import path as needed
 
-// ─────────────────────────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // PROFILE SCREEN
 // Shows: avatar, full name, username, bio, followers, following.
 // Followers / Following are live from Supabase and tappable to
 // open a list sheet.
-// ─────────────────────────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 class ProfileScreen extends StatefulWidget {
-  /// If null → show the current user's own profile.
-  /// If provided → show another user's profile.
+  /// If null â†’ show the current user's own profile.
+  /// If provided â†’ show another user's profile.
   final String? targetUserId;
 
   const ProfileScreen({super.key, this.targetUserId});
@@ -94,7 +94,7 @@ class _ProfileScreenState extends State<ProfileScreen>
     super.dispose();
   }
 
-  // ── Follow / Unfollow button action ──────────────────────────
+  // â”€â”€ Follow / Unfollow button action â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   Future<void> _handleFollowAction() async {
     if (_followActionLoading) return;
     HapticFeedback.mediumImpact();
@@ -122,7 +122,7 @@ class _ProfileScreenState extends State<ProfileScreen>
     if (mounted) setState(() => _followActionLoading = false);
   }
 
-  // ── Open Followers list ───────────────────────────────────────
+  // â”€â”€ Open Followers list â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   void _showFollowersList() {
     _showFollowSheet(
       title: 'Followers',
@@ -149,7 +149,7 @@ class _ProfileScreenState extends State<ProfileScreen>
     );
   }
 
-  // ── Edit profile sheet ────────────────────────────────────────
+  // â”€â”€ Edit profile sheet â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   void _showEditProfile(AppProvider app) {
     final nameCtrl = TextEditingController(
         text: _profile?['full_name'] as String? ?? '');
@@ -229,7 +229,7 @@ class _ProfileScreenState extends State<ProfileScreen>
     );
   }
 
-  // ── Build ─────────────────────────────────────────────────────
+  // â”€â”€ Build â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   @override
   Widget build(BuildContext context) {
     final theme  = Theme.of(context);
@@ -256,7 +256,7 @@ class _ProfileScreenState extends State<ProfileScreen>
       body: CustomScrollView(
         controller: _scroll,
         slivers: [
-          // ── App Bar ──────────────────────────────────────────
+          // â”€â”€ App Bar â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
           SliverAppBar(
             expandedHeight: 200,
             pinned: true,
@@ -299,7 +299,7 @@ class _ProfileScreenState extends State<ProfileScreen>
                 children: [
                   const SizedBox(height: 16),
 
-                  // ── Avatar ───────────────────────────────────
+                  // â”€â”€ Avatar â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
                   CircleAvatar(
                     radius: 48,
                     backgroundColor: AppColors.primary.withValues(alpha: 0.2),
@@ -318,7 +318,7 @@ class _ProfileScreenState extends State<ProfileScreen>
                   ),
                   const SizedBox(height: 12),
 
-                  // ── Name & Username ───────────────────────────
+                  // â”€â”€ Name & Username â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
                   Text(fullName,
                       style: theme.textTheme.headlineSmall
                           ?.copyWith(fontWeight: FontWeight.bold)),
@@ -337,7 +337,7 @@ class _ProfileScreenState extends State<ProfileScreen>
 
                   const SizedBox(height: 20),
 
-                  // ── Followers / Following counts ──────────────
+                  // â”€â”€ Followers / Following counts â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
@@ -364,7 +364,7 @@ class _ProfileScreenState extends State<ProfileScreen>
 
                   const SizedBox(height: 20),
 
-                  // ── Follow / Unfollow button (other profiles) ─
+                  // â”€â”€ Follow / Unfollow button (other profiles) â”€
                   if (!_isOwnProfile)
                     SizedBox(
                       width: double.infinity,
@@ -414,9 +414,9 @@ class _ProfileScreenState extends State<ProfileScreen>
   }
 }
 
-// ─────────────────────────────────────────────────────────────────
-// STAT BUTTON — tappable follower/following count
-// ─────────────────────────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// STAT BUTTON â€” tappable follower/following count
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 class _StatButton extends StatelessWidget {
   final String label;
   final int count;
@@ -449,9 +449,9 @@ class _StatButton extends StatelessWidget {
   }
 }
 
-// ─────────────────────────────────────────────────────────────────
-// FOLLOW LIST SHEET — shown when user taps Followers / Following
-// ─────────────────────────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// FOLLOW LIST SHEET â€” shown when user taps Followers / Following
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 class _FollowListSheet extends StatelessWidget {
   final String title;
   final Future<List<FollowUser>> future;

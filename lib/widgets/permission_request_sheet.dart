@@ -1,6 +1,6 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:lucide_icons/lucide_icons.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:permission_handler/permission_handler.dart';
 import '../providers/watch_metrics_provider.dart';
 import '../theme/app_colors.dart';
@@ -95,7 +95,7 @@ class PermissionRequestSheet extends StatelessWidget {
           _PermissionItem(
             icon: LucideIcons.heartPulse,
             title: 'Health Connect',
-            description: 'Read heart rate, SpO₂, sleep from Mi Fitness / Zepp Life.',
+            description: 'Read heart rate, SpOâ‚‚, sleep from Mi Fitness / Zepp Life.',
             isDark: isDark,
           ),
           const SizedBox(height: 14),

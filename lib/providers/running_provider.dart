@@ -1,4 +1,4 @@
-import 'dart:async';
+﻿import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import '../services/notification_service.dart';
@@ -31,7 +31,7 @@ class RoutePoint {
   RoutePoint(this.latitude, this.longitude);
 }
 
-// ──── Feature 5: Saved Route Memory ────
+// â”€â”€â”€â”€ Feature 5: Saved Route Memory â”€â”€â”€â”€
 class SavedRoute {
   final String name;
   final List<RoutePoint> points;
@@ -51,7 +51,7 @@ class SavedRoute {
 }
 
 class RunningProvider extends ChangeNotifier {
-  // ──── State ────
+  // â”€â”€â”€â”€ State â”€â”€â”€â”€
   bool isTracking = false;
   bool isPaused = false;
   double currentDistance = 0;
@@ -60,7 +60,7 @@ class RunningProvider extends ChangeNotifier {
   int currentCalories = 0;
   double currentSpeed = 0;
 
-  // ──── GPS ────
+  // â”€â”€â”€â”€ GPS â”€â”€â”€â”€
   List<RoutePoint> routeCoordinates = [];
   RoutePoint? currentPosition;
   RoutePoint? startPosition;
@@ -68,10 +68,10 @@ class RunningProvider extends ChangeNotifier {
   Timer? _durationTimer;
   bool hasLocationPermission = false;
 
-  // ──── Feature 5: Saved Routes ────
+  // â”€â”€â”€â”€ Feature 5: Saved Routes â”€â”€â”€â”€
   List<SavedRoute> savedRoutes = [];
 
-  // ──── History ────
+  // â”€â”€â”€â”€ History â”€â”€â”€â”€
   List<RunData> history = [
     RunData(id: 1, date: '2026-05-03', distance: 5.2, duration: '28:45', pace: '5:32', calories: 320, route: 'Central Park Loop'),
     RunData(id: 2, date: '2026-05-01', distance: 8.1, duration: '45:20', pace: '5:36', calories: 510, route: 'Riverside Path'),
@@ -80,7 +80,7 @@ class RunningProvider extends ChangeNotifier {
     RunData(id: 5, date: '2026-04-25', distance: 6.3, duration: '34:50', pace: '5:32', calories: 395, route: 'Hill Training'),
   ];
 
-  // ──── Personal Records ────
+  // â”€â”€â”€â”€ Personal Records â”€â”€â”€â”€
   final Map<String, String> personalRecords = {
     'Fastest 5K': '24:30',
     'Fastest 10K': '52:15',
@@ -90,7 +90,7 @@ class RunningProvider extends ChangeNotifier {
 
   final List<double> monthlyDistance = [32, 45, 38, 52, 41, 48, 55, 60, 42, 58, 50, 65];
 
-  // ──── Location Service ────
+  // â”€â”€â”€â”€ Location Service â”€â”€â”€â”€
   Future<bool> initLocationService() async {
     bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
     if (!serviceEnabled) return false;
@@ -116,7 +116,7 @@ class RunningProvider extends ChangeNotifier {
     return true;
   }
 
-  // ──── Start Run ────
+  // â”€â”€â”€â”€ Start Run â”€â”€â”€â”€
   Future<void> startRun() async {
     if (!hasLocationPermission) {
       final ok = await initLocationService();
@@ -200,7 +200,7 @@ class RunningProvider extends ChangeNotifier {
     }
   }
 
-  // ──── Pause/Resume ────
+  // â”€â”€â”€â”€ Pause/Resume â”€â”€â”€â”€
   void pauseRun() {
     isPaused = true;
     notifyListeners();
@@ -211,7 +211,7 @@ class RunningProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  // ──── Stop Run ────
+  // â”€â”€â”€â”€ Stop Run â”€â”€â”€â”€
   void stopRun() {
     _positionSubscription?.cancel();
     _durationTimer?.cancel();
@@ -236,14 +236,14 @@ class RunningProvider extends ChangeNotifier {
 
     isTracking = false;
     isPaused = false;
-    // Feature 5 — match or save this route
+    // Feature 5 â€” match or save this route
     if (currentDistance > 0.01) {
       _matchOrSaveRoute(List.from(routeCoordinates));
     }
     notifyListeners();
   }
 
-  // ──── Reset ────
+  // â”€â”€â”€â”€ Reset â”€â”€â”€â”€
   void resetRun() {
     currentDistance = 0;
     currentDuration = 0;
@@ -261,7 +261,7 @@ class RunningProvider extends ChangeNotifier {
     return '$mins:${secs.toString().padLeft(2, '0')}';
   }
 
-  // ──── Feature 5: Route Memory ────
+  // â”€â”€â”€â”€ Feature 5: Route Memory â”€â”€â”€â”€
   void _matchOrSaveRoute(List<RoutePoint> newPoints) {
     if (newPoints.length < 2) return;
     final runDur = Duration(seconds: currentDuration);
@@ -290,7 +290,7 @@ class RunningProvider extends ChangeNotifier {
       }
     }
 
-    // New route — only save if distance > 0.5 km
+    // New route â€” only save if distance > 0.5 km
     if (currentDistance >= 0.5) {
       savedRoutes.add(SavedRoute(
         name: 'Route #${savedRoutes.length + 1}',

@@ -1,4 +1,4 @@
-import 'dart:async';
+﻿import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../services/watch_connection_manager.dart';
@@ -8,7 +8,7 @@ enum WatchPermissionStatus { unknown, granted, denied, permanentlyDenied }
 class WatchMetricsProvider extends ChangeNotifier {
   final WatchConnectionManager _manager = WatchConnectionManager();
 
-  // ── Connection State ──
+  // â”€â”€ Connection State â”€â”€
   bool _isConnected = false;
   bool get isConnected => _isConnected;
 
@@ -24,11 +24,11 @@ class WatchMetricsProvider extends ChangeNotifier {
   String _deviceName = '';
   String get deviceName => _deviceName;
 
-  // ── Discovered Devices (for scanner UI) ──
+  // â”€â”€ Discovered Devices (for scanner UI) â”€â”€
   List<DiscoveredDevice> _discoveredDevices = [];
   List<DiscoveredDevice> get discoveredDevices => _discoveredDevices;
 
-  // ── Health Metrics ──
+  // â”€â”€ Health Metrics â”€â”€
   int _pulse = 0;
   int get pulse => _pulse;
 
@@ -56,7 +56,7 @@ class WatchMetricsProvider extends ChangeNotifier {
   double _sleepHours = 0.0;
   double get sleepHours => _sleepHours;
 
-  // ── Battery & Sync ──
+  // â”€â”€ Battery & Sync â”€â”€
   int _batteryLevel = 85;
   int get batteryLevel => _batteryLevel;
 
@@ -72,7 +72,7 @@ class WatchMetricsProvider extends ChangeNotifier {
     return '${diff.inDays}d ago';
   }
 
-  // ── Permissions ──
+  // â”€â”€ Permissions â”€â”€
   WatchPermissionStatus _permissionStatus = WatchPermissionStatus.unknown;
   WatchPermissionStatus get permissionStatus => _permissionStatus;
 
@@ -171,7 +171,7 @@ class WatchMetricsProvider extends ChangeNotifier {
     }
   }
 
-  // ── Step 1: Request permissions & start scanning ──
+  // â”€â”€ Step 1: Request permissions & start scanning â”€â”€
   Future<void> requestPermissionsAndScan() async {
     _connectError = null;
     _discoveredDevices = [];
@@ -205,7 +205,7 @@ class WatchMetricsProvider extends ChangeNotifier {
     }
   }
 
-  // ── Step 2: Connect to user-selected device ──
+  // â”€â”€ Step 2: Connect to user-selected device â”€â”€
   Future<void> connectToDevice(DiscoveredDevice device) async {
     _connectError = null;
     _isConnecting = true;
@@ -250,7 +250,7 @@ class WatchMetricsProvider extends ChangeNotifier {
     }
   }
 
-  // ── Step 3: Connect via Health Connect (No BLE) ──
+  // â”€â”€ Step 3: Connect via Health Connect (No BLE) â”€â”€
   Future<void> connectViaHealthConnect() async {
     _connectError = null;
     _isConnecting = true;

@@ -1,7 +1,7 @@
-import 'dart:io';
+﻿import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:lucide_icons/lucide_icons.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:provider/provider.dart';
 import 'package:image_picker/image_picker.dart';
 
@@ -120,7 +120,7 @@ class _AddPlanSheetState extends State<AddPlanSheet> {
     ],
   };
 
-  // Helper — fallback to first generic image if activity not in map yet
+  // Helper â€” fallback to first generic image if activity not in map yet
   List<String> _sampleImagesFor(String activityLabel) {
     return _activitySampleImages[activityLabel] ??
         _activitySampleImages['Outdoor Run']!;

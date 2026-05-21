@@ -1,6 +1,6 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:lucide_icons/lucide_icons.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'providers/app_provider.dart';
 import 'providers/auth_provider.dart';
@@ -14,7 +14,6 @@ import 'screens/settings_screen.dart';
 import 'screens/challenge_screen.dart';
 import 'screens/community_screen.dart';
 import 'screens/notifications_screen.dart';
-import 'providers/friend_provider.dart';
 import 'theme/app_colors.dart';
 import 'widgets/glass_nav_bar.dart';
 
@@ -34,7 +33,6 @@ class _AppShellState extends State<AppShell> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       Permission.notification.request();
       context.read<AppProvider>().syncProfileWithSupabase();
-      context.read<FriendProvider>().init();
     });
   }
 
@@ -67,7 +65,7 @@ class _AppShellState extends State<AppShell> {
             FittedBox(
               fit: BoxFit.scaleDown,
               child: Text(
-                '${_getGreeting()}, ${app.userName} 👋',
+                '${_getGreeting()}, ${app.userName} ðŸ‘‹',
                 style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
               ),
             ),
@@ -130,7 +128,7 @@ class _AppShellState extends State<AppShell> {
             },
             itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
               const PopupMenuItem<String>(value: 'Profile', child: Text('Profile')),
-              const PopupMenuItem<String>(value: 'Challenges', child: Text('🏅 Challenges')),
+              const PopupMenuItem<String>(value: 'Challenges', child: Text('ðŸ… Challenges')),
               const PopupMenuItem<String>(value: 'History', child: Text('History')),
               const PopupMenuItem<String>(value: 'Settings', child: Text('Settings')),
               const PopupMenuItem<String>(value: 'Logout', child: Text('Logout')),

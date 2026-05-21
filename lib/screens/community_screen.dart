@@ -1,6 +1,6 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:lucide_icons/lucide_icons.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_spacing.dart';
 import 'dm_chat_screen.dart';
@@ -44,7 +44,7 @@ class _CommunityScreenState extends State<CommunityScreen> with SingleTickerProv
 
     return Scaffold(
       backgroundColor: isDark ? AppColors.backgroundDeep : AppColors.lightBg,
-      // ── FLOATING ACTION BUTTON WITH GLOW ──
+      // â”€â”€ FLOATING ACTION BUTTON WITH GLOW â”€â”€
       floatingActionButton: Padding(
         padding: const EdgeInsets.only(bottom: 90.0), // Safely above bottom nav
         child: AnimatedBuilder(
@@ -95,7 +95,7 @@ class _CommunityScreenState extends State<CommunityScreen> with SingleTickerProv
           child: CustomScrollView(
             physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
             slivers: [
-              // ── 1. PREMIUM HEADER ──
+              // â”€â”€ 1. PREMIUM HEADER â”€â”€
               SliverToBoxAdapter(
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(AppSpacing.screenMargin, AppSpacing.lg, AppSpacing.screenMargin, AppSpacing.md),
@@ -142,7 +142,7 @@ class _CommunityScreenState extends State<CommunityScreen> with SingleTickerProv
                 ),
               ),
 
-              // ── 2. ANIMATED FILTER CHIPS ──
+              // â”€â”€ 2. ANIMATED FILTER CHIPS â”€â”€
               SliverToBoxAdapter(
                 child: SizedBox(
                   height: 48,
@@ -199,7 +199,7 @@ class _CommunityScreenState extends State<CommunityScreen> with SingleTickerProv
               ),
               const SliverToBoxAdapter(child: SizedBox(height: AppSpacing.lg)),
 
-              // ── 3. ACTIVE CHALLENGES (Horizontal Scroll) ──
+              // â”€â”€ 3. ACTIVE CHALLENGES (Horizontal Scroll) â”€â”€
               if (_activeFilter == 'All' || _activeFilter == 'Challenges')
                 SliverToBoxAdapter(
                   child: Column(
@@ -230,7 +230,7 @@ class _CommunityScreenState extends State<CommunityScreen> with SingleTickerProv
                   ),
                 ),
 
-              // ── 4. PREMIUM FEED ──
+              // â”€â”€ 4. PREMIUM FEED â”€â”€
               SliverPadding(
                 padding: const EdgeInsets.symmetric(horizontal: AppSpacing.screenMargin),
                 sliver: SliverList(
@@ -246,7 +246,7 @@ class _CommunityScreenState extends State<CommunityScreen> with SingleTickerProv
                 ),
               ),
               
-              // ── FIX FOR BOTTOM OVERFLOW ──
+              // â”€â”€ FIX FOR BOTTOM OVERFLOW â”€â”€
               const SliverSafeArea(
                 top: false,
                 sliver: SliverToBoxAdapter(child: SizedBox(height: 150)),
@@ -413,7 +413,7 @@ class _PremiumFeedCardState extends State<_PremiumFeedCard> with SingleTickerPro
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text('Sarah Jenkins', style: widget.theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold)),
-                            Text('2 hours ago • Morning Run', style: widget.theme.textTheme.bodySmall?.copyWith(color: AppColors.textSecondary, fontWeight: FontWeight.w500)),
+                            Text('2 hours ago â€¢ Morning Run', style: widget.theme.textTheme.bodySmall?.copyWith(color: AppColors.textSecondary, fontWeight: FontWeight.w500)),
                           ],
                         ),
                       ),
@@ -428,7 +428,7 @@ class _PremiumFeedCardState extends State<_PremiumFeedCard> with SingleTickerPro
                   
                   // 2. Post Content
                   Text(
-                    'Crushed my morning 10k! The new trail by the river is absolutely stunning. Beating my PR by 2 minutes today. 🏃‍♀️💨🔥',
+                    'Crushed my morning 10k! The new trail by the river is absolutely stunning. Beating my PR by 2 minutes today. ðŸƒâ€â™€ï¸ðŸ’¨ðŸ”¥',
                     style: widget.theme.textTheme.bodyMedium?.copyWith(height: 1.5, fontSize: 15),
                   ),
                   const SizedBox(height: 16),

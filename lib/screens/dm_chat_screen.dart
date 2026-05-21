@@ -1,17 +1,17 @@
-import 'dart:async';
+﻿import 'dart:async';
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:lucide_icons/lucide_icons.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import '../models/chat_models.dart';
 import '../services/chat_service.dart';
 import '../theme/app_colors.dart';
 import '../services/follow_service.dart'; // adjust path
 
-// ═════════════════════════════════════════════════════════════════
-// DM LIST SCREEN — shows all conversations + search bar
-// ═════════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// DM LIST SCREEN â€” shows all conversations + search bar
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 class DMListScreen extends StatefulWidget {
   const DMListScreen({super.key});
 
@@ -51,7 +51,7 @@ class _DMListScreenState extends State<DMListScreen> {
     if (mounted) setState(() => _loadingChats = false);
   }
 
-  // ── Username search (debounced 500ms) ──────────────────────────
+  // â”€â”€ Username search (debounced 500ms) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   void _onSearchChanged(String value) {
     _searchDebounce?.cancel();
     if (value.trim().isEmpty) {
@@ -65,7 +65,7 @@ class _DMListScreenState extends State<DMListScreen> {
     });
   }
 
-  // ── Open chat with a user found via search ─────────────────────
+  // â”€â”€ Open chat with a user found via search â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   /// Opens existing chat room if present, otherwise shows "not connected" hint.
   void _openChatWithUser(FollowUser user) async {
     // Check if a chat exists (both must have accepted follow)
@@ -99,7 +99,7 @@ class _DMListScreenState extends State<DMListScreen> {
         return;
       }
 
-      // Chat exists → navigate
+      // Chat exists â†’ navigate
       if (mounted) {
         Navigator.push(
           context,
@@ -135,7 +135,7 @@ class _DMListScreenState extends State<DMListScreen> {
                 style: TextStyle(
                     color: isDark ? Colors.white : Colors.black),
                 decoration: InputDecoration(
-                  hintText: 'Search by username…',
+                  hintText: 'Search by usernameâ€¦',
                   border: InputBorder.none,
                   hintStyle: TextStyle(
                       color: theme.colorScheme.onSurfaceVariant),
@@ -173,7 +173,7 @@ class _DMListScreenState extends State<DMListScreen> {
     );
   }
 
-  // ── Search Results View ─────────────────────────────────────────
+  // â”€â”€ Search Results View â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   Widget _buildSearchResults(ThemeData theme, bool isDark) {
     if (_searchCtrl.text.trim().isEmpty) {
       return Center(
@@ -219,7 +219,7 @@ class _DMListScreenState extends State<DMListScreen> {
     );
   }
 
-  // ── Chat List View ──────────────────────────────────────────────
+  // â”€â”€ Chat List View â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   Widget _buildChatList(ThemeData theme, bool isDark) {
     if (_loadingChats) {
       return const Center(
@@ -243,7 +243,7 @@ class _DMListScreenState extends State<DMListScreen> {
   }
 
   Widget _buildChatTile(ChatRoom chat, ThemeData theme, bool isDark) {
-    final name    = chat.otherUserName;
+    final name    = chat.friend.displayName;
     final initials = name.trim().split(' ').map((e) => e[0]).take(2).join().toUpperCase();
 
     return GestureDetector(
@@ -251,9 +251,9 @@ class _DMListScreenState extends State<DMListScreen> {
         context,
         MaterialPageRoute(
           builder: (_) => DMChatScreen(
-            chatId:        chat.id,
-            otherUserName: chat.otherUserName,
-            otherUserId:   chat.otherUserId,
+            chatId:        chat.chatId,
+            otherUserName: chat.friend.displayName,
+            otherUserId:   chat.friend.id,
           ),
         ),
       ).then((_) => _loadChats()),
@@ -276,11 +276,11 @@ class _DMListScreenState extends State<DMListScreen> {
           CircleAvatar(
             radius: 26,
             backgroundColor: AppColors.irisViolet.withValues(alpha: 0.15),
-            backgroundImage: chat.otherAvatarUrl != null &&
-                    chat.otherAvatarUrl!.isNotEmpty
-                ? NetworkImage(chat.otherAvatarUrl!)
+            backgroundImage: chat.friend.avatarUrl != null &&
+                    chat.friend.avatarUrl!.isNotEmpty
+                ? NetworkImage(chat.friend.avatarUrl!)
                 : null,
-            child: chat.otherAvatarUrl == null || chat.otherAvatarUrl!.isEmpty
+            child: chat.friend.avatarUrl == null || chat.friend.avatarUrl!.isEmpty
                 ? Text(initials,
                     style: const TextStyle(
                         color: AppColors.irisViolet,
@@ -347,9 +347,9 @@ class _DMListScreenState extends State<DMListScreen> {
   }
 }
 
-// ─────────────────────────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // Search result tile
-// ─────────────────────────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 class _SearchUserTile extends StatelessWidget {
   final FollowUser user;
   final ThemeData theme;
@@ -409,7 +409,7 @@ class _SearchUserTile extends StatelessWidget {
                   Text(name,
                       style: theme.textTheme.titleSmall
                           ?.copyWith(fontWeight: FontWeight.bold)),
-                  Text('@${user.username}  •  $_followLabel',
+                  Text('@${user.username}  â€¢  $_followLabel',
                       style: theme.textTheme.bodySmall?.copyWith(
                           color: theme.colorScheme.onSurfaceVariant)),
                 ]),
@@ -429,9 +429,9 @@ class _SearchUserTile extends StatelessWidget {
   }
 }
 
-// ═════════════════════════════════════════════════════════════════
-// DM CHAT SCREEN — the actual 1-on-1 conversation view
-// ═════════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// DM CHAT SCREEN â€” the actual 1-on-1 conversation view
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 class DMChatScreen extends StatefulWidget {
   final String chatId;
   final String otherUserName;
@@ -604,7 +604,7 @@ class _DMChatScreenState extends State<DMChatScreen> {
                 minLines: 1,
                 maxLines: 4,
                 decoration: InputDecoration(
-                  hintText: 'Message…',
+                  hintText: 'Messageâ€¦',
                   filled: true,
                   fillColor: isDark
                       ? AppColors.surfaceElevated
@@ -662,9 +662,9 @@ class _DMChatScreenState extends State<DMChatScreen> {
       );
 }
 
-// ─────────────────────────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // Message Bubble
-// ─────────────────────────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 class _Bubble extends StatelessWidget {
   final ChatMessage msg;
   final bool isMe;

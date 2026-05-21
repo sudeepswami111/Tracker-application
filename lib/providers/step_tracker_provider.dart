@@ -1,4 +1,4 @@
-import 'dart:async';
+﻿import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:pedometer/pedometer.dart';
@@ -143,7 +143,7 @@ class StepTrackerProvider extends ChangeNotifier with WidgetsBindingObserver {
         // 2. Load cached values using UNIQUE pref keys
         final prefs = await SharedPreferences.getInstance();
 
-        // ── One-time FORCE RESET (v2) ──
+        // â”€â”€ One-time FORCE RESET (v2) â”€â”€
         // Wipe all stale step data so baseline is recalculated fresh.
         // This runs once, then sets a flag so it never runs again.
         const resetFlag = 'step_tracker_reset_v2';
@@ -189,7 +189,7 @@ class StepTrackerProvider extends ChangeNotifier with WidgetsBindingObserver {
                 'new baseline=$_initialStepsForDay');
           }
         } else if (_lastSavedDate == todayStr) {
-          // Same day — reconstruct today's step count from saved state
+          // Same day â€” reconstruct today's step count from saved state
           if (_initialStepsForDay >= 0 && _lastKnownDeviceSteps >= 0) {
             _steps = (_lastKnownDeviceSteps - _initialStepsForDay).clamp(0, 999999);
           }
@@ -198,7 +198,7 @@ class StepTrackerProvider extends ChangeNotifier with WidgetsBindingObserver {
                 'steps=$_steps (=$_lastKnownDeviceSteps - $_initialStepsForDay)');
           }
         } else {
-          // First launch ever — _lastSavedDate is empty
+          // First launch ever â€” _lastSavedDate is empty
           _lastSavedDate = todayStr;
           await prefs.setString(_prefKeyLastSavedDate, _lastSavedDate);
           if (kDebugMode) {
@@ -237,7 +237,7 @@ class StepTrackerProvider extends ChangeNotifier with WidgetsBindingObserver {
     final todayStr = _todayStr();
     final prefs = await SharedPreferences.getInstance();
 
-    // ─── Day boundary check (redundant safety net) ───
+    // â”€â”€â”€ Day boundary check (redundant safety net) â”€â”€â”€
     if (_lastSavedDate != todayStr) {
       if (kDebugMode) {
         print('[StepTracker] onStepCount detected day change: $_lastSavedDate -> $todayStr');
@@ -246,7 +246,7 @@ class StepTrackerProvider extends ChangeNotifier with WidgetsBindingObserver {
       if (_lastSavedDate.isNotEmpty && _lastKnownDeviceSteps > 0) {
         _initialStepsForDay = _lastKnownDeviceSteps;
       } else {
-        // No previous data at all — use current event as baseline
+        // No previous data at all â€” use current event as baseline
         _initialStepsForDay = event.steps;
       }
       _lastSavedDate = todayStr;
@@ -254,7 +254,7 @@ class StepTrackerProvider extends ChangeNotifier with WidgetsBindingObserver {
       await prefs.setInt(_prefKeyInitialSteps, _initialStepsForDay);
       await prefs.setString(_prefKeyLastSavedDate, _lastSavedDate);
     } else if (_initialStepsForDay == -1) {
-      // First step event ever for this day — set baseline
+      // First step event ever for this day â€” set baseline
       _initialStepsForDay = event.steps;
       _lastSavedDate = todayStr;
       await prefs.setInt(_prefKeyInitialSteps, _initialStepsForDay);
@@ -264,14 +264,14 @@ class StepTrackerProvider extends ChangeNotifier with WidgetsBindingObserver {
       }
     }
 
-    // ─── Always update last known device steps ───
+    // â”€â”€â”€ Always update last known device steps â”€â”€â”€
     _lastKnownDeviceSteps = event.steps;
     await prefs.setInt(_prefKeyLastKnownDeviceSteps, _lastKnownDeviceSteps);
 
-    // ─── Calculate today's steps ───
+    // â”€â”€â”€ Calculate today's steps â”€â”€â”€
     int currentSteps = event.steps - _initialStepsForDay;
     if (currentSteps < 0) {
-      // Device rebooted — hardware counter reset to near-zero
+      // Device rebooted â€” hardware counter reset to near-zero
       _initialStepsForDay = 0;
       currentSteps = event.steps;
       await prefs.setInt(_prefKeyInitialSteps, 0);

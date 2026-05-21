@@ -15,7 +15,8 @@ ALTER TABLE public.profiles
   ADD COLUMN IF NOT EXISTS avatar_url TEXT,
   ADD COLUMN IF NOT EXISTS bio TEXT,
   ADD COLUMN IF NOT EXISTS followers_count INT DEFAULT 0,
-  ADD COLUMN IF NOT EXISTS following_count INT DEFAULT 0;
+  ADD COLUMN IF NOT EXISTS following_count INT DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW();
 
 -- Migration: Copy existing 'name' to 'full_name' if full_name is empty (for backward compatibility)
 UPDATE public.profiles SET full_name = name WHERE full_name IS NULL AND name IS NOT NULL;
@@ -32,6 +33,7 @@ CREATE TABLE IF NOT EXISTS public.follows (
   following_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE NOT NULL,
   status TEXT NOT NULL CHECK (status IN ('pending', 'accepted')),
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   UNIQUE(follower_id, following_id)
 );
 
@@ -44,7 +46,8 @@ CREATE TABLE IF NOT EXISTS public.notifications (
   title TEXT,
   body TEXT,
   is_read BOOLEAN DEFAULT false,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
 -- CHATS TABLE
@@ -53,6 +56,7 @@ CREATE TABLE IF NOT EXISTS public.chats (
   user1_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE NOT NULL,
   user2_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE NOT NULL,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   UNIQUE(user1_id, user2_id),
   CHECK (user1_id < user2_id) -- Ensure deterministic ordering to prevent duplicate rooms
 );
@@ -64,7 +68,8 @@ CREATE TABLE IF NOT EXISTS public.messages (
   sender_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE NOT NULL,
   message TEXT NOT NULL,
   is_read BOOLEAN DEFAULT false,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
 -- =================================================================================

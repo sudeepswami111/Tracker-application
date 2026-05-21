@@ -1,4 +1,4 @@
-class GeocodingException implements Exception {
+﻿class GeocodingException implements Exception {
   final String technicalMessage;
   final String userMessage;
   final int? statusCode;

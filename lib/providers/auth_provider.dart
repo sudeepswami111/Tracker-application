@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class AuthProvider extends ChangeNotifier {
@@ -78,7 +78,7 @@ class AuthProvider extends ChangeNotifier {
     }
   }
 
-  // ─── Upserts a minimal profile row — safe to call on every login ──
+  // â”€â”€â”€ Upserts a minimal profile row â€” safe to call on every login â”€â”€
   Future<void> _ensureProfileExists(String userId, String email) async {
     try {
       final name = email.split('@')[0];
@@ -90,10 +90,10 @@ class AuthProvider extends ChangeNotifier {
         onConflict: 'id',
         ignoreDuplicates: true,  // Don't overwrite existing name if profile already exists
       );
-      debugPrint('✅ Profile ensured for $userId');
+      debugPrint('âœ… Profile ensured for $userId');
     } catch (e) {
-      debugPrint('⚠️ _ensureProfileExists error (non-fatal): $e');
-      // Non-fatal — don't rethrow, let login proceed
+      debugPrint('âš ï¸ _ensureProfileExists error (non-fatal): $e');
+      // Non-fatal â€” don't rethrow, let login proceed
     }
   }
 }

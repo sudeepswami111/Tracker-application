@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:hive_flutter/hive_flutter.dart';
@@ -16,7 +16,6 @@ import 'providers/watch_metrics_provider.dart';
 import 'providers/auth_provider.dart';
 import 'providers/weather_provider.dart';
 import 'providers/step_tracker_provider.dart';
-import 'providers/friend_provider.dart';
 import 'theme/app_theme.dart';
 import 'app.dart';
 import 'screens/login_screen.dart';
@@ -39,7 +38,7 @@ void main() async {
   );
 
   // Handle OAuth deep links (e.g. after Google sign-in redirects back to the app).
-  // supabase_flutter v2 uses PKCE — the redirect URL contains a one-time code
+  // supabase_flutter v2 uses PKCE â€” the redirect URL contains a one-time code
   // that must be exchanged for a session.
   final appLinks = AppLinks();
 
@@ -80,7 +79,6 @@ void main() async {
             return stepTracker ?? StepTrackerProvider();
           },
         ),
-        ChangeNotifierProvider(create: (_) => FriendProvider()),
       ],
       child: const LifePulseApp(),
     ),

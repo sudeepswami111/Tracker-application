@@ -1,12 +1,12 @@
-import 'dart:math' as math;
+﻿import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
-import 'package:lucide_icons/lucide_icons.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../theme/app_colors.dart';
 import 'glass_card.dart';
 
-// ── Health Score Dial ──
+// â”€â”€ Health Score Dial â”€â”€
 class HealthScoreDial extends StatefulWidget {
   final int score;
   final int heartScore;
@@ -113,7 +113,7 @@ class _HealthScoreDialState extends State<HealthScoreDial> with SingleTickerProv
             children: [
               _MiniMetricRing(label: 'Heart', value: widget.heartScore, color: AppColors.coral),
               _MiniMetricRing(label: 'Sleep', value: widget.sleepScore, color: AppColors.primary),
-              _MiniMetricRing(label: 'SpO₂', value: widget.spo2Score, color: AppColors.blue),
+              _MiniMetricRing(label: 'SpOâ‚‚', value: widget.spo2Score, color: AppColors.blue),
             ],
           ),
         ],
@@ -208,7 +208,7 @@ class _MiniMetricRing extends StatelessWidget {
   }
 }
 
-// ── BLE Wearable Card ──
+// â”€â”€ BLE Wearable Card â”€â”€
 class BleWearableCard extends StatefulWidget {
   final int heartRate;
   final bool isConnected;
@@ -345,7 +345,7 @@ class _BleWearableCardState extends State<BleWearableCard> with SingleTickerProv
   }
 }
 
-// ── Sleep Stage Bar ──
+// â”€â”€ Sleep Stage Bar â”€â”€
 class SleepStageBar extends StatefulWidget {
   final double awakeHours;
   final double lightHours;
@@ -470,7 +470,7 @@ class _SleepStageBarState extends State<SleepStageBar> with SingleTickerProvider
   }
 }
 
-// ── Water Intake Bar ──
+// â”€â”€ Water Intake Bar â”€â”€
 class WaterIntakeBar extends StatefulWidget {
   final int current;
   final int goal;
@@ -608,7 +608,7 @@ class _WaterIntakeBarState extends State<WaterIntakeBar> with SingleTickerProvid
   }
 }
 
-// ── Trend Chart ──
+// â”€â”€ Trend Chart â”€â”€
 class TrendChartCard extends StatelessWidget {
   final List<double> dataPoints;
   final String title;
@@ -695,7 +695,7 @@ class TrendChartCard extends StatelessWidget {
   }
 }
 
-// ── Metric Grid Card ──
+// â”€â”€ Metric Grid Card â”€â”€
 class MetricGridCard extends StatelessWidget {
   final String label;
   final String value;
