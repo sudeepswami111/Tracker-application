@@ -12,6 +12,7 @@
 ALTER TABLE public.profiles 
   ADD COLUMN IF NOT EXISTS username TEXT,
   ADD COLUMN IF NOT EXISTS full_name TEXT,
+  ADD COLUMN IF NOT EXISTS mobile_number TEXT,
   ADD COLUMN IF NOT EXISTS avatar_url TEXT,
   ADD COLUMN IF NOT EXISTS bio TEXT,
   ADD COLUMN IF NOT EXISTS followers_count INT DEFAULT 0,
@@ -318,3 +319,77 @@ CREATE PUBLICATION supabase_realtime FOR TABLE
   public.profiles, 
   public.messages, 
   public.notifications;
+
+-- =================================================================================
+-- 7. AUTH & REGISTRATION TRIGGERS
+-- =================================================================================
+
+-- Check if username is available
+CREATE OR REPLACE FUNCTION check_username_available(p_username TEXT)
+RETURNS BOOLEAN
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_exists BOOLEAN;
+BEGIN
+  SELECT EXISTS(SELECT 1 FROM public.profiles WHERE username = p_username) INTO v_exists;
+  RETURN NOT v_exists;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Trigger to handle new user registration
+CREATE OR REPLACE FUNCTION handle_new_user() 
+RETURNS TRIGGER 
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+  INSERT INTO public.profiles (id, full_name, username, mobile_number, avatar_url)
+  VALUES (
+    new.id,
+    new.raw_user_meta_data->>'full_name',
+    new.raw_user_meta_data->>'username',
+    new.raw_user_meta_data->>'mobile_number',
+    new.raw_user_meta_data->>'avatar_url'
+  );
+  RETURN new;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Drop trigger if exists and recreate it on auth.users
+-- Note: auth.users is in the auth schema, so this trigger is on auth.users
+DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
+CREATE TRIGGER on_auth_user_created
+  AFTER INSERT ON auth.users
+  FOR EACH ROW EXECUTE FUNCTION handle_new_user();
+
+-- =================================================================================
+-- 8. FOLLOW REQUEST NOTIFICATION TRIGGER
+-- =================================================================================
+
+CREATE OR REPLACE FUNCTION handle_follow_request()
+RETURNS TRIGGER
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+  IF NEW.status = 'pending' THEN
+    INSERT INTO public.notifications (user_id, actor_id, type, title, body)
+    VALUES (
+      NEW.following_id,
+      NEW.follower_id,
+      'follow_request',
+      'New Follow Request',
+      'Someone wants to follow you.'
+    );
+  END IF;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS on_follow_request ON public.follows;
+CREATE TRIGGER on_follow_request
+  AFTER INSERT ON public.follows
+  FOR EACH ROW
+  EXECUTE FUNCTION handle_follow_request();
