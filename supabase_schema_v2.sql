@@ -51,6 +51,26 @@ CREATE TABLE IF NOT EXISTS public.notifications (
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
+-- Safely drop old check constraint on notifications.type if it exists from schema v1
+ALTER TABLE public.notifications DROP CONSTRAINT IF EXISTS notifications_type_check;
+
+-- Modern PostgreSQL dynamic check constraint dropper
+DO $$
+DECLARE
+    r RECORD;
+BEGIN
+    FOR r IN 
+        SELECT conname 
+        FROM pg_constraint 
+        WHERE conrelid = 'public.notifications'::regclass 
+          AND contype = 'c' 
+          AND pg_get_constraintdef(oid) LIKE '%type%'
+    LOOP
+        EXECUTE 'ALTER TABLE public.notifications DROP CONSTRAINT ' || quote_ident(r.conname);
+    END LOOP;
+END $$;
+
+
 -- CHATS TABLE
 CREATE TABLE IF NOT EXISTS public.chats (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
