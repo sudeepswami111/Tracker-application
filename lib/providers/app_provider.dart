@@ -716,6 +716,14 @@ class AppProvider extends ChangeNotifier with WidgetsBindingObserver {
     notifyListeners();
   }
 
+  void updateSteps(int newSteps) {
+    steps = newSteps;
+    calories = (newSteps * 0.04).round();
+    distance = newSteps * 0.00078;
+    _saveData();
+    notifyListeners();
+  }
+
   void addWorkout(Map<String, dynamic> workout) {
     recordActivity();
     workouts.insert(0, workout);

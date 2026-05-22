@@ -1,4 +1,4 @@
-﻿import 'dart:async';
+import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:pedometer/pedometer.dart';
@@ -13,6 +13,9 @@ class StepTrackerProvider extends ChangeNotifier with WidgetsBindingObserver {
 
   void setAppProvider(AppProvider appProvider) {
     _appProvider = appProvider;
+    if (_steps >= 0) {
+      _appProvider!.updateSteps(_steps);
+    }
   }
 
   late Stream<StepCount> _stepCountStream;
@@ -111,6 +114,8 @@ class StepTrackerProvider extends ChangeNotifier with WidgetsBindingObserver {
       // Set the new baseline to wherever the hardware counter was at end of yesterday
       if (_lastKnownDeviceSteps > 0) {
         _initialStepsForDay = _lastKnownDeviceSteps;
+      } else {
+        _initialStepsForDay = -1;
       }
       // If _lastKnownDeviceSteps is still -1 (no events ever), we'll set
       // the baseline from the first onStepCount event of the new day.
@@ -121,6 +126,10 @@ class StepTrackerProvider extends ChangeNotifier with WidgetsBindingObserver {
 
       await prefs.setString(_prefKeyLastSavedDate, _lastSavedDate);
       await prefs.setInt(_prefKeyInitialSteps, _initialStepsForDay);
+
+      if (_appProvider != null) {
+        _appProvider!.updateSteps(0);
+      }
 
       if (kDebugMode) {
         print('[StepTracker] Reset complete. steps=$_steps, baseline=$_initialStepsForDay');
@@ -177,12 +186,18 @@ class StepTrackerProvider extends ChangeNotifier with WidgetsBindingObserver {
           // Baseline = yesterday's last known device steps.
           if (_lastKnownDeviceSteps > 0) {
             _initialStepsForDay = _lastKnownDeviceSteps;
+          } else {
+            _initialStepsForDay = -1;
           }
           _lastSavedDate = todayStr;
           _steps = 0;
           _streakRecordedToday = false;
           await prefs.setString(_prefKeyLastSavedDate, _lastSavedDate);
           await prefs.setInt(_prefKeyInitialSteps, _initialStepsForDay);
+
+          if (_appProvider != null) {
+            _appProvider!.updateSteps(0);
+          }
 
           if (kDebugMode) {
             print('[StepTracker] Day changed during offline. Reset steps to 0, '
@@ -281,6 +296,9 @@ class StepTrackerProvider extends ChangeNotifier with WidgetsBindingObserver {
     }
 
     _steps = currentSteps;
+    if (_appProvider != null) {
+      _appProvider!.updateSteps(_steps);
+    }
 
     // Auto-validate streak when step threshold is crossed
     if (!_streakRecordedToday && _steps >= _streakStepThreshold && _appProvider != null) {
