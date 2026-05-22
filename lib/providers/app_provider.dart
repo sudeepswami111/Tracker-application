@@ -1,4 +1,4 @@
-﻿import 'dart:async';
+import 'dart:async';
 import 'dart:convert';
 import 'dart:math';
 import 'package:flutter/material.dart';
@@ -141,6 +141,7 @@ class PrefsKeys {
   static const lastActivityDate = 'lastActivityDate';
   static const dailyPlans = 'dailyPlans';
   static const lastSavedDate = 'lastSavedDate';
+  static const completedTasksCount = 'completedTasksCount';
 }
 
 class AppProvider extends ChangeNotifier with WidgetsBindingObserver {
@@ -160,6 +161,7 @@ class AppProvider extends ChangeNotifier with WidgetsBindingObserver {
   }
   // ──── User ────
   String userName = 'User';
+  int completedTasksCount = 0;
   String email = 'user@example.com';
   String profileImagePath = '';
   int userLevel = 1;
@@ -358,7 +360,13 @@ class AppProvider extends ChangeNotifier with WidgetsBindingObserver {
   void togglePlanComplete(String id) {
     final idx = dailyPlans.indexWhere((p) => p.id == id);
     if (idx != -1) {
-      dailyPlans[idx].isCompleted = !dailyPlans[idx].isCompleted;
+      final wasCompleted = dailyPlans[idx].isCompleted;
+      dailyPlans[idx].isCompleted = !wasCompleted;
+      if (dailyPlans[idx].isCompleted) {
+        completedTasksCount++;
+      } else {
+        completedTasksCount = (completedTasksCount - 1).clamp(0, 9999999).toInt();
+      }
       _saveData();
       notifyListeners();
     }
@@ -442,6 +450,7 @@ class AppProvider extends ChangeNotifier with WidgetsBindingObserver {
     streakFreezes = prefs.getInt(PrefsKeys.streakFreezes) ?? 0;
     isStreakPending = prefs.getBool(PrefsKeys.isStreakPending) ?? false;
     lastActivityDate = prefs.getString(PrefsKeys.lastActivityDate) ?? '';
+    completedTasksCount = prefs.getInt(PrefsKeys.completedTasksCount) ?? 0;
     
     // Load Daily Plans
     final plansJson = prefs.getString(PrefsKeys.dailyPlans);
@@ -525,6 +534,7 @@ class AppProvider extends ChangeNotifier with WidgetsBindingObserver {
     prefs.setInt(PrefsKeys.streakFreezes, streakFreezes);
     prefs.setBool(PrefsKeys.isStreakPending, isStreakPending);
     prefs.setString(PrefsKeys.lastActivityDate, lastActivityDate);
+    prefs.setInt(PrefsKeys.completedTasksCount, completedTasksCount);
     
     // Save Daily Plans
     final plansEncoded = jsonEncode(dailyPlans.map((p) => p.toJson()).toList());

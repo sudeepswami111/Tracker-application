@@ -44,6 +44,11 @@ class _ProfileScreenState extends State<ProfileScreen>
 
   RealtimeChannel? _profileChannel;
 
+  int _runsCount = 0;
+  int _postsCount = 0;
+  String _avgCalories = '–';
+  String _macroAdherence = '–';
+
   bool get _isOwnProfile =>
       widget.targetUserId == null ||
       widget.targetUserId == _supabase.auth.currentUser?.id;
@@ -70,15 +75,80 @@ class _ProfileScreenState extends State<ProfileScreen>
           .select()
           .eq('id', _userId)
           .single();
-      if (mounted)
+      if (mounted) {
         setState(() {
           _profile = data;
           _loading = false;
         });
+      }
 
       if (!_isOwnProfile) {
         final status = await _followService.getFollowStatus(_userId);
         if (mounted) setState(() => _followStatus = status);
+      }
+
+      // Fetch extra statistics from Supabase
+      // Fetch runs count
+      try {
+        final runsRes = await _supabase
+            .from('running_activities')
+            .select('id')
+            .eq('user_id', _userId);
+        if (mounted) setState(() => _runsCount = (runsRes as List).length);
+      } catch (e) {
+        debugPrint('Error fetching runs count: $e');
+      }
+
+      // Fetch posts count
+      try {
+        final postsRes = await _supabase
+            .from('community_posts')
+            .select('id')
+            .eq('user_id', _userId);
+        if (mounted) setState(() => _postsCount = (postsRes as List).length);
+      } catch (e) {
+        debugPrint('Error fetching posts count: $e');
+      }
+
+      // Fetch nutrition average calories (7 days)
+      try {
+        final sevenDaysAgo = DateTime.now().subtract(const Duration(days: 7)).toUtc().toIso8601String();
+        final nutritionRes = await _supabase
+            .from('nutrition_logs')
+            .select('calories, protein_g, carbs_g, fat_g')
+            .eq('user_id', _userId)
+            .gte('logged_at', sevenDaysAgo);
+
+        if (nutritionRes != null && (nutritionRes as List).isNotEmpty) {
+          final logs = nutritionRes as List;
+          final validLogs = logs.where((e) => e['calories'] != null).toList();
+          if (validLogs.isNotEmpty) {
+            final totalCal = validLogs.map((e) => (e['calories'] as num).toInt()).reduce((a, b) => a + b);
+            final avgCal = totalCal ~/ validLogs.length;
+            
+            double adherenceTotal = 0;
+            for (final log in validLogs) {
+              final p = (log['protein_g'] as num?)?.toDouble() ?? 0.0;
+              final c = (log['carbs_g'] as num?)?.toDouble() ?? 0.0;
+              final f = (log['fat_g'] as num?)?.toDouble() ?? 0.0;
+              if (p > 10 && c > 10 && f > 5) {
+                adherenceTotal += 100.0;
+              } else if (p > 0 || c > 0 || f > 0) {
+                adherenceTotal += 50.0;
+              }
+            }
+            final avgAdherence = (adherenceTotal / validLogs.length).round();
+
+            if (mounted) {
+              setState(() {
+                _avgCalories = '$avgCal';
+                _macroAdherence = '$avgAdherence%';
+              });
+            }
+          }
+        }
+      } catch (e) {
+        debugPrint('Error fetching nutrition logs: $e');
       }
 
       // Realtime updates for follower/following counts
@@ -291,7 +361,11 @@ class _ProfileScreenState extends State<ProfileScreen>
         slivers: [
           // ΓöÇΓöÇ 1. HERO SECTION ΓöÇΓöÇ
           SliverAppBar(
-            expandedHeight: 220.0,
+            systemOverlayStyle: SystemUiOverlayStyle(
+              statusBarColor: Colors.transparent,
+              statusBarIconBrightness: isDark ? Brightness.light : Brightness.dark,
+            ),
+            expandedHeight: 220.0 + MediaQuery.of(context).padding.top,
             pinned: true,
             stretch: true,
             backgroundColor: isDark
@@ -313,21 +387,22 @@ class _ProfileScreenState extends State<ProfileScreen>
               onPressed: () => Navigator.pop(context),
             ),
             actions: [
-              IconButton(
-                icon: Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: Colors.black.withValues(alpha: 0.3),
-                    shape: BoxShape.circle,
+              if (_isOwnProfile)
+                IconButton(
+                  icon: Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: Colors.black.withValues(alpha: 0.3),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
+                      LucideIcons.pencil,
+                      color: Colors.white,
+                      size: 20,
+                    ),
                   ),
-                  child: const Icon(
-                    LucideIcons.pencil,
-                    color: Colors.white,
-                    size: 20,
-                  ),
+                  onPressed: () => _showEditProfile(app),
                 ),
-                onPressed: () => _showEditProfile(app),
-              ),
             ],
             flexibleSpace: FlexibleSpaceBar(
               stretchModes: const [StretchMode.zoomBackground],
@@ -351,138 +426,141 @@ class _ProfileScreenState extends State<ProfileScreen>
                   // Avatar & Info
                   Positioned(
                     bottom: 24,
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        GestureDetector(
-                          onTap: () => _pickImage(app),
-                          child: Container(
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              border: Border.all(color: Colors.white, width: 3),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: AppColors.voltCyan.withValues(
-                                    alpha: 0.3,
-                                  ),
-                                  blurRadius: 15,
-                                  spreadRadius: 2,
-                                ),
-                              ],
-                            ),
-                            child: CircleAvatar(
-                              radius: 40,
-                              backgroundColor: AppColors.surfaceElevated,
-                              backgroundImage:
-                                  avatarUrl != null && avatarUrl.isNotEmpty
-                                  ? NetworkImage(avatarUrl)
-                                  : null,
-                              child: avatarUrl == null || avatarUrl.isEmpty
-                                  ? Text(
-                                      fullName.isNotEmpty
-                                          ? fullName[0].toUpperCase()
-                                          : '?',
-                                      style: const TextStyle(
-                                        fontSize: 32,
-                                        color: Colors.white,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    )
-                                  : null,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        Text(
-                          fullName,
-                          style: theme.textTheme.headlineSmall?.copyWith(
-                            fontWeight: FontWeight.w900,
-                            color: theme.colorScheme.onSurface,
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          bio.isNotEmpty
-                              ? bio
-                              : 'Chasing the next personal best.',
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: AppColors.voltCyan,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            GestureDetector(
-                              onTap: _showFollowersList,
-                              child: Text(
-                                '${followersCount} Followers',
-                                style: theme.textTheme.labelSmall?.copyWith(
-                                  color: theme.colorScheme.onSurfaceVariant,
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            GestureDetector(
-                              onTap: _showFollowingList,
-                              child: Text(
-                                '${followingCount} Following',
-                                style: theme.textTheme.labelSmall?.copyWith(
-                                  color: theme.colorScheme.onSurfaceVariant,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-
-                        const SizedBox(height: 12),
-                        if (!_isOwnProfile)
-                          SizedBox(
-                            width: 150,
-                            child: ElevatedButton(
-                              onPressed: _followActionLoading
-                                  ? null
-                                  : _handleFollowAction,
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor:
-                                    _followStatus == FollowStatus.accepted
-                                    ? Colors.grey.shade700
-                                    : _followStatus == FollowStatus.pending
-                                    ? AppColors.solarAmber
-                                    : AppColors.primary,
-                                foregroundColor: Colors.white,
-                                padding: const EdgeInsets.symmetric(
-                                  vertical: 10,
-                                ),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(14),
-                                ),
-                              ),
-                              child: _followActionLoading
-                                  ? const SizedBox(
-                                      height: 14,
-                                      width: 14,
-                                      child: CircularProgressIndicator(
-                                        color: Colors.white,
-                                        strokeWidth: 2,
-                                      ),
-                                    )
-                                  : Text(
-                                      _followStatus == FollowStatus.accepted
-                                          ? 'Unfollow'
-                                          : _followStatus ==
-                                                FollowStatus.pending
-                                          ? 'Requested'
-                                          : 'Follow',
-                                      style: const TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 14,
-                                      ),
+                    child: Padding(
+                      padding: EdgeInsets.only(top: MediaQuery.of(context).padding.top),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          GestureDetector(
+                            onTap: _isOwnProfile ? () => _pickImage(app) : null,
+                            child: Container(
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                border: Border.all(color: Colors.white, width: 3),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: AppColors.voltCyan.withValues(
+                                      alpha: 0.3,
                                     ),
+                                    blurRadius: 15,
+                                    spreadRadius: 2,
+                                  ),
+                                ],
+                              ),
+                              child: CircleAvatar(
+                                radius: 40,
+                                backgroundColor: AppColors.surfaceElevated,
+                                backgroundImage:
+                                    avatarUrl != null && avatarUrl.isNotEmpty
+                                    ? NetworkImage(avatarUrl)
+                                    : null,
+                                child: avatarUrl == null || avatarUrl.isEmpty
+                                    ? Text(
+                                        fullName.isNotEmpty
+                                            ? fullName[0].toUpperCase()
+                                            : '?',
+                                        style: const TextStyle(
+                                          fontSize: 32,
+                                          color: Colors.white,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      )
+                                    : null,
+                              ),
                             ),
                           ),
-                      ],
+                          const SizedBox(height: 12),
+                          Text(
+                            fullName,
+                            style: theme.textTheme.headlineSmall?.copyWith(
+                              fontWeight: FontWeight.w900,
+                              color: theme.colorScheme.onSurface,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            bio.isNotEmpty
+                                ? bio
+                                : 'Chasing the next personal best.',
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: AppColors.voltCyan,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              GestureDetector(
+                                onTap: _showFollowersList,
+                                child: Text(
+                                  '${followersCount} Followers',
+                                  style: theme.textTheme.labelSmall?.copyWith(
+                                    color: theme.colorScheme.onSurfaceVariant,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              GestureDetector(
+                                onTap: _showFollowingList,
+                                child: Text(
+                                  '${followingCount} Following',
+                                  style: theme.textTheme.labelSmall?.copyWith(
+                                    color: theme.colorScheme.onSurfaceVariant,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+
+                          const SizedBox(height: 12),
+                          if (!_isOwnProfile)
+                            SizedBox(
+                              width: 150,
+                              child: ElevatedButton(
+                                onPressed: _followActionLoading
+                                    ? null
+                                    : _handleFollowAction,
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor:
+                                      _followStatus == FollowStatus.accepted
+                                      ? Colors.grey.shade700
+                                      : _followStatus == FollowStatus.pending
+                                      ? AppColors.solarAmber
+                                      : AppColors.primary,
+                                  foregroundColor: Colors.white,
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 10,
+                                  ),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(14),
+                                  ),
+                                ),
+                                child: _followActionLoading
+                                    ? const SizedBox(
+                                        height: 14,
+                                        width: 14,
+                                        child: CircularProgressIndicator(
+                                          color: Colors.white,
+                                          strokeWidth: 2,
+                                        ),
+                                      )
+                                    : Text(
+                                        _followStatus == FollowStatus.accepted
+                                            ? 'Unfollow'
+                                            : _followStatus ==
+                                                  FollowStatus.pending
+                                            ? 'Requested'
+                                            : 'Follow',
+                                        style: const TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 14,
+                                        ),
+                                      ),
+                              ),
+                            ),
+                        ],
+                      ),
                     ),
                   ),
                 ],
@@ -502,21 +580,21 @@ class _ProfileScreenState extends State<ProfileScreen>
                     children: [
                       _statPill(
                         LucideIcons.footprints,
-                        '34',
+                        '$_runsCount',
                         'Runs',
                         theme,
                         isDark,
                       ),
                       _statPill(
                         LucideIcons.bookOpen,
-                        '142h',
+                        '${(app.totalStudyMinutes / 60).toStringAsFixed(0)}h',
                         'Study',
                         theme,
                         isDark,
                       ),
                       _statPill(
                         LucideIcons.messageSquare,
-                        '89',
+                        '$_postsCount',
                         'Posts',
                         theme,
                         isDark,
@@ -643,7 +721,7 @@ class _ProfileScreenState extends State<ProfileScreen>
                     {
                       'Focus Hours':
                           '${(app.totalStudyMinutes / 60).toStringAsFixed(1)} h',
-                      'Tasks Completed': '342',
+                      'Tasks Completed': '${app.completedTasksCount}',
                       'Best Streak': '${app.longestStreak} days',
                     },
                     isDark,
@@ -653,35 +731,38 @@ class _ProfileScreenState extends State<ProfileScreen>
                     'Nutrition',
                     LucideIcons.apple,
                     AppColors.solarAmber,
-                    {'Avg Calories': '2,450', 'Macro Adherence': '88%'},
+                    {'Avg Calories': _avgCalories, 'Macro Adherence': _macroAdherence},
                     isDark,
                   ),
                   const SizedBox(height: 24),
 
                   // ΓöÇΓöÇ 6. CONNECTED DEVICES ΓöÇΓöÇ
-                  Text(
-                    'Connected Devices',
-                    style: theme.textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.bold,
+                  // ── 6. CONNECTED DEVICES ──
+                  if (_isOwnProfile) ...[
+                    Text(
+                      'Connected Devices',
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 12),
-                  _buildDeviceRow(
-                    'Mi Band 5',
-                    LucideIcons.watch,
-                    84,
-                    true,
-                    isDark,
-                  ),
-                  const SizedBox(height: 8),
-                  _buildDeviceRow(
-                    'Smart Scale X',
-                    LucideIcons.scale,
-                    0,
-                    false,
-                    isDark,
-                  ),
-                  const SizedBox(height: 24),
+                    const SizedBox(height: 12),
+                    _buildDeviceRow(
+                      'Mi Band 5',
+                      LucideIcons.watch,
+                      84,
+                      true,
+                      isDark,
+                    ),
+                    const SizedBox(height: 8),
+                    _buildDeviceRow(
+                      'Smart Scale X',
+                      LucideIcons.scale,
+                      0,
+                      false,
+                      isDark,
+                    ),
+                    const SizedBox(height: 24),
+                  ],
 
                   // ΓöÇΓöÇ 7. SOCIAL LINKS ΓöÇΓöÇ
                   Row(

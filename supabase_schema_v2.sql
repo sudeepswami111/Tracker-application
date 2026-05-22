@@ -413,3 +413,79 @@ CREATE TRIGGER on_follow_request
   AFTER INSERT ON public.follows
   FOR EACH ROW
   EXECUTE FUNCTION handle_follow_request();
+
+-- =================================================================================
+-- 9. ADD MISSING TABLES FOR PROFILE STATISTICS
+-- =================================================================================
+
+-- RUNNING ACTIVITIES TABLE
+CREATE TABLE IF NOT EXISTS public.running_activities (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE NOT NULL,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  distance_km NUMERIC NOT NULL,
+  duration_seconds INT NOT NULL,
+  calories INT NOT NULL
+);
+
+-- COMMUNITY POSTS TABLE
+CREATE TABLE IF NOT EXISTS public.community_posts (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE NOT NULL,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  content TEXT,
+  image_url TEXT
+);
+
+-- NUTRITION LOGS TABLE
+CREATE TABLE IF NOT EXISTS public.nutrition_logs (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE NOT NULL,
+  logged_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  calories INT NOT NULL,
+  protein_g NUMERIC,
+  carbs_g NUMERIC,
+  fat_g NUMERIC
+);
+
+-- =================================================================================
+-- 10. ENABLE RLS FOR NEW TABLES
+-- =================================================================================
+ALTER TABLE public.running_activities ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.community_posts ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.nutrition_logs ENABLE ROW LEVEL SECURITY;
+
+-- =================================================================================
+-- 11. RLS POLICIES FOR NEW TABLES
+-- =================================================================================
+
+-- running_activities policies
+DROP POLICY IF EXISTS "Users can read all running activities" ON public.running_activities;
+CREATE POLICY "Users can read all running activities" ON public.running_activities FOR SELECT USING (true);
+
+DROP POLICY IF EXISTS "Users can insert their own running activities" ON public.running_activities;
+CREATE POLICY "Users can insert their own running activities" ON public.running_activities FOR INSERT WITH CHECK (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "Users can delete their own running activities" ON public.running_activities;
+CREATE POLICY "Users can delete their own running activities" ON public.running_activities FOR DELETE USING (auth.uid() = user_id);
+
+-- community_posts policies
+DROP POLICY IF EXISTS "Users can read all community posts" ON public.community_posts;
+CREATE POLICY "Users can read all community posts" ON public.community_posts FOR SELECT USING (true);
+
+DROP POLICY IF EXISTS "Users can insert their own community posts" ON public.community_posts;
+CREATE POLICY "Users can insert their own community posts" ON public.community_posts FOR INSERT WITH CHECK (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "Users can delete their own community posts" ON public.community_posts;
+CREATE POLICY "Users can delete their own community posts" ON public.community_posts FOR DELETE USING (auth.uid() = user_id);
+
+-- nutrition_logs policies
+DROP POLICY IF EXISTS "Users can read own nutrition logs" ON public.nutrition_logs;
+CREATE POLICY "Users can read own nutrition logs" ON public.nutrition_logs FOR SELECT USING (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "Users can insert their own nutrition logs" ON public.nutrition_logs;
+CREATE POLICY "Users can insert their own nutrition logs" ON public.nutrition_logs FOR INSERT WITH CHECK (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "Users can delete their own nutrition logs" ON public.nutrition_logs;
+CREATE POLICY "Users can delete their own nutrition logs" ON public.nutrition_logs FOR DELETE USING (auth.uid() = user_id);
+
