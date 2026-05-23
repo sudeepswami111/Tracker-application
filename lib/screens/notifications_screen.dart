@@ -182,15 +182,25 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                             data: unread[i],
                             theme: theme,
                             isDark: isDark,
-                            onTap: () async {
-                              await _supabase
+                            onTap: () {
+                              final notif = unread[i];
+                              final id = notif['id'];
+                              final type = notif['type'] as String? ?? '';
+                              
+                              // Optimistic UI update
+                              setState(() {
+                                final idx = _notifications.indexWhere((n) => n['id'] == id);
+                                if (idx != -1) {
+                                  _notifications[idx] = Map<String, dynamic>.from(_notifications[idx])..['is_read'] = true;
+                                }
+                              });
+
+                              // Fire-and-forget DB update
+                              _supabase
                                   .from('notifications')
                                   .update({'is_read': true})
-                                  .eq('id', unread[i]['id']);
-                              _loadNotifications();
+                                  .eq('id', id);
 
-                              final type = unread[i]['type'] as String? ?? '';
-                              if (!context.mounted) return;
                               if (type == 'follow_request' || type == 'follow_accepted' || type == 'new_follower') {
                                 Navigator.push(context, MaterialPageRoute(
                                   builder: (_) => ProfileScreen(targetUserId: unread[i]['actor_id'] as String?),
@@ -215,7 +225,6 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                               isDark: isDark,
                               onTap: () {
                                 final type = read[i]['type'] as String? ?? '';
-                                if (!context.mounted) return;
                                 if (type == 'follow_request' || type == 'follow_accepted' || type == 'new_follower') {
                                   Navigator.push(context, MaterialPageRoute(
                                     builder: (_) => ProfileScreen(targetUserId: read[i]['actor_id'] as String?),
@@ -463,28 +472,32 @@ class _NotifTile extends StatelessWidget {
 
     final color = _color();
 
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        margin: const EdgeInsets.fromLTRB(16, 0, 16, 10),
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          color: isRead
-              ? (isDark
-                  ? AppColors.surfaceElevated
-                  : AppColors.lightSurfaceContainer)
-              : (isDark ? const Color(0xFF1E1E2E) : Colors.white),
-          borderRadius: BorderRadius.circular(16),
-          border: Border(
-            left: BorderSide(
-                color: isRead ? Colors.transparent : AppColors.solarAmber,
-                width: 3),
-            top:    BorderSide(color: theme.colorScheme.outline.withValues(alpha: 0.05)),
-            right:  BorderSide(color: theme.colorScheme.outline.withValues(alpha: 0.05)),
-            bottom: BorderSide(color: theme.colorScheme.outline.withValues(alpha: 0.05)),
-          ),
+    return Container(
+      margin: const EdgeInsets.fromLTRB(16, 0, 16, 10),
+      decoration: BoxDecoration(
+        color: isRead
+            ? (isDark
+                ? AppColors.surfaceElevated
+                : AppColors.lightSurfaceContainer)
+            : (isDark ? const Color(0xFF1E1E2E) : Colors.white),
+        borderRadius: BorderRadius.circular(16),
+        border: Border(
+          left: BorderSide(
+              color: isRead ? Colors.transparent : AppColors.solarAmber,
+              width: 3),
+          top:    BorderSide(color: theme.colorScheme.outline.withValues(alpha: 0.05)),
+          right:  BorderSide(color: theme.colorScheme.outline.withValues(alpha: 0.05)),
+          bottom: BorderSide(color: theme.colorScheme.outline.withValues(alpha: 0.05)),
         ),
-        child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(16),
+          child: Padding(
+            padding: const EdgeInsets.all(14),
+            child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Container(
             width: 40,
             height: 40,
@@ -523,10 +536,12 @@ class _NotifTile extends StatelessWidget {
               decoration: const BoxDecoration(
                   color: AppColors.solarAmber, shape: BoxShape.circle),
             ),
-        ]),
+          ]),
+        ),
       ),
-    );
-  }
+    ),
+  );
+}
 }
 
 // ─────────────────────────────────────────────────────────────────
