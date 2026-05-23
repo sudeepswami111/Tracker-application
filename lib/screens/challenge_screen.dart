@@ -18,6 +18,11 @@ class _ChallengeScreenState extends State<ChallengeScreen> with SingleTickerProv
   late ConfettiController _confetti;
   late AnimationController _glowController;
 
+  final List<Map<String, dynamic>> _activeChallenges = [
+    {'title': '100km Run Club', 'tier': 'Silver', 'current': 65.0, 'total': 100.0, 'rank': 4},
+    {'title': 'Elite Focus Month', 'tier': 'Gold', 'current': 12.0, 'total': 30.0, 'rank': 1},
+  ];
+
   @override
   void initState() {
     super.initState();
@@ -56,7 +61,19 @@ class _ChallengeScreenState extends State<ChallengeScreen> with SingleTickerProv
             context: context,
             isScrollControlled: true,
             backgroundColor: Colors.transparent,
-            builder: (_) => const CreateChallengeSheet(),
+            builder: (_) => CreateChallengeSheet(
+              onChallengeCreated: (challenge) {
+                setState(() {
+                  _activeChallenges.insert(0, challenge);
+                });
+                _confetti.play();
+                ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                  content: Text('Challenge "${challenge['title']}" Created! 🎉'),
+                  backgroundColor: AppColors.irisViolet,
+                  behavior: SnackBarBehavior.floating,
+                ));
+              },
+            ),
           );
         },
         child: const Icon(LucideIcons.plus, color: Colors.white),
@@ -202,9 +219,18 @@ class _ChallengeScreenState extends State<ChallengeScreen> with SingleTickerProv
         const SizedBox(height: 16),
 
         // 2. ACTIVE CHALLENGES (Cards)
-        _buildProgressCard('100km Run Club', 'Silver', 65, 100, 4, isDark, theme),
-        const SizedBox(height: 16),
-        _buildProgressCard('Elite Focus Month', 'Gold', 12, 30, 1, isDark, theme),
+        ..._activeChallenges.map((c) => Padding(
+          padding: const EdgeInsets.only(bottom: 16),
+          child: _buildProgressCard(
+            c['title'] as String,
+            c['tier'] as String,
+            c['current'] as double,
+            c['total'] as double,
+            c['rank'] as int,
+            isDark,
+            theme,
+          ),
+        )),
         const SizedBox(height: 100),
       ],
     );
