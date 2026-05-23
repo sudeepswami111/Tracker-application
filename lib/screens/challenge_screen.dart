@@ -1,8 +1,9 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:confetti/confetti.dart';
 import '../theme/app_colors.dart';
+import '../widgets/create_challenge_sheet.dart';
 
 
 class ChallengeScreen extends StatefulWidget {
@@ -49,7 +50,15 @@ class _ChallengeScreenState extends State<ChallengeScreen> with SingleTickerProv
       backgroundColor: isDark ? AppColors.backgroundDeep : AppColors.lightBg,
       floatingActionButton: FloatingActionButton(
         backgroundColor: AppColors.pulseRed,
-        onPressed: () {},
+        onPressed: () {
+          HapticFeedback.mediumImpact();
+          showModalBottomSheet(
+            context: context,
+            isScrollControlled: true,
+            backgroundColor: Colors.transparent,
+            builder: (_) => const CreateChallengeSheet(),
+          );
+        },
         child: const Icon(LucideIcons.plus, color: Colors.white),
       ),
       body: Stack(

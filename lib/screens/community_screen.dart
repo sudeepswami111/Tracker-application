@@ -1,8 +1,10 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_spacing.dart';
+import '../widgets/create_post_sheet.dart';
+import '../widgets/community_search_delegate.dart';
 import 'dm_chat_screen.dart';
 
 // ====================================================
@@ -64,7 +66,12 @@ class _CommunityScreenState extends State<CommunityScreen> with SingleTickerProv
               child: FloatingActionButton(
                 onPressed: () {
                   HapticFeedback.mediumImpact();
-                  // Open create post sheet
+                  showModalBottomSheet(
+                    context: context,
+                    isScrollControlled: true,
+                    backgroundColor: Colors.transparent,
+                    builder: (_) => const CreatePostSheet(),
+                  );
                 },
                 backgroundColor: AppColors.irisViolet,
                 elevation: 0,
@@ -111,7 +118,12 @@ class _CommunityScreenState extends State<CommunityScreen> with SingleTickerProv
                       ),
                       Row(
                         children: [
-                          _HeaderIconButton(icon: LucideIcons.search, onTap: () {}),
+                          _HeaderIconButton(
+                            icon: LucideIcons.search, 
+                            onTap: () {
+                              showSearch(context: context, delegate: CommunitySearchDelegate());
+                            }
+                          ),
                           const SizedBox(width: 8),
                           _HeaderIconButton(
                             icon: LucideIcons.messageCircle,

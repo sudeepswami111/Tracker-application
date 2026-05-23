@@ -1,12 +1,22 @@
-﻿import 'dart:io';
+import 'dart:io';
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:share_plus/share_plus.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../providers/theme_provider.dart';
 import '../providers/app_provider.dart';
+import '../providers/auth_provider.dart';
+import '../providers/step_tracker_provider.dart';
 import '../theme/app_colors.dart';
 import '../widgets/glass_card.dart';
+import '../screens/profile_screen.dart';
+import '../widgets/device_scanner_sheet.dart';
+import '../widgets/permission_request_sheet.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -47,7 +57,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
           // 2. ACCOUNT SECTION
           GestureDetector(
             onTap: () {
-              // Edit profile sheet
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const ProfileScreen()),
+              );
             },
             child: GlassCard(
               padding: const EdgeInsets.all(16),
@@ -98,9 +111,29 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   onChanged: (v) => setState(() => _healthKitConnected = v),
                 )),
                 _divider(),
-                _settingsRow(LucideIcons.bluetooth, 'Bluetooth Devices', _chevronRow('1 connected')),
+                _settingsRow(LucideIcons.bluetooth, 'Bluetooth Devices', GestureDetector(
+                  onTap: () {
+                    showModalBottomSheet(
+                      context: context,
+                      isScrollControlled: true,
+                      backgroundColor: Colors.transparent,
+                      builder: (_) => const DeviceScannerSheet(),
+                    );
+                  },
+                  child: _chevronRow('1 connected'),
+                )),
                 _divider(),
-                _settingsRow(LucideIcons.shieldCheck, 'Data Permissions', _chevronRow('')),
+                _settingsRow(LucideIcons.shieldCheck, 'Data Permissions', GestureDetector(
+                  onTap: () {
+                    showModalBottomSheet(
+                      context: context,
+                      isScrollControlled: true,
+                      backgroundColor: Colors.transparent,
+                      builder: (_) => const PermissionRequestSheet(),
+                    );
+                  },
+                  child: _chevronRow(''),
+                )),
               ],
             ),
           ),
@@ -244,20 +277,74 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ListTile(
                   leading: const Icon(LucideIcons.download, color: AppColors.voltCyan, size: 20),
                   title: const Text('Export My Data', style: TextStyle(color: AppColors.voltCyan, fontWeight: FontWeight.bold)),
-                  onTap: () {},
+                  onTap: () async {
+                    final app = context.read<AppProvider>();
+                    final data = {
+                      'exported_at': DateTime.now().toIso8601String(),
+                      'steps_today': context.read<StepTrackerProvider>().steps,
+                      'current_streak': app.currentStreak,
+                      'distance_km': app.distance,
+                      'study_minutes': app.totalStudyMinutes,
+                      'daily_plans': app.dailyPlans.map((p) => p.toJson()).toList(),
+                    };
+                    final jsonStr = const JsonEncoder.withIndent('  ').convert(data);
+                    final dir = await getTemporaryDirectory();
+                    final file = File('${dir.path}/lifepulse_export.json');
+                    await file.writeAsString(jsonStr);
+                    await Share.shareXFiles([XFile(file.path)], text: 'My LifePulse Data Export');
+                  },
                 ),
                 _divider(),
                 ListTile(
                   leading: const Icon(LucideIcons.trash2, color: AppColors.pulseRed, size: 20),
                   title: const Text('Delete Account', style: TextStyle(color: AppColors.pulseRed, fontWeight: FontWeight.bold)),
-                  onTap: () {},
+                  onTap: () {
+                    showDialog(
+                      context: context,
+                      builder: (ctx) => AlertDialog(
+                        title: const Text('Delete Account'),
+                        content: const Text(
+                          'This will permanently delete your account and all your data. This cannot be undone.',
+                        ),
+                        actions: [
+                          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+                          ElevatedButton(
+                            onPressed: () async {
+                              Navigator.pop(ctx);
+                              try {
+                                final supabase = Supabase.instance.client;
+                                final uid = supabase.auth.currentUser?.id;
+                                if (uid != null) {
+                                  await supabase.from('profiles').delete().eq('id', uid);
+                                }
+                                await context.read<AuthProvider>().signOut();
+                              } catch (e) {
+                                if (context.mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(content: Text('Error deleting account: $e')),
+                                  );
+                                }
+                              }
+                            },
+                            style: ElevatedButton.styleFrom(backgroundColor: AppColors.pulseRed),
+                            child: const Text('Delete', style: TextStyle(color: Colors.white)),
+                          ),
+                        ],
+                      ),
+                    );
+                  },
                 ),
                 _divider(),
                 ListTile(
                   leading: const Icon(LucideIcons.shield, color: Colors.grey, size: 20),
                   title: const Text('Privacy Policy'),
                   trailing: const Icon(LucideIcons.externalLink, size: 16, color: Colors.grey),
-                  onTap: () {},
+                  onTap: () async {
+                    const url = 'https://example.com/privacy';
+                    if (await canLaunchUrl(Uri.parse(url))) {
+                      await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
+                    }
+                  },
                 ),
               ],
             ),
@@ -280,7 +367,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   leading: const Icon(LucideIcons.star, color: Colors.grey, size: 20),
                   title: const Text('Rate App'),
                   trailing: const Icon(LucideIcons.chevronRight, size: 16, color: Colors.grey),
-                  onTap: () {},
+                  onTap: () async {
+                    const url = 'https://play.google.com/store/apps/details?id=com.yourapp.lifepulse';
+                    if (await canLaunchUrl(Uri.parse(url))) {
+                      await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
+                    }
+                  },
                 ),
               ],
             ),
@@ -294,6 +386,24 @@ class _SettingsScreenState extends State<SettingsScreen> {
             child: OutlinedButton(
               onPressed: () {
                 HapticFeedback.heavyImpact();
+                showDialog(
+                  context: context,
+                  builder: (ctx) => AlertDialog(
+                    title: const Text('Sign Out'),
+                    content: const Text('Are you sure you want to sign out?'),
+                    actions: [
+                      TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+                      ElevatedButton(
+                        onPressed: () async {
+                          Navigator.pop(ctx);
+                          await context.read<AuthProvider>().signOut();
+                        },
+                        style: ElevatedButton.styleFrom(backgroundColor: AppColors.pulseRed),
+                        child: const Text('Sign Out', style: TextStyle(color: Colors.white)),
+                      ),
+                    ],
+                  ),
+                );
               },
               style: OutlinedButton.styleFrom(
                 foregroundColor: AppColors.pulseRed,
@@ -383,15 +493,22 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Widget _accentSwatch(Color color, bool isSelected) {
-    return Container(
-      width: 24,
-      height: 24,
-      decoration: BoxDecoration(
-        color: color,
-        shape: BoxShape.circle,
-        border: isSelected ? Border.all(color: Colors.white, width: 2) : null,
+    return GestureDetector(
+      onTap: () => context.read<ThemeProvider>().setAccentColor(color),
+      child: Container(
+        width: 24,
+        height: 24,
+        decoration: BoxDecoration(
+          color: color,
+          shape: BoxShape.circle,
+          border: context.watch<ThemeProvider>().accentColor == color
+              ? Border.all(color: Colors.white, width: 2)
+              : null,
+        ),
+        child: context.watch<ThemeProvider>().accentColor == color
+            ? const Icon(Icons.check, color: Colors.black, size: 14)
+            : null,
       ),
-      child: isSelected ? const Icon(Icons.check, color: Colors.black, size: 14) : null,
     );
   }
 }

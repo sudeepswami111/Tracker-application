@@ -2,8 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:provider/provider.dart';
 import '../theme/app_colors.dart';
 import '../services/follow_service.dart'; // adjust import path
+import '../providers/app_provider.dart';
+import '../screens/profile_screen.dart';
 
 // ─────────────────────────────────────────────────────────────────
 // NOTIFICATIONS SCREEN
@@ -185,6 +188,17 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                                   .update({'is_read': true})
                                   .eq('id', unread[i]['id']);
                               _loadNotifications();
+
+                              final type = unread[i]['type'] as String? ?? '';
+                              if (!context.mounted) return;
+                              if (type == 'follow_request' || type == 'follow_accepted' || type == 'new_follower') {
+                                Navigator.push(context, MaterialPageRoute(
+                                  builder: (_) => ProfileScreen(targetUserId: unread[i]['actor_id'] as String?),
+                                ));
+                              } else if (type == 'community_post' || type == 'post_like' || type == 'challenge') {
+                                context.read<AppProvider>().setTabIndex(3); // Community tab
+                                Navigator.pop(context);
+                              }
                             },
                           ),
                           childCount: unread.length,
@@ -199,7 +213,18 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                               data: read[i],
                               theme: theme,
                               isDark: isDark,
-                              onTap: () {}),
+                              onTap: () {
+                                final type = read[i]['type'] as String? ?? '';
+                                if (!context.mounted) return;
+                                if (type == 'follow_request' || type == 'follow_accepted' || type == 'new_follower') {
+                                  Navigator.push(context, MaterialPageRoute(
+                                    builder: (_) => ProfileScreen(targetUserId: read[i]['actor_id'] as String?),
+                                  ));
+                                } else if (type == 'community_post' || type == 'post_like' || type == 'challenge') {
+                                  context.read<AppProvider>().setTabIndex(3);
+                                  Navigator.pop(context);
+                                }
+                              }),
                           childCount: read.length,
                         ),
                       ),
