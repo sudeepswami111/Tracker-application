@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:hive_flutter/hive_flutter.dart';
@@ -105,8 +105,8 @@ class LifePulseApp extends StatelessWidget {
           navigatorKey: navigatorKey,
           title: 'LifePulse',
           debugShowCheckedModeBanner: false,
-          theme: AppTheme.light(),
-          darkTheme: AppTheme.dark(),
+          theme: AppTheme.light(accentColor: themeProvider.accentColor),
+          darkTheme: AppTheme.dark(accentColor: themeProvider.accentColor),
           themeMode: themeProvider.themeMode,
           home: Consumer<AuthProvider>(
             builder: (context, auth, _) {

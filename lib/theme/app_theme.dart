@@ -1,16 +1,16 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'app_colors.dart';
 
 class AppTheme {
-  static ThemeData dark() {
+  static ThemeData dark({Color accentColor = AppColors.voltCyan}) {
     return ThemeData(
       useMaterial3: true,
       brightness: Brightness.dark,
       scaffoldBackgroundColor: AppColors.backgroundDeep,
-      colorScheme: const ColorScheme.dark(
-        primary: AppColors.irisViolet,
-        secondary: AppColors.voltCyan,
+      colorScheme: ColorScheme.dark(
+        primary: accentColor,
+        secondary: accentColor,
         surface: AppColors.surfaceCard,
         onSurface: AppColors.textPrimary,
         onSurfaceVariant: AppColors.textSecondary,
@@ -54,7 +54,7 @@ class AppTheme {
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
-          backgroundColor: AppColors.irisViolet,
+          backgroundColor: accentColor,
           foregroundColor: Colors.white,
           elevation: 0,
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
@@ -77,7 +77,7 @@ class AppTheme {
     );
   }
 
-  static ThemeData light() {
+  static ThemeData light({Color accentColor = AppColors.voltCyan}) {
     const lightOnSurface = AppColors.lightOnSurface;
     const lightOnSurfaceVariant = AppColors.lightOnSurfaceVariant;
     const lightSurface = AppColors.lightSurface;
@@ -89,9 +89,9 @@ class AppTheme {
       useMaterial3: true,
       brightness: Brightness.light,
       scaffoldBackgroundColor: lightBg,
-      colorScheme: const ColorScheme.light(
-        primary: AppColors.irisViolet,
-        secondary: AppColors.voltCyan,
+      colorScheme: ColorScheme.light(
+        primary: accentColor,
+        secondary: accentColor,
         surface: lightSurface,
         onSurface: lightOnSurface,
         onSurfaceVariant: lightOnSurfaceVariant,
@@ -140,7 +140,7 @@ class AppTheme {
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: AppColors.irisViolet, width: 1.5),
+          borderSide: BorderSide(color: accentColor, width: 1.5),
         ),
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         labelStyle: const TextStyle(color: lightOnSurfaceVariant),
@@ -148,7 +148,7 @@ class AppTheme {
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
-          backgroundColor: AppColors.irisViolet,
+          backgroundColor: accentColor,
           foregroundColor: Colors.white,
           elevation: 0,
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
@@ -182,10 +182,10 @@ class AppTheme {
       ),
       switchTheme: SwitchThemeData(
         thumbColor: WidgetStateProperty.resolveWith((s) =>
-            s.contains(WidgetState.selected) ? AppColors.irisViolet : lightOutline),
+            s.contains(WidgetState.selected) ? accentColor : lightOutline),
         trackColor: WidgetStateProperty.resolveWith((s) =>
             s.contains(WidgetState.selected)
-                ? AppColors.irisViolet.withValues(alpha: 0.3)
+                ? accentColor.withValues(alpha: 0.3)
                 : lightOutline.withValues(alpha: 0.3)),
       ),
     );
