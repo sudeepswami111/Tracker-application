@@ -169,9 +169,21 @@ class AppProvider extends ChangeNotifier with WidgetsBindingObserver {
   int userXPToNext = 1000;
   bool isMetric = true;
 
+  // ──── Settings Persistence ────
+  bool healthConnectEnabled = true;
+  bool masterNotifications = true;
+  bool workoutReminders = true;
+  bool studyReminders = false;
+  double dailyStepsGoal = 10000.0;
+  int pomodoroDuration = 25;
+
+  // ──── Nutrition Streak ────
+  int nutritionStreak = 0;
+  int longestNutritionStreak = 0;
+
   // ──── Dashboard Stats ────
   int steps = 0;
-  final int stepsGoal = 10000;
+  int get stepsGoal => dailyStepsGoal.toInt();
   int calories = 0;
   final int caloriesGoal = 2500;
   double distance = 0.0;
@@ -220,7 +232,7 @@ class AppProvider extends ChangeNotifier with WidgetsBindingObserver {
 
   // ──── Study ────
   int studyStreak = 0;
-  final int longestStreak = 0;
+  int longestStreak = 0;
   int totalStudyMinutes = 0;
   bool focusTimerRunning = false;
   int focusTimerDuration = 25 * 60;
@@ -245,6 +257,9 @@ class AppProvider extends ChangeNotifier with WidgetsBindingObserver {
     final today = DateUtils.dateOnly(clock());
     if (lastActivityDate.isEmpty) {
       currentStreak = 1;
+      if (currentStreak > longestStreak) {
+        longestStreak = currentStreak;
+      }
       lastActivityDate = today.toIso8601String();
       isStreakPending = false;
       _saveData();
@@ -269,6 +284,9 @@ class AppProvider extends ChangeNotifier with WidgetsBindingObserver {
       currentStreak = 1;
     }
 
+    if (currentStreak > longestStreak) {
+      longestStreak = currentStreak;
+    }
     lastActivityDate = today.toIso8601String();
     isStreakPending = false;
     _saveData();
@@ -432,6 +450,15 @@ class AppProvider extends ChangeNotifier with WidgetsBindingObserver {
     calories = prefs.getInt(PrefsKeys.calories) ?? 0;
     sleepHours = prefs.getDouble(PrefsKeys.sleepHours) ?? 0.0;
     studyHrs = prefs.getDouble(PrefsKeys.studyHrs) ?? 0.0;
+    longestStreak = prefs.getInt('longestStreak') ?? 0;
+    healthConnectEnabled = prefs.getBool('healthConnectEnabled') ?? true;
+    masterNotifications = prefs.getBool('masterNotifications') ?? true;
+    workoutReminders = prefs.getBool('workoutReminders') ?? true;
+    studyReminders = prefs.getBool('studyReminders') ?? false;
+    dailyStepsGoal = prefs.getDouble('dailyStepsGoal') ?? 10000.0;
+    pomodoroDuration = prefs.getInt('pomodoroDuration') ?? 25;
+    nutritionStreak = prefs.getInt('nutritionStreak') ?? 0;
+    longestNutritionStreak = prefs.getInt('longestNutritionStreak') ?? 0;
     // 2.1 — Load history
     final histJson = prefs.getString(PrefsKeys.dailyHistory);
     if (histJson != null) {
@@ -542,6 +569,15 @@ class AppProvider extends ChangeNotifier with WidgetsBindingObserver {
     prefs.setBool(PrefsKeys.isStreakPending, isStreakPending);
     prefs.setString(PrefsKeys.lastActivityDate, lastActivityDate);
     prefs.setInt(PrefsKeys.completedTasksCount, completedTasksCount);
+    prefs.setInt('longestStreak', longestStreak);
+    prefs.setBool('healthConnectEnabled', healthConnectEnabled);
+    prefs.setBool('masterNotifications', masterNotifications);
+    prefs.setBool('workoutReminders', workoutReminders);
+    prefs.setBool('studyReminders', studyReminders);
+    prefs.setDouble('dailyStepsGoal', dailyStepsGoal);
+    prefs.setInt('pomodoroDuration', pomodoroDuration);
+    prefs.setInt('nutritionStreak', nutritionStreak);
+    prefs.setInt('longestNutritionStreak', longestNutritionStreak);
     
     // Save Daily Plans
     final plansEncoded = jsonEncode(dailyPlans.map((p) => p.toJson()).toList());
@@ -828,6 +864,52 @@ class AppProvider extends ChangeNotifier with WidgetsBindingObserver {
     if (!c.isCompleted || c.claimed) return;
     c.claimed = true;
     claimChallenge(c.title, 1);
+  }
+
+  // ──── Settings Setters ────
+  void setHealthConnectEnabled(bool v) {
+    healthConnectEnabled = v;
+    _saveData();
+    notifyListeners();
+  }
+
+  void setMasterNotifications(bool v) {
+    masterNotifications = v;
+    _saveData();
+    notifyListeners();
+  }
+
+  void setWorkoutReminders(bool v) {
+    workoutReminders = v;
+    _saveData();
+    notifyListeners();
+  }
+
+  void setStudyReminders(bool v) {
+    studyReminders = v;
+    _saveData();
+    notifyListeners();
+  }
+
+  void setDailyStepsGoal(double v) {
+    dailyStepsGoal = v;
+    _saveData();
+    notifyListeners();
+  }
+
+  void setPomodoroDuration(int v) {
+    pomodoroDuration = v;
+    _saveData();
+    notifyListeners();
+  }
+
+  void setNutritionStreak(int v) {
+    nutritionStreak = v;
+    if (nutritionStreak > longestNutritionStreak) {
+      longestNutritionStreak = nutritionStreak;
+    }
+    _saveData();
+    notifyListeners();
   }
 
   @override

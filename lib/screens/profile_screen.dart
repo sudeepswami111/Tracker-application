@@ -4,6 +4,7 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../providers/app_provider.dart';
+import '../providers/watch_metrics_provider.dart';
 import '../theme/app_colors.dart';
 import '../widgets/glass_card.dart';
 import '../services/follow_service.dart';
@@ -619,11 +620,11 @@ class _ProfileScreenState extends State<ProfileScreen>
                       children: [
                         _streakBadgeCard(
                           'Fitness',
+                          app.currentStreak,
                           app.longestStreak,
-                          42,
                           AppColors.pulseRed,
                           isDark,
-                        ), // Mock values
+                        ),
                         const SizedBox(width: 12),
                         _streakBadgeCard(
                           'Study',
@@ -635,11 +636,11 @@ class _ProfileScreenState extends State<ProfileScreen>
                         const SizedBox(width: 12),
                         _streakBadgeCard(
                           'Nutrition',
-                          7,
-                          14,
+                          app.nutritionStreak,
+                          app.longestNutritionStreak,
                           AppColors.solarAmber,
                           isDark,
-                        ), // Mock values
+                        ),
                       ],
                     ),
                   ),
@@ -708,9 +709,9 @@ class _ProfileScreenState extends State<ProfileScreen>
                     LucideIcons.activity,
                     AppColors.pulseRed,
                     {
-                      'Total Distance': '${app.distance} km',
-                      'Workouts': '112',
-                      'PR Badges': '4',
+                      'Total Distance': '${app.distance.toStringAsFixed(1)} km',
+                      'Workouts': '$_runsCount',
+                      'PR Badges': '–',
                     },
                     isDark,
                   ),
@@ -746,17 +747,29 @@ class _ProfileScreenState extends State<ProfileScreen>
                         fontWeight: FontWeight.bold,
                       ),
                     ),
-                    const SizedBox(height: 12),
-                    _buildDeviceRow(
-                      'Mi Band 5',
-                      LucideIcons.watch,
-                      84,
-                      true,
-                      isDark,
+                    Consumer<WatchMetricsProvider>(
+                      builder: (context, watch, _) {
+                        if (watch.isConnected) {
+                          return _buildDeviceRow(
+                            watch.deviceName.isNotEmpty ? watch.deviceName : 'Smartwatch',
+                            LucideIcons.watch,
+                            watch.batteryLevel,
+                            true,
+                            isDark,
+                          );
+                        }
+                        return _buildDeviceRow(
+                          'No device paired',
+                          LucideIcons.watch,
+                          0,
+                          false,
+                          isDark,
+                        );
+                      },
                     ),
                     const SizedBox(height: 8),
                     _buildDeviceRow(
-                      'Smart Scale X',
+                      'Smart Scale (Coming Soon)',
                       LucideIcons.scale,
                       0,
                       false,

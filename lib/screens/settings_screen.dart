@@ -12,6 +12,7 @@ import '../providers/theme_provider.dart';
 import '../providers/app_provider.dart';
 import '../providers/auth_provider.dart';
 import '../providers/step_tracker_provider.dart';
+import '../providers/watch_metrics_provider.dart';
 import '../theme/app_colors.dart';
 import '../widgets/glass_card.dart';
 import '../screens/profile_screen.dart';
@@ -26,14 +27,8 @@ class SettingsScreen extends StatefulWidget {
 }
 
 class _SettingsScreenState extends State<SettingsScreen> {
-  // Mock State
-  bool _healthKitConnected = true;
-  bool _masterNotifications = true;
-  bool _workoutReminders = true;
-  bool _studyReminders = false;
-  double _dailyStepsGoal = 10000;
+  // Local calorie budget (could be customized later)
   final double _calorieBudget = 2400;
-  int _pomodoroDuration = 25;
 
   @override
   Widget build(BuildContext context) {
@@ -88,7 +83,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       children: [
                         Text(app.userName, style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
                         const SizedBox(height: 4),
-                        Text('alex@example.com', style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
+                        Text(
+                          Supabase.instance.client.auth.currentUser?.email ?? 'No email',
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: theme.colorScheme.onSurfaceVariant,
+                          ),
+                        ),
                       ],
                     ),
                   ),
@@ -101,41 +101,49 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
           // 3. HEALTH & DEVICES
           _sectionHeader('Health & Devices'),
-          GlassCard(
-            padding: EdgeInsets.zero,
-            child: Column(
-              children: [
-                _settingsRow(LucideIcons.heartPulse, 'Health Connect', Switch.adaptive(
-                  value: _healthKitConnected,
-                  activeTrackColor: AppColors.voltCyan,
-                  onChanged: (v) => setState(() => _healthKitConnected = v),
-                )),
-                _divider(),
-                _settingsRow(LucideIcons.bluetooth, 'Bluetooth Devices', GestureDetector(
-                  onTap: () {
-                    showModalBottomSheet(
-                      context: context,
-                      isScrollControlled: true,
-                      backgroundColor: Colors.transparent,
-                      builder: (_) => const DeviceScannerSheet(),
-                    );
-                  },
-                  child: _chevronRow('1 connected'),
-                )),
-                _divider(),
-                _settingsRow(LucideIcons.shieldCheck, 'Data Permissions', GestureDetector(
-                  onTap: () {
-                    showModalBottomSheet(
-                      context: context,
-                      isScrollControlled: true,
-                      backgroundColor: Colors.transparent,
-                      builder: (_) => const PermissionRequestSheet(),
-                    );
-                  },
-                  child: _chevronRow(''),
-                )),
-              ],
-            ),
+          Consumer<WatchMetricsProvider>(
+            builder: (context, watch, _) {
+              return GlassCard(
+                padding: EdgeInsets.zero,
+                child: Column(
+                  children: [
+                    _settingsRow(LucideIcons.heartPulse, 'Health Connect', Switch.adaptive(
+                      value: app.healthConnectEnabled,
+                      activeTrackColor: AppColors.voltCyan,
+                      onChanged: (v) => app.setHealthConnectEnabled(v),
+                    )),
+                    _divider(),
+                    _settingsRow(LucideIcons.bluetooth, 'Bluetooth Devices', GestureDetector(
+                      onTap: () {
+                        showModalBottomSheet(
+                          context: context,
+                          isScrollControlled: true,
+                          backgroundColor: Colors.transparent,
+                          builder: (_) => const DeviceScannerSheet(),
+                        );
+                      },
+                      child: _chevronRow(
+                        watch.isConnected
+                            ? (watch.deviceName.isNotEmpty ? watch.deviceName : 'Connected')
+                            : 'Disconnected',
+                      ),
+                    )),
+                    _divider(),
+                    _settingsRow(LucideIcons.shieldCheck, 'Data Permissions', GestureDetector(
+                      onTap: () {
+                        showModalBottomSheet(
+                          context: context,
+                          isScrollControlled: true,
+                          backgroundColor: Colors.transparent,
+                          builder: (_) => const PermissionRequestSheet(),
+                        );
+                      },
+                      child: _chevronRow(''),
+                    )),
+                  ],
+                ),
+              );
+            },
           ),
           const SizedBox(height: 24),
 
@@ -156,16 +164,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           const SizedBox(width: 12),
                           const Text('Daily Steps Goal'),
                           const Spacer(),
-                          Text('${_dailyStepsGoal.toInt()}', style: const TextStyle(fontWeight: FontWeight.bold)),
+                          Text('${app.dailyStepsGoal.toInt()}', style: const TextStyle(fontWeight: FontWeight.bold)),
                         ],
                       ),
                       Slider.adaptive(
-                        value: _dailyStepsGoal,
+                        value: app.dailyStepsGoal,
                         min: 1000,
                         max: 20000,
                         divisions: 19,
                          activeColor: AppColors.voltCyan,
-                        onChanged: (v) => setState(() => _dailyStepsGoal = v),
+                        onChanged: (v) => app.setDailyStepsGoal(v),
                       ),
                     ],
                   ),
@@ -176,11 +184,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       IconButton(icon: const Icon(LucideIcons.minusCircle, color: Colors.grey), onPressed: () {
-                        if (_pomodoroDuration > 5) setState(() => _pomodoroDuration -= 5);
+                        if (app.pomodoroDuration > 5) app.setPomodoroDuration(app.pomodoroDuration - 5);
                       }),
-                      SizedBox(width: 40, child: Text('$_pomodoroDuration m', textAlign: TextAlign.center, style: const TextStyle(fontWeight: FontWeight.bold))),
+                      SizedBox(width: 40, child: Text('${app.pomodoroDuration} m', textAlign: TextAlign.center, style: const TextStyle(fontWeight: FontWeight.bold))),
                       IconButton(icon: const Icon(LucideIcons.plusCircle, color: Colors.grey), onPressed: () {
-                        if (_pomodoroDuration < 60) setState(() => _pomodoroDuration += 5);
+                        if (app.pomodoroDuration < 60) app.setPomodoroDuration(app.pomodoroDuration + 5);
                       }),
                     ],
                   )
@@ -199,22 +207,22 @@ class _SettingsScreenState extends State<SettingsScreen> {
             child: Column(
               children: [
                 _settingsRow(LucideIcons.bell, 'Master Toggle', Switch.adaptive(
-                  value: _masterNotifications,
+                  value: app.masterNotifications,
                   activeTrackColor: AppColors.voltCyan,
-                  onChanged: (v) => setState(() => _masterNotifications = v),
+                  onChanged: (v) => app.setMasterNotifications(v),
                 )),
-                if (_masterNotifications) ...[
+                if (app.masterNotifications) ...[
                   _divider(),
                   _settingsRow(LucideIcons.activity, 'Workout Reminders', Switch.adaptive(
-                    value: _workoutReminders,
+                    value: app.workoutReminders,
                     activeTrackColor: AppColors.voltCyan,
-                    onChanged: (v) => setState(() => _workoutReminders = v),
+                    onChanged: (v) => app.setWorkoutReminders(v),
                   )),
                   _divider(),
                   _settingsRow(LucideIcons.bookOpen, 'Study Reminders', Switch.adaptive(
-                    value: _studyReminders,
+                    value: app.studyReminders,
                     activeTrackColor: AppColors.voltCyan,
-                    onChanged: (v) => setState(() => _studyReminders = v),
+                    onChanged: (v) => app.setStudyReminders(v),
                   )),
                 ]
               ],

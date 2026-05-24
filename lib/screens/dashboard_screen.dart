@@ -3,6 +3,7 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:provider/provider.dart';
 
 import '../providers/app_provider.dart';
+import '../services/community_service.dart';
 
 import '../providers/watch_metrics_provider.dart';
 import '../providers/step_tracker_provider.dart';
@@ -191,8 +192,12 @@ class DashboardScreen extends StatelessWidget {
           const SizedBox(width: AppSpacing.md),
           _QuickStatPill(
             icon: isConnected ? LucideIcons.moon : LucideIcons.lock,
-            label: 'Sleep Score',
-            value: isConnected ? '85' : '---',
+            label: 'Sleep',
+            value: isConnected
+                ? watchProvider.sleepHours > 0
+                    ? '${watchProvider.sleepHours.toStringAsFixed(1)}h'
+                    : '---'
+                : '---',
             color: isConnected ? AppColors.irisViolet : (isDark ? Colors.white38 : Colors.black38),
             theme: theme,
             isDark: isDark,
@@ -390,45 +395,69 @@ class DashboardScreen extends StatelessWidget {
       children: [
         Text("Community Feed", style: theme.textTheme.headlineLarge),
         const SizedBox(height: AppSpacing.md),
-        Container(
-          padding: const EdgeInsets.all(AppSpacing.md),
-          decoration: BoxDecoration(
-            color: theme.colorScheme.surface,
-            borderRadius: BorderRadius.circular(AppSpacing.cardRadius),
-            border: Border.all(
-              color: isDark
-                  ? Colors.white.withValues(alpha: 0.06)
-                  : Colors.black.withValues(alpha: 0.06),
-            ),
-            boxShadow: isDark
-                ? []
-                : [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.04),
-                      blurRadius: 8,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
-          ),
-          child: Row(
-            children: [
-              const CircleAvatar(
-                radius: 16,
-                backgroundImage:
-                    NetworkImage('https://i.pravatar.cc/150?img=33'),
-              ),
-              const SizedBox(width: AppSpacing.sm),
-              Expanded(
-                child: Text(
-                  'Sarah completed a 10K run!',
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    color: theme.colorScheme.onSurface,
-                  ),
+        FutureBuilder<List<Map<String, dynamic>>>(
+          future: CommunityService().getPosts(),
+          builder: (context, snap) {
+            final posts = snap.data ?? [];
+            if (posts.isEmpty) {
+              return const SizedBox.shrink();
+            }
+            final latest = posts.first;
+            final authorMap = latest['author'] as Map<String, dynamic>?;
+            final authorAvatar = authorMap?['avatar_url'] as String?;
+            final authorName = authorMap?['full_name'] as String? ?? 'Someone';
+            final content = latest['content'] as String? ?? '';
+
+            return Container(
+              padding: const EdgeInsets.all(AppSpacing.md),
+              decoration: BoxDecoration(
+                color: theme.colorScheme.surface,
+                borderRadius: BorderRadius.circular(AppSpacing.cardRadius),
+                border: Border.all(
+                  color: isDark
+                      ? Colors.white.withValues(alpha: 0.06)
+                      : Colors.black.withValues(alpha: 0.06),
                 ),
+                boxShadow: isDark
+                    ? []
+                    : [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.04),
+                          blurRadius: 8,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
               ),
-              const Icon(LucideIcons.zap, size: 16, color: AppColors.solarAmber),
-            ],
-          ),
+              child: Row(
+                children: [
+                  CircleAvatar(
+                    radius: 16,
+                    backgroundImage: authorAvatar != null && authorAvatar.isNotEmpty
+                        ? NetworkImage(authorAvatar)
+                        : null,
+                    child: authorAvatar == null || authorAvatar.isEmpty
+                        ? Text(
+                            authorName.isNotEmpty ? authorName[0].toUpperCase() : 'U',
+                            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                          )
+                        : null,
+                  ),
+                  const SizedBox(width: AppSpacing.sm),
+                  Expanded(
+                    child: Text(
+                      '$authorName: $content',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: theme.colorScheme.onSurface,
+                      ),
+                    ),
+                  ),
+                  const Icon(LucideIcons.zap, size: 16, color: AppColors.solarAmber),
+                ],
+              ),
+            );
+          },
         ),
         const SizedBox(height: AppSpacing.md),
         SizedBox(

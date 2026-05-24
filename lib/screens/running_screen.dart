@@ -470,7 +470,7 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
       children: [
         TileLayer(
           urlTemplate: mapUrl, 
-          userAgentPackageName: 'com.example.lifepulse',
+          userAgentPackageName: 'com.sudeep.lifepulse',
           maxZoom: 19,
         ),
         
@@ -1489,7 +1489,7 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
                   children: [
                     TileLayer(
                       urlTemplate: mapUrl,
-                      userAgentPackageName: 'com.example.lifepulse',
+                      userAgentPackageName: 'com.sudeep.lifepulse',
                     ),
                     if (_gpsRoute.isNotEmpty)
                       PolylineLayer(polylines: [
