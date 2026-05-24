@@ -1,8 +1,9 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:provider/provider.dart';
 
 import '../providers/app_provider.dart';
+import '../screens/challenge_screen.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_spacing.dart';
 import 'daily_plan_tile.dart';
@@ -71,7 +72,7 @@ class ViewAllPlansSheet extends StatelessWidget {
                             app.togglePlanComplete(plan.id);
                             if (!plan.isCompleted) {
                               Navigator.pop(context);
-                              app.setTabIndex(2);
+                              Navigator.push(context, MaterialPageRoute(builder: (_) => const ChallengeScreen()));
                             }
                           },
                           onDelete: () {

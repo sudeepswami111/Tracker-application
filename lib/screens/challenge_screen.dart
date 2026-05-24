@@ -2,8 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:confetti/confetti.dart';
+import 'package:share_plus/share_plus.dart';
 import '../theme/app_colors.dart';
 import '../widgets/create_challenge_sheet.dart';
+import '../services/challenge_service.dart';
+import 'running_screen.dart';
+import 'fitness_screen.dart';
+import 'study_screen.dart';
 
 class ChallengeScreen extends StatefulWidget {
   const ChallengeScreen({super.key});
@@ -13,56 +18,84 @@ class ChallengeScreen extends StatefulWidget {
 }
 
 class _ChallengeScreenState extends State<ChallengeScreen> with SingleTickerProviderStateMixin {
-  int _selectedTab = 0; // 0=Active, 1=Discover, 2=Completed
+  int _selectedTab = 0;
   late ConfettiController _confetti;
   late AnimationController _glowController;
+  final _service = ChallengeService();
+  bool _isLoading = false;
 
-  final List<Map<String, dynamic>> _activeChallenges = [
-    {
-      'title': '100km Run Club',
-      'tier': 'Silver',
-      'current': 65.0,
-      'total': 100.0,
-      'rank': 4,
-      'goalType': 'Distance',
-      'stakes': 'If I lose, I buy my friend dinner'
-    },
-    {
-      'title': 'Elite Focus Month',
-      'tier': 'Gold',
-      'current': 12.0,
-      'total': 30.0,
-      'rank': 1,
-      'goalType': 'Workouts',
-      'stakes': null
-    },
-  ];
+  // ── Filter state (B2) ──
+  String? _filterGoalType;
 
-  final List<Map<String, dynamic>> _completedChallenges = [
-    {'title': 'Spring Steps Challenge', 'tier': 'Silver', 'rank': 2, 'date': 'Mar 2026', 'goalType': 'Steps'},
-    {'title': '7 Days of Code', 'tier': 'Gold', 'rank': 1, 'date': 'Feb 2026', 'goalType': 'Study'},
-  ];
+  List<Map<String, dynamic>> _activeChallenges = [];
+  List<Map<String, dynamic>> _completedChallenges = [];
+  Map<String, List<Map<String, dynamic>>> _discoverData = {};
 
-  final Map<String, List<Map<String, dynamic>>> _discoverData = {
+  // Fallback local discover data (shown while Supabase loads or fails)
+  final Map<String, List<Map<String, dynamic>>> _localDiscoverData = {
     'Running & Cardio': [
-      {'title': 'Summer Shred', 'tier': 'Silver', 'icon': LucideIcons.activity, 'participants': '1.2k', 'color': AppColors.solarAmber, 'total': 100.0},
-      {'title': 'Marathon Prep', 'tier': 'Gold', 'icon': LucideIcons.footprints, 'participants': '4.5k', 'color': AppColors.pulseRed, 'total': 500.0},
+      {'title': 'Summer Shred', 'tier': 'Silver', 'icon': LucideIcons.activity, 'participants_count': 1200, 'color': AppColors.solarAmber, 'target_value': 100.0, 'goal_type': 'Distance'},
+      {'title': 'Marathon Prep', 'tier': 'Gold', 'icon': LucideIcons.footprints, 'participants_count': 4500, 'color': AppColors.pulseRed, 'target_value': 500.0, 'goal_type': 'Distance'},
     ],
     'Fitness & Strength': [
-      {'title': 'Iron Man Prep Month', 'tier': 'Diamond', 'icon': Icons.fitness_center, 'participants': '800', 'color': AppColors.irisViolet, 'total': 1000.0},
-      {'title': 'Daily Pushups', 'tier': 'Bronze', 'icon': LucideIcons.flame, 'participants': '12k', 'color': AppColors.green, 'total': 30.0},
+      {'title': 'Iron Man Prep Month', 'tier': 'Diamond', 'icon': Icons.fitness_center, 'participants_count': 800, 'color': AppColors.irisViolet, 'target_value': 1000.0, 'goal_type': 'Workouts'},
+      {'title': 'Daily Pushups', 'tier': 'Bronze', 'icon': LucideIcons.flame, 'participants_count': 12000, 'color': AppColors.green, 'target_value': 30.0, 'goal_type': 'Workouts'},
     ],
     'Study & Focus': [
-      {'title': 'Zen Month', 'tier': 'Bronze', 'icon': LucideIcons.moon, 'participants': '3.4k', 'color': AppColors.voltCyan, 'total': 30.0},
-      {'title': 'Deep Work Sprint', 'tier': 'Silver', 'icon': LucideIcons.book, 'participants': '5.2k', 'color': AppColors.solarAmber, 'total': 60.0},
-    ]
+      {'title': 'Zen Month', 'tier': 'Bronze', 'icon': LucideIcons.moon, 'participants_count': 3400, 'color': AppColors.voltCyan, 'target_value': 30.0, 'goal_type': 'Study'},
+      {'title': 'Deep Work Sprint', 'tier': 'Silver', 'icon': LucideIcons.book, 'participants_count': 5200, 'color': AppColors.solarAmber, 'target_value': 60.0, 'goal_type': 'Study'},
+    ],
   };
+
+  // B3 helper: compute days left from endDate string
+  String _getDaysLeft(String? endDateStr) {
+    if (endDateStr == null || endDateStr.isEmpty) return 'Ongoing';
+    try {
+      final endDate = DateTime.parse(endDateStr);
+      final days = endDate.difference(DateTime.now()).inDays;
+      if (days < 0) return 'Ended';
+      if (days == 0) return 'Last day!';
+      return '$days days left';
+    } catch (_) {
+      return 'Ongoing';
+    }
+  }
+
+  // B2 — filter getter
+  List<Map<String, dynamic>> get _filteredActiveChallenges {
+    return _activeChallenges.where((c) {
+      // Support both raw local maps and Supabase nested maps
+      final goalType = (c['goalType'] as String?) ?? (c['challenge']?['goal_type'] as String?);
+      if (_filterGoalType != null && goalType != _filterGoalType) return false;
+      return true;
+    }).toList();
+  }
 
   @override
   void initState() {
     super.initState();
     _confetti = ConfettiController(duration: const Duration(seconds: 2));
     _glowController = AnimationController(vsync: this, duration: const Duration(milliseconds: 1500))..repeat(reverse: true);
+    _loadData();
+  }
+
+  Future<void> _loadData() async {
+    setState(() => _isLoading = true);
+    final results = await Future.wait([
+      _service.getActiveChallenges(),
+      _service.getCompletedChallenges(),
+      _service.getDiscoverChallenges(),
+    ]);
+    if (mounted) {
+      setState(() {
+        _activeChallenges = results[0] as List<Map<String, dynamic>>;
+        _completedChallenges = results[1] as List<Map<String, dynamic>>;
+        final remoteDiscover = results[2] as Map<String, List<Map<String, dynamic>>>;
+        // Fall back to local discover data if Supabase table is empty
+        _discoverData = remoteDiscover.isNotEmpty ? remoteDiscover : _localDiscoverData;
+        _isLoading = false;
+      });
+    }
   }
 
   @override
@@ -72,87 +105,106 @@ class _ChallengeScreenState extends State<ChallengeScreen> with SingleTickerProv
     super.dispose();
   }
 
-  void _showLeaderboard(BuildContext context, bool isDark) {
+  void _showLeaderboard(BuildContext context, bool isDark, String? challengeId) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (context) => _LeaderboardSheet(isDark: isDark),
+      builder: (context) => _LeaderboardSheet(isDark: isDark, challengeId: challengeId ?? ''),
     );
   }
 
+  // B2 — functional filter sheet using StatefulBuilder
   void _showFilterSheet(BuildContext context, bool isDark) {
+    String? tempGoalType = _filterGoalType;
+
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
-      builder: (context) => Container(
-        padding: const EdgeInsets.all(24),
-        decoration: BoxDecoration(
-          color: isDark ? AppColors.surfaceElevated : AppColors.lightBg,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Filter Challenges', style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
-            const SizedBox(height: 24),
-            const Text('Status'),
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                Chip(label: const Text('Ongoing'), backgroundColor: AppColors.voltCyan.withValues(alpha: 0.2)),
-                const SizedBox(width: 8),
-                const Chip(label: Text('Upcoming')),
-              ],
-            ),
-            const SizedBox(height: 16),
-            const Text('Goal Type'),
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                const Chip(label: Text('Steps')),
-                const SizedBox(width: 8),
-                Chip(label: const Text('Distance'), backgroundColor: AppColors.voltCyan.withValues(alpha: 0.2)),
-                const SizedBox(width: 8),
-                const Chip(label: Text('Workouts')),
-              ],
-            ),
-            const SizedBox(height: 32),
-            SizedBox(
-              width: double.infinity,
-              height: 50,
-              child: ElevatedButton(
-                onPressed: () => Navigator.pop(context),
-                style: ElevatedButton.styleFrom(backgroundColor: AppColors.voltCyan),
-                child: const Text('Apply Filters', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+      builder: (context) => StatefulBuilder(
+        builder: (context, setSheetState) => Container(
+          padding: const EdgeInsets.all(24),
+          decoration: BoxDecoration(
+            color: isDark ? AppColors.surfaceElevated : AppColors.lightBg,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Filter Challenges', style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
+              const SizedBox(height: 24),
+              const Text('Goal Type'),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                children: ['Steps', 'Distance', 'Workouts', 'Study', 'Calories'].map((g) => ChoiceChip(
+                  label: Text(g),
+                  selected: tempGoalType == g,
+                  onSelected: (v) => setSheetState(() => tempGoalType = v ? g : null),
+                  selectedColor: AppColors.voltCyan.withValues(alpha: 0.2),
+                )).toList(),
               ),
-            ),
-            const SizedBox(height: 16),
-          ],
+              const SizedBox(height: 32),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: () {
+                        setState(() => _filterGoalType = null);
+                        Navigator.pop(context);
+                      },
+                      child: const Text('Clear'),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    flex: 2,
+                    child: ElevatedButton(
+                      onPressed: () {
+                        setState(() => _filterGoalType = tempGoalType);
+                        Navigator.pop(context);
+                      },
+                      style: ElevatedButton.styleFrom(backgroundColor: AppColors.voltCyan),
+                      child: const Text('Apply Filters', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+            ],
+          ),
         ),
       ),
     );
   }
 
-  void _joinChallenge(Map<String, dynamic> challengeData) {
+  void _joinChallenge(Map<String, dynamic> challengeData) async {
+    final challengeId = challengeData['id'] as String?;
+    if (challengeId != null) {
+      await _service.joinChallenge(challengeId);
+    }
     setState(() {
       _activeChallenges.insert(0, {
         'title': challengeData['title'],
         'tier': challengeData['tier'],
         'current': 0.0,
-        'total': challengeData['total'],
+        'total': (challengeData['target_value'] ?? challengeData['total'] ?? 100.0),
         'rank': 1,
-        'goalType': 'Distance',
+        'goalType': challengeData['goal_type'] ?? 'Distance',
         'stakes': null,
+        'endDate': null,
+        'participantsCount': challengeData['participants_count'] ?? 0,
       });
     });
     _confetti.play();
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-      content: Text('Joined "${challengeData['title']}"! 🎉'),
-      backgroundColor: AppColors.irisViolet,
-      behavior: SnackBarBehavior.floating,
-    ));
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text('Joined "${challengeData['title']}"! 🎉'),
+        backgroundColor: AppColors.irisViolet,
+        behavior: SnackBarBehavior.floating,
+      ));
+    }
   }
 
   @override
@@ -171,16 +223,32 @@ class _ChallengeScreenState extends State<ChallengeScreen> with SingleTickerProv
             isScrollControlled: true,
             backgroundColor: Colors.transparent,
             builder: (_) => CreateChallengeSheet(
-              onChallengeCreated: (challenge) {
+              onChallengeCreated: (challenge) async {
+                // M5: Save to Supabase
+                final challengeMap = {
+                  'title': challenge['title'],
+                  'goal_type': challenge['goalType'] ?? 'Distance',
+                  'target_value': challenge['total'] ?? challenge['target_value'] ?? 100.0,
+                  'difficulty': challenge['difficulty'] ?? 'Medium',
+                  'tier': challenge['tier'] ?? 'Silver',
+                  'stakes': challenge['stakes'],
+                  'end_date': challenge['endDate'],
+                };
+                final id = await _service.createChallenge(challengeMap);
                 setState(() {
-                  _activeChallenges.insert(0, challenge);
+                  _activeChallenges.insert(0, {
+                    ...challenge,
+                    'id': id,
+                  });
                 });
                 _confetti.play();
-                ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                  content: Text('Challenge "${challenge['title']}" Created! 🎉'),
-                  backgroundColor: AppColors.irisViolet,
-                  behavior: SnackBarBehavior.floating,
-                ));
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                    content: Text('Challenge "${challenge['title']}" Created! 🎉'),
+                    backgroundColor: AppColors.irisViolet,
+                    behavior: SnackBarBehavior.floating,
+                  ));
+                }
               },
             ),
           );
@@ -193,22 +261,30 @@ class _ChallengeScreenState extends State<ChallengeScreen> with SingleTickerProv
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // 1. TOP BAR
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Text('Challenges', style: theme.textTheme.headlineLarge?.copyWith(fontWeight: FontWeight.w900)),
-                      IconButton(
-                        icon: Icon(LucideIcons.filter, color: theme.colorScheme.onSurfaceVariant),
-                        onPressed: () => _showFilterSheet(context, isDark),
+                      Row(
+                        children: [
+                          if (_filterGoalType != null)
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                              decoration: BoxDecoration(color: AppColors.voltCyan.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(8)),
+                              child: Text(_filterGoalType!, style: const TextStyle(color: AppColors.voltCyan, fontSize: 12, fontWeight: FontWeight.bold)),
+                            ),
+                          IconButton(
+                            icon: Icon(LucideIcons.filter,
+                              color: _filterGoalType != null ? AppColors.voltCyan : theme.colorScheme.onSurfaceVariant),
+                            onPressed: () => _showFilterSheet(context, isDark),
+                          ),
+                        ],
                       ),
                     ],
                   ),
                 ),
-                
-                // Tabs
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 24),
                   child: Row(
@@ -222,19 +298,18 @@ class _ChallengeScreenState extends State<ChallengeScreen> with SingleTickerProv
                   ),
                 ),
                 const SizedBox(height: 24),
-
-                // Content
                 Expanded(
-                  child: _selectedTab == 0
-                      ? _buildActiveTab(theme, isDark)
-                      : _selectedTab == 1
-                          ? _buildDiscoverTab(theme, isDark)
-                          : _buildCompletedTab(theme, isDark),
+                  child: _isLoading
+                      ? const Center(child: CircularProgressIndicator())
+                      : _selectedTab == 0
+                          ? _buildActiveTab(theme, isDark)
+                          : _selectedTab == 1
+                              ? _buildDiscoverTab(theme, isDark)
+                              : _buildCompletedTab(theme, isDark),
                 ),
               ],
             ),
           ),
-          
           Align(
             alignment: Alignment.topCenter,
             child: ConfettiWidget(
@@ -273,17 +348,18 @@ class _ChallengeScreenState extends State<ChallengeScreen> with SingleTickerProv
               width: 24,
               height: 3,
               decoration: BoxDecoration(color: AppColors.solarAmber, borderRadius: BorderRadius.circular(2)),
-            )
+            ),
         ],
       ),
     );
   }
 
   Widget _buildActiveTab(ThemeData theme, bool isDark) {
+    final filtered = _filteredActiveChallenges;
     return ListView(
       padding: const EdgeInsets.symmetric(horizontal: 24),
       children: [
-        // 3. DAILY CHALLENGE NUDGE
+        // Daily Nudge (B1 — Go button navigates)
         AnimatedBuilder(
           animation: _glowController,
           builder: (context, child) {
@@ -307,19 +383,37 @@ class _ChallengeScreenState extends State<ChallengeScreen> with SingleTickerProv
                       children: [
                         Text("Complete today's task", style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
                         const SizedBox(height: 4),
-                        Text('Run 5km to keep your streak alive.', style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
+                        Text(
+                          _activeChallenges.isNotEmpty
+                              ? 'Continue "${_getTitle(_activeChallenges.first)}" — keep your streak!'
+                              : 'Run 5km to keep your streak alive.',
+                          style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+                        ),
                       ],
                     ),
                   ),
                   const SizedBox(width: 12),
+                  // B1 — navigate based on goalType
                   ElevatedButton(
                     onPressed: () {
                       HapticFeedback.mediumImpact();
-                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-                        content: Text("Tracking Started! Let's go! 🏃‍♂️"),
-                        backgroundColor: AppColors.green,
-                        behavior: SnackBarBehavior.floating,
-                      ));
+                      final first = _activeChallenges.isNotEmpty ? _activeChallenges.first : null;
+                      if (first == null) {
+                        Navigator.push(context, MaterialPageRoute(builder: (_) => const RunningScreen()));
+                        return;
+                      }
+                      final goalType = (first['goalType'] as String?)
+                          ?? (first['challenge']?['goal_type'] as String?)
+                          ?? 'Distance';
+                      if (goalType == 'Distance' || goalType == 'Steps') {
+                        Navigator.push(context, MaterialPageRoute(builder: (_) => const RunningScreen()));
+                      } else if (goalType == 'Workouts' || goalType == 'Calories') {
+                        Navigator.push(context, MaterialPageRoute(builder: (_) => const FitnessScreen()));
+                      } else if (goalType == 'Study') {
+                        Navigator.push(context, MaterialPageRoute(builder: (_) => const StudyScreen()));
+                      } else {
+                        Navigator.push(context, MaterialPageRoute(builder: (_) => const RunningScreen()));
+                      }
                     },
                     style: ElevatedButton.styleFrom(backgroundColor: AppColors.solarAmber, foregroundColor: Colors.black, minimumSize: const Size(60, 36)),
                     child: const Text('Go', style: TextStyle(fontWeight: FontWeight.bold)),
@@ -330,52 +424,64 @@ class _ChallengeScreenState extends State<ChallengeScreen> with SingleTickerProv
           },
         ),
         const SizedBox(height: 32),
-
-        Text('My Challenges', style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
+        Row(
+          children: [
+            Text('My Challenges', style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
+            const Spacer(),
+            if (_filterGoalType != null)
+              Text('Filtered: $_filterGoalType', style: const TextStyle(color: AppColors.voltCyan, fontSize: 12)),
+          ],
+        ),
         const SizedBox(height: 16),
-
-        // 2. ACTIVE CHALLENGES (Cards)
-        if (_activeChallenges.isEmpty)
-           Padding(
+        if (filtered.isEmpty)
+          Padding(
             padding: const EdgeInsets.only(top: 24.0),
             child: Center(
               child: Text(
-                "You haven't joined any challenges yet.",
+                _filterGoalType != null
+                    ? 'No $_filterGoalType challenges. Try clearing the filter.'
+                    : "You haven't joined any challenges yet.\nTap Discover to explore!",
+                textAlign: TextAlign.center,
                 style: TextStyle(color: theme.colorScheme.onSurfaceVariant),
               ),
             ),
           )
         else
-          ..._activeChallenges.map((c) => Padding(
+          ...filtered.map((c) => Padding(
             padding: const EdgeInsets.only(bottom: 16),
-            child: _buildProgressCard(
-              title: c['title'] as String,
-              tier: c['tier'] as String,
-              current: (c['current'] as num).toDouble(),
-              total: (c['total'] as num).toDouble(),
-              rank: c['rank'] as int,
-              goalType: c['goalType'] as String?,
-              stakes: c['stakes'] as String?,
-              isDark: isDark,
-              theme: theme,
-            ),
+            child: _buildProgressCard(c, isDark, theme),
           )),
         const SizedBox(height: 100),
       ],
     );
   }
 
-  Widget _buildProgressCard({
-    required String title,
-    required String tier,
-    required double current,
-    required double total,
-    required int rank,
-    String? goalType,
-    String? stakes,
-    required bool isDark,
-    required ThemeData theme,
-  }) {
+  // Helper to get title from both local and Supabase-shaped maps
+  String _getTitle(Map<String, dynamic> c) {
+    return (c['title'] as String?) ??
+        (c['challenge']?['title'] as String?) ??
+        'Challenge';
+  }
+
+  Widget _buildProgressCard(Map<String, dynamic> c, bool isDark, ThemeData theme) {
+    // Support both flat local maps and Supabase nested maps
+    final challenge = c['challenge'] as Map<String, dynamic>? ?? c;
+    final title = (c['title'] as String?) ?? (challenge['title'] as String?) ?? 'Challenge';
+    final tier = (c['tier'] as String?) ?? (challenge['tier'] as String?) ?? 'Silver';
+    final current = (c['current'] as num?)?.toDouble()
+        ?? (c['current_value'] as num?)?.toDouble()
+        ?? 0.0;
+    final total = (c['total'] as num?)?.toDouble()
+        ?? (challenge['target_value'] as num?)?.toDouble()
+        ?? 100.0;
+    final rank = (c['rank'] as int?) ?? 1;
+    final goalType = (c['goalType'] as String?) ?? (challenge['goal_type'] as String?);
+    final stakes = (c['stakes'] as String?) ?? (challenge['stakes'] as String?);
+    final endDate = (c['endDate'] as String?) ?? (challenge['end_date'] as String?);
+    final participantsCount = (c['participantsCount'] as int?)
+        ?? (challenge['participants_count'] as int?) ?? 0;
+    final challengeId = (c['id'] as String?) ?? (challenge['id'] as String?);
+
     Gradient bgGradient;
     switch (tier) {
       case 'Bronze': bgGradient = const LinearGradient(colors: [Color(0xFFCD7F32), Color(0xFFE6A869)]); break;
@@ -385,13 +491,14 @@ class _ChallengeScreenState extends State<ChallengeScreen> with SingleTickerProv
       default: bgGradient = const LinearGradient(colors: [Color(0xFF708090), Color(0xFFC0C0C0)]);
     }
 
-    final pct = (current / total).clamp(0.0, 1.0);
-    
+    final pct = total > 0 ? (current / total).clamp(0.0, 1.0) : 0.0;
+
     IconData typeIcon = LucideIcons.target;
     if (goalType == 'Distance') typeIcon = LucideIcons.mapPin;
     if (goalType == 'Steps') typeIcon = LucideIcons.footprints;
     if (goalType == 'Workouts') typeIcon = LucideIcons.activity;
     if (goalType == 'Calories') typeIcon = LucideIcons.flame;
+    if (goalType == 'Study') typeIcon = LucideIcons.book;
 
     return Container(
       decoration: BoxDecoration(
@@ -419,15 +526,19 @@ class _ChallengeScreenState extends State<ChallengeScreen> with SingleTickerProv
                           child: Icon(typeIcon, color: Colors.white, size: 14),
                         ),
                         const SizedBox(width: 8),
+                        // B3 — Real days left
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                           decoration: BoxDecoration(color: Colors.black.withValues(alpha: 0.3), borderRadius: BorderRadius.circular(8)),
-                          child: const Text('2 days left', style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
+                          child: Text(
+                            _getDaysLeft(endDate),
+                            style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+                          ),
                         ),
                       ],
                     ),
                     GestureDetector(
-                      onTap: () => _showLeaderboard(context, isDark),
+                      onTap: () => _showLeaderboard(context, isDark, challengeId),
                       child: Container(
                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                         decoration: BoxDecoration(color: AppColors.solarAmber, borderRadius: BorderRadius.circular(8)),
@@ -444,7 +555,12 @@ class _ChallengeScreenState extends State<ChallengeScreen> with SingleTickerProv
                 ),
                 const SizedBox(height: 16),
                 Text(title, style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.w900)),
-                const SizedBox(height: 24),
+                if (goalType != null)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4),
+                    child: Text(goalType, style: TextStyle(color: Colors.white.withValues(alpha: 0.7), fontSize: 12)),
+                  ),
+                const SizedBox(height: 20),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
@@ -465,6 +581,7 @@ class _ChallengeScreenState extends State<ChallengeScreen> with SingleTickerProv
                 const SizedBox(height: 16),
                 Row(
                   children: [
+                    // B5 — Use real participantsCount
                     SizedBox(
                       width: 70,
                       height: 28,
@@ -472,7 +589,18 @@ class _ChallengeScreenState extends State<ChallengeScreen> with SingleTickerProv
                         children: [
                           const Positioned(left: 0, child: CircleAvatar(radius: 14, backgroundColor: Colors.white, child: Icon(Icons.person, size: 16, color: Colors.black))),
                           const Positioned(left: 20, child: CircleAvatar(radius: 14, backgroundColor: Colors.white, child: Icon(Icons.person, size: 16, color: Colors.blue))),
-                          Positioned(left: 40, child: CircleAvatar(radius: 14, backgroundColor: Colors.black.withValues(alpha: 0.5), child: const Text('+8', style: TextStyle(color: Colors.white, fontSize: 10)))),
+                          if (participantsCount > 2)
+                            Positioned(
+                              left: 40,
+                              child: CircleAvatar(
+                                radius: 14,
+                                backgroundColor: Colors.black.withValues(alpha: 0.5),
+                                child: Text(
+                                  participantsCount > 2 ? '+${participantsCount - 2}' : '',
+                                  style: const TextStyle(color: Colors.white, fontSize: 9),
+                                ),
+                              ),
+                            ),
                         ],
                       ),
                     ),
@@ -483,7 +611,6 @@ class _ChallengeScreenState extends State<ChallengeScreen> with SingleTickerProv
               ],
             ),
           ),
-          
           if (stakes != null && stakes.isNotEmpty)
             Container(
               width: double.infinity,
@@ -513,9 +640,10 @@ class _ChallengeScreenState extends State<ChallengeScreen> with SingleTickerProv
   }
 
   Widget _buildDiscoverTab(ThemeData theme, bool isDark) {
+    final data = _discoverData.isNotEmpty ? _discoverData : _localDiscoverData;
     return ListView(
       padding: const EdgeInsets.only(bottom: 100),
-      children: _discoverData.entries.map((category) {
+      children: data.entries.map((category) {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -524,7 +652,7 @@ class _ChallengeScreenState extends State<ChallengeScreen> with SingleTickerProv
               child: Text(category.key, style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
             ),
             SizedBox(
-              height: 220,
+              height: 225,
               child: ListView.builder(
                 scrollDirection: Axis.horizontal,
                 padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -542,10 +670,16 @@ class _ChallengeScreenState extends State<ChallengeScreen> with SingleTickerProv
   }
 
   Widget _discoverCard(Map<String, dynamic> item, bool isDark, ThemeData theme) {
-    final diffColor = item['color'] as Color;
-    
+    final diffColor = (item['color'] as Color?) ?? AppColors.voltCyan;
+    final participantsCount = (item['participants_count'] as int?) ?? (item['participants'] as int?) ?? 0;
+
+    IconData icon = LucideIcons.target;
+    if (item.containsKey('icon')) {
+      try { icon = item['icon'] as IconData; } catch (_) {}
+    }
+
     return Container(
-      width: 160,
+      width: 162,
       margin: const EdgeInsets.symmetric(horizontal: 8),
       decoration: BoxDecoration(
         color: isDark ? AppColors.surfaceElevated : AppColors.lightSurfaceContainer,
@@ -563,47 +697,54 @@ class _ChallengeScreenState extends State<ChallengeScreen> with SingleTickerProv
               gradient: LinearGradient(colors: [diffColor.withValues(alpha: 0.8), diffColor.withValues(alpha: 0.4)], begin: Alignment.topLeft, end: Alignment.bottomRight),
               borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
             ),
-            child: Center(child: Icon(item['icon'] as IconData, size: 36, color: Colors.white)),
+            child: Center(child: Icon(icon, size: 36, color: Colors.white)),
           ),
-          Padding(
-            padding: const EdgeInsets.all(12),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                  decoration: BoxDecoration(color: diffColor.withValues(alpha: 0.2), borderRadius: BorderRadius.circular(8)),
-                  child: Text(item['tier'] as String, style: TextStyle(color: diffColor, fontSize: 10, fontWeight: FontWeight.bold)),
-                ),
-                const SizedBox(height: 8),
-                Text(item['title'] as String, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14), maxLines: 2, overflow: TextOverflow.ellipsis),
-                const SizedBox(height: 8),
-                Row(
-                  children: [
-                    const Icon(LucideIcons.users, size: 12, color: Colors.grey),
-                    const SizedBox(width: 4),
-                    Text('${item['participants']} joined', style: const TextStyle(color: Colors.grey, fontSize: 10)),
-                  ],
-                ),
-                const Spacer(),
-                SizedBox(
-                  width: double.infinity,
-                  height: 32,
-                  child: ElevatedButton(
-                    onPressed: () => _joinChallenge(item),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: diffColor.withValues(alpha: 0.1),
-                      foregroundColor: diffColor,
-                      elevation: 0,
-                      padding: EdgeInsets.zero,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                    ),
-                    child: const Text('Join', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.all(12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                    decoration: BoxDecoration(color: diffColor.withValues(alpha: 0.2), borderRadius: BorderRadius.circular(8)),
+                    child: Text(item['tier'] as String? ?? 'Silver', style: TextStyle(color: diffColor, fontSize: 10, fontWeight: FontWeight.bold)),
                   ),
-                ),
-              ],
+                  const SizedBox(height: 6),
+                  Text(item['title'] as String? ?? '', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13), maxLines: 2, overflow: TextOverflow.ellipsis),
+                  const SizedBox(height: 6),
+                  Row(
+                    children: [
+                      const Icon(LucideIcons.users, size: 12, color: Colors.grey),
+                      const SizedBox(width: 4),
+                      Text(
+                        participantsCount >= 1000
+                            ? '${(participantsCount / 1000).toStringAsFixed(1)}k joined'
+                            : '$participantsCount joined',
+                        style: const TextStyle(color: Colors.grey, fontSize: 10),
+                      ),
+                    ],
+                  ),
+                  const Spacer(),
+                  SizedBox(
+                    width: double.infinity,
+                    height: 32,
+                    child: ElevatedButton(
+                      onPressed: () => _joinChallenge(item),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: diffColor.withValues(alpha: 0.15),
+                        foregroundColor: diffColor,
+                        elevation: 0,
+                        padding: EdgeInsets.zero,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      ),
+                      child: const Text('Join', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                    ),
+                  ),
+                ],
+              ),
             ),
-          )
+          ),
         ],
       ),
     );
@@ -613,23 +754,29 @@ class _ChallengeScreenState extends State<ChallengeScreen> with SingleTickerProv
     if (_completedChallenges.isEmpty) {
       return Center(
         child: Text(
-          "No completed challenges yet. Keep pushing!",
+          "No completed challenges yet.\nKeep pushing! 💪",
+          textAlign: TextAlign.center,
           style: TextStyle(color: theme.colorScheme.onSurfaceVariant),
         ),
       );
     }
-    
+
     return ListView.builder(
       padding: const EdgeInsets.fromLTRB(24, 0, 24, 100),
       itemCount: _completedChallenges.length,
       itemBuilder: (context, index) {
         final c = _completedChallenges[index];
-        return _completedCard(c['title'], c['tier'], c['rank'], c['date'], c['goalType'], isDark, theme);
+        final challenge = c['challenge'] as Map<String, dynamic>? ?? c;
+        final title = (c['title'] as String?) ?? (challenge['title'] as String?) ?? 'Challenge';
+        final tier = (c['tier'] as String?) ?? (challenge['tier'] as String?) ?? 'Silver';
+        final rank = (c['rank'] as int?) ?? 1;
+        final completedAt = (c['date'] as String?) ?? (c['completed_at'] as String?);
+        return _completedCard(title, tier, rank, completedAt, isDark, theme);
       },
     );
   }
 
-  Widget _completedCard(String title, String tier, int rank, String date, String goalType, bool isDark, ThemeData theme) {
+  Widget _completedCard(String title, String tier, int rank, String? completedAt, bool isDark, ThemeData theme) {
     Gradient bgGradient;
     switch (tier) {
       case 'Bronze': bgGradient = const LinearGradient(colors: [Color(0xFFCD7F32), Color(0xFFE6A869)]); break;
@@ -637,6 +784,17 @@ class _ChallengeScreenState extends State<ChallengeScreen> with SingleTickerProv
       case 'Gold': bgGradient = const LinearGradient(colors: [Color(0xFFB8860B), Color(0xFFFFD700)]); break;
       case 'Diamond': bgGradient = const LinearGradient(colors: [Color(0xFF4169E1), Color(0xFF00BFFF)]); break;
       default: bgGradient = const LinearGradient(colors: [Color(0xFF708090), Color(0xFFC0C0C0)]);
+    }
+
+    String dateStr = 'Recently';
+    if (completedAt != null && completedAt.isNotEmpty) {
+      try {
+        final dt = DateTime.parse(completedAt);
+        final months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+        dateStr = '${months[dt.month - 1]} ${dt.year}';
+      } catch (_) {
+        dateStr = completedAt;
+      }
     }
 
     return Container(
@@ -667,7 +825,7 @@ class _ChallengeScreenState extends State<ChallengeScreen> with SingleTickerProv
                     children: [
                       Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
                       const SizedBox(height: 4),
-                      Text('Completed $date', style: TextStyle(color: isDark ? Colors.white54 : Colors.black54, fontSize: 12)),
+                      Text('Completed $dateStr', style: TextStyle(color: isDark ? Colors.white54 : Colors.black54, fontSize: 12)),
                     ],
                   ),
                 ),
@@ -700,10 +858,12 @@ class _ChallengeScreenState extends State<ChallengeScreen> with SingleTickerProv
                     const Text('Goal Reached!', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
                   ],
                 ),
+                // B4 — Real share functionality
                 GestureDetector(
-                  onTap: () {
+                  onTap: () async {
                     HapticFeedback.lightImpact();
-                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Sharing coming soon!')));
+                    final text = 'I completed the "$title" challenge and ranked #$rank! 🏆 Powered by LifePulse 💪';
+                    await Share.share(text);
                   },
                   child: const Row(
                     children: [
@@ -715,20 +875,54 @@ class _ChallengeScreenState extends State<ChallengeScreen> with SingleTickerProv
                 ),
               ],
             ),
-          )
+          ),
         ],
       ),
     );
   }
 }
 
-class _LeaderboardSheet extends StatelessWidget {
+// M4 — Leaderboard Sheet now loads real data from Supabase
+class _LeaderboardSheet extends StatefulWidget {
   final bool isDark;
+  final String challengeId;
 
-  const _LeaderboardSheet({required this.isDark});
+  const _LeaderboardSheet({required this.isDark, required this.challengeId});
+
+  @override
+  State<_LeaderboardSheet> createState() => _LeaderboardSheetState();
+}
+
+class _LeaderboardSheetState extends State<_LeaderboardSheet> {
+  List<Map<String, dynamic>> _rows = [];
+  bool _loading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadLeaderboard();
+  }
+
+  Future<void> _loadLeaderboard() async {
+    if (widget.challengeId.isEmpty) {
+      // No ID — show mock
+      setState(() {
+        _rows = [];
+        _loading = false;
+      });
+      return;
+    }
+    try {
+      final data = await ChallengeService().getLeaderboard(widget.challengeId);
+      if (mounted) setState(() { _rows = data; _loading = false; });
+    } catch (_) {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
+    final isDark = widget.isDark;
     return Container(
       height: MediaQuery.of(context).size.height * 0.85,
       padding: const EdgeInsets.only(top: 24),
@@ -739,54 +933,97 @@ class _LeaderboardSheet extends StatelessWidget {
       child: Column(
         children: [
           const Text('Leaderboard', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-          const SizedBox(height: 32),
-          
-          // 5. Podium Widget
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              _podiumBar('Sarah', 90, 2, const LinearGradient(colors: [Color(0xFF708090), Color(0xFFC0C0C0)])),
-              const SizedBox(width: 8),
-              _podiumBar('You', 120, 1, const LinearGradient(colors: [Color(0xFFB8860B), Color(0xFFFFD700)])),
-              const SizedBox(width: 8),
-              _podiumBar('Mike', 70, 3, const LinearGradient(colors: [Color(0xFFCD7F32), Color(0xFFE6A869)])),
-            ],
-          ),
-          const SizedBox(height: 32),
-
-          // Leaderboard List
-          Expanded(
-            child: ListView.builder(
-              padding: const EdgeInsets.symmetric(horizontal: 24),
-              itemCount: 10,
-              itemBuilder: (context, index) {
-                final rank = index + 4;
-                return Container(
-                  margin: const EdgeInsets.only(bottom: 8),
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: isDark ? AppColors.surfaceElevated : AppColors.lightSurfaceContainer,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Row(
+          const SizedBox(height: 24),
+          if (_loading)
+            const Expanded(child: Center(child: CircularProgressIndicator()))
+          else if (_rows.isEmpty)
+            // Podium with mock fallback
+            Expanded(
+              child: Column(
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
-                      SizedBox(width: 24, child: Text('$rank', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.grey))),
-                      const CircleAvatar(radius: 16, child: Icon(Icons.person, size: 16)),
-                      const SizedBox(width: 12),
-                      const Expanded(child: Text('RunnerGuy22', style: TextStyle(fontWeight: FontWeight.w600))),
-                      const Text('450', style: TextStyle(fontWeight: FontWeight.bold)),
-                      const SizedBox(width: 12),
-                      const Icon(LucideIcons.arrowUp, color: AppColors.green, size: 16),
+                      _podiumBar('Sarah', 90, 2, const LinearGradient(colors: [Color(0xFF708090), Color(0xFFC0C0C0)])),
+                      const SizedBox(width: 8),
+                      _podiumBar('You', 120, 1, const LinearGradient(colors: [Color(0xFFB8860B), Color(0xFFFFD700)])),
+                      const SizedBox(width: 8),
+                      _podiumBar('Mike', 70, 3, const LinearGradient(colors: [Color(0xFFCD7F32), Color(0xFFE6A869)])),
                     ],
                   ),
-                );
-              },
+                  const SizedBox(height: 24),
+                  const Text('Join this challenge to see the real leaderboard!', style: TextStyle(color: Colors.grey)),
+                ],
+              ),
+            )
+          else
+            Expanded(
+              child: Column(
+                children: [
+                  // Podium top 3
+                  if (_rows.length >= 3)
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        _podiumBarFromRow(_rows[1], 2, 90),
+                        const SizedBox(width: 8),
+                        _podiumBarFromRow(_rows[0], 1, 120),
+                        const SizedBox(width: 8),
+                        _podiumBarFromRow(_rows[2], 3, 70),
+                      ],
+                    ),
+                  const SizedBox(height: 24),
+                  Expanded(
+                    child: ListView.builder(
+                      padding: const EdgeInsets.symmetric(horizontal: 24),
+                      itemCount: _rows.length > 3 ? _rows.length - 3 : 0,
+                      itemBuilder: (context, index) {
+                        final row = _rows[index + 3];
+                        final user = row['user'] as Map<String, dynamic>? ?? {};
+                        final name = (user['full_name'] as String?) ?? 'User';
+                        final value = (row['current_value'] as num?)?.toInt() ?? 0;
+                        final rank = index + 4;
+                        return Container(
+                          margin: const EdgeInsets.only(bottom: 8),
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: isDark ? AppColors.surfaceElevated : AppColors.lightSurfaceContainer,
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Row(
+                            children: [
+                              SizedBox(width: 24, child: Text('$rank', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.grey))),
+                              const CircleAvatar(radius: 16, child: Icon(Icons.person, size: 16)),
+                              const SizedBox(width: 12),
+                              Expanded(child: Text(name, style: const TextStyle(fontWeight: FontWeight.w600))),
+                              Text('$value', style: const TextStyle(fontWeight: FontWeight.bold)),
+                              const SizedBox(width: 12),
+                              const Icon(LucideIcons.arrowUp, color: AppColors.green, size: 16),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ],
+              ),
             ),
-          ),
         ],
       ),
     );
+  }
+
+  Widget _podiumBarFromRow(Map<String, dynamic> row, int rank, double height) {
+    final user = row['user'] as Map<String, dynamic>? ?? {};
+    final name = (user['full_name'] as String?) ?? 'User';
+    const gradients = {
+      1: LinearGradient(colors: [Color(0xFFB8860B), Color(0xFFFFD700)]),
+      2: LinearGradient(colors: [Color(0xFF708090), Color(0xFFC0C0C0)]),
+      3: LinearGradient(colors: [Color(0xFFCD7F32), Color(0xFFE6A869)]),
+    };
+    return _podiumBar(name, height, rank, gradients[rank] ?? const LinearGradient(colors: [Color(0xFF708090), Color(0xFFC0C0C0)]));
   }
 
   Widget _podiumBar(String name, double height, int rank, Gradient gradient) {

@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:provider/provider.dart';
 
@@ -8,6 +8,7 @@ import '../providers/watch_metrics_provider.dart';
 import '../providers/step_tracker_provider.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_spacing.dart';
+import 'challenge_screen.dart';
 import '../widgets/animated_card_enter.dart';
 import '../widgets/daily_plan_tile.dart';
 import '../widgets/metric_ring_card.dart';
@@ -337,7 +338,7 @@ class DashboardScreen extends StatelessWidget {
             onStart: () {
               if (!plans.first.isCompleted) {
                 app.setActiveRunPlan(plans.first);
-                app.setTabIndex(2);
+                Navigator.push(context, MaterialPageRoute(builder: (_) => const ChallengeScreen()));
               } else {
                 app.togglePlanComplete(plans.first.id);
               }
@@ -367,7 +368,7 @@ class DashboardScreen extends StatelessWidget {
                       onStart: () {
                         if (!plan.isCompleted) {
                           app.setActiveRunPlan(plan);
-                          app.setTabIndex(2);
+                          Navigator.push(context, MaterialPageRoute(builder: (_) => const ChallengeScreen()));
                         } else {
                           app.togglePlanComplete(plan.id);
                         }

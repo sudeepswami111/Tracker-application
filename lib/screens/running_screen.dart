@@ -1,4 +1,4 @@
-﻿import 'dart:async';
+import 'dart:async';
 import 'dart:io';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
@@ -28,6 +28,7 @@ import '../providers/theme_provider.dart';
 import 'package:intl/intl.dart';
 import '../constants/activity_types.dart' hide ActivityType;
 import 'fitness_screen.dart';
+import '../services/challenge_service.dart';
 
 enum RunState { planning, countdown, running, paused, finished }
 
@@ -403,6 +404,10 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
     HapticFeedback.heavyImpact();
     _timer?.cancel();
     setState(() => _state = RunState.finished);
+    // I1: Update Distance challenge progress after run
+    if (_distKm > 0) {
+      ChallengeService().updateDistanceChallengesAfterRun(_distKm);
+    }
     _showSummary();
   }
 

@@ -464,6 +464,13 @@ class AppProvider extends ChangeNotifier with WidgetsBindingObserver {
     // 2.2 — Detect midnight and reset if new day
     _checkDailyReset();
     checkStreakStatus();
+    // I5 — Generate weekly challenges every Monday
+    final lastGenerated = prefs.getString('lastChallengesGenerated') ?? '';
+    final today = _todayStr();
+    if (lastGenerated != today && DateTime.now().weekday == DateTime.monday) {
+      generateWeeklyChallenges();
+      prefs.setString('lastChallengesGenerated', today);
+    }
     notifyListeners();
   }
 
@@ -804,16 +811,23 @@ class AppProvider extends ChangeNotifier with WidgetsBindingObserver {
     notifyListeners();
   }
 
-  void claimChallenge(ChallengeModel c) {
-    if (!c.isCompleted || c.claimed) return;
-    c.claimed = true;
+  // I7 — Updated claimChallenge: accepts title and rank directly
+  void claimChallenge(String challengeTitle, int rank) {
     achievements.add({
-      'title': '7-Day Champ',
-      'icon': LucideIcons.medal,
+      'title': challengeTitle,
+      'icon': LucideIcons.trophy,
       'unlocked': true,
-      'description': c.title,
+      'description': 'Finished #$rank',
     });
     notifyListeners();
+    _saveData();
+  }
+
+  // Legacy overload kept for backward compat with ChallengeModel-based calls
+  void claimChallengeModel(ChallengeModel c) {
+    if (!c.isCompleted || c.claimed) return;
+    c.claimed = true;
+    claimChallenge(c.title, 1);
   }
 
   @override

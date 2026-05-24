@@ -1,10 +1,11 @@
-﻿import 'dart:async';
+import 'dart:async';
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import '../providers/app_provider.dart';
+import '../services/challenge_service.dart';
 import '../widgets/glass_card.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_spacing.dart';
@@ -65,7 +66,10 @@ class _StudyScreenState extends State<StudyScreen> with TickerProviderStateMixin
             _timerSeconds = _totalSeconds;
             _completedSessionsToday++;
           });
-          context.read<AppProvider>().completeFocusSession();
+          final app = context.read<AppProvider>();
+          app.completeFocusSession();
+          // I3: Update Study challenge progress
+          ChallengeService().updateStudyChallenges(app.studyHrs);
           return;
         }
         setState(() => _timerSeconds--);

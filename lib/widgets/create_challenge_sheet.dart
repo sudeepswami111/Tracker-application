@@ -1,6 +1,7 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:intl/intl.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import '../theme/app_colors.dart';
 
@@ -20,6 +21,7 @@ class _CreateChallengeSheetState extends State<CreateChallengeSheet> {
   String _selectedGoal = 'Distance';
   String _selectedDifficulty = 'Medium';
   double _goalValue = 100.0;
+  DateTime? _endDate;
   
   final List<String> _goals = ['Distance', 'Steps', 'Workouts'];
   final List<String> _difficulties = ['Easy', 'Medium', 'Hard', 'Extreme'];
@@ -73,9 +75,14 @@ class _CreateChallengeSheetState extends State<CreateChallengeSheet> {
       'tier': tier,
       'current': 0.0,
       'total': _goalValue,
+      'target_value': _goalValue,
       'rank': 1,
       'goalType': _selectedGoal,
-      'stakes': _stakesController.text.trim(),
+      'goal_type': _selectedGoal,
+      'difficulty': _selectedDifficulty,
+      'stakes': _stakesController.text.trim().isEmpty ? null : _stakesController.text.trim(),
+      'endDate': _endDate?.toIso8601String(),
+      'end_date': _endDate?.toIso8601String(),
     };
     
     widget.onChallengeCreated?.call(challenge);
@@ -246,7 +253,50 @@ class _CreateChallengeSheetState extends State<CreateChallengeSheet> {
                   );
                 }).toList(),
               ),
-              const SizedBox(height: 40),
+              const SizedBox(height: 24),
+
+              // End Date Picker (B3 / M5)
+              GestureDetector(
+                onTap: () async {
+                  final picked = await showDatePicker(
+                    context: context,
+                    initialDate: DateTime.now().add(const Duration(days: 7)),
+                    firstDate: DateTime.now(),
+                    lastDate: DateTime.now().add(const Duration(days: 365)),
+                  );
+                  if (picked != null) setState(() => _endDate = picked);
+                },
+                child: Container(
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: isDark ? AppColors.backgroundDeep : AppColors.lightBg,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: _endDate != null ? AppColors.voltCyan : Colors.transparent),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(LucideIcons.calendar, color: AppColors.voltCyan, size: 20),
+                      const SizedBox(width: 12),
+                      Text(
+                        _endDate == null
+                            ? 'Set End Date (optional)'
+                            : 'Ends: ${DateFormat('MMM d, yyyy').format(_endDate!)}',
+                        style: TextStyle(
+                          color: _endDate != null ? AppColors.voltCyan : Colors.grey,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const Spacer(),
+                      if (_endDate != null)
+                        GestureDetector(
+                          onTap: () => setState(() => _endDate = null),
+                          child: const Icon(LucideIcons.x, size: 16, color: Colors.grey),
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 24),
 
               // Create Button
               SizedBox(

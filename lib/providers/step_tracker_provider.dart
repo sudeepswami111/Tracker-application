@@ -5,6 +5,7 @@ import 'package:pedometer/pedometer.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'app_provider.dart';
+import '../services/challenge_service.dart';
 
 class StepTrackerProvider extends ChangeNotifier with WidgetsBindingObserver {
   static const int _streakStepThreshold = 1000; // Change this value if needed
@@ -39,6 +40,8 @@ class StepTrackerProvider extends ChangeNotifier with WidgetsBindingObserver {
   int _initialStepsForDay = -1;
   int _lastKnownDeviceSteps = -1;
   String _lastSavedDate = '';
+  // I2: Rate-limit challenge updates — only update every 500 steps
+  int _lastChallengeUpdateSteps = 0;
 
   int get steps => _steps;
   int get dailyGoal => _dailyGoal;
@@ -298,6 +301,12 @@ class StepTrackerProvider extends ChangeNotifier with WidgetsBindingObserver {
     _steps = currentSteps;
     if (_appProvider != null) {
       _appProvider!.updateSteps(_steps);
+    }
+
+    // I2: Rate-limited Steps challenge update (every 500 steps)
+    if (_steps - _lastChallengeUpdateSteps >= 500) {
+      _lastChallengeUpdateSteps = _steps;
+      ChallengeService().updateStepsChallenges(_steps);
     }
 
     // Auto-validate streak when step threshold is crossed
