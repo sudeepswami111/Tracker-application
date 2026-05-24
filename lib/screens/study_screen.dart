@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
+import 'package:hive_flutter/hive_flutter.dart';
 import '../providers/app_provider.dart';
 import '../services/challenge_service.dart';
 import '../widgets/glass_card.dart';
@@ -24,20 +25,79 @@ class _StudyScreenState extends State<StudyScreen> with TickerProviderStateMixin
   bool _isRunning = false;
   int _completedSessionsToday = 0;
 
-  // Task list (mock data removed)
-  final List<Map<String, dynamic>> _tasks = [];
+  // Task list (loaded from Hive)
+  List<Map<String, dynamic>> _tasks = [];
   final List<Map<String, dynamic>> _completedTasks = [];
   
   bool _showCompleted = false;
 
   // Weekly focus time in seconds
-  final List<double> _weeklyFocusSeconds = [0, 0, 0, 0, 0, 0, 0];
+  List<double> _weeklyFocusSeconds = [0, 0, 0, 0, 0, 0, 0];
 
   final List<Map<String, dynamic>> _suggestions = [
     {'title': 'Deep Work', 'desc': '50m focused session', 'minutes': 50, 'icon': LucideIcons.brain},
     {'title': 'Pomodoro', 'desc': '25m standard focus', 'minutes': 25, 'icon': LucideIcons.timer},
     {'title': 'Quick Review', 'desc': '15m quick sprint', 'minutes': 15, 'icon': LucideIcons.zap},
   ];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadData();
+  }
+
+  void _loadData() {
+    final tasksBox = Hive.box('study_tasks');
+    final sessionsBox = Hive.box('study_sessions');
+
+    setState(() {
+      _tasks = tasksBox.values.map((e) => Map<String, dynamic>.from(e as Map)).toList();
+      _completedTasks.clear(); // We can filter _tasks or separate. We'll just separate for now.
+      
+      final weekData = sessionsBox.get('weeklyFocusSeconds', defaultValue: <double>[0, 0, 0, 0, 0, 0, 0]);
+      _weeklyFocusSeconds = List<double>.from(weekData);
+
+      final String lastDate = sessionsBox.get('lastDate', defaultValue: '');
+      final todayStr = DateTime.now().toIso8601String().substring(0, 10);
+      
+      if (lastDate != todayStr) {
+        sessionsBox.put('lastDate', todayStr);
+        sessionsBox.put('completedSessionsToday', 0);
+        _completedSessionsToday = 0;
+      } else {
+        _completedSessionsToday = sessionsBox.get('completedSessionsToday', defaultValue: 0);
+      }
+
+      // Filter tasks
+      final List<Map<String, dynamic>> pending = [];
+      for (var t in _tasks) {
+        if (t['done'] == true) {
+          _completedTasks.add(t);
+        } else {
+          pending.add(t);
+        }
+      }
+      _tasks = pending;
+    });
+  }
+
+  void _saveTasks() {
+    final tasksBox = Hive.box('study_tasks');
+    tasksBox.clear();
+    for (var t in _tasks) {
+      tasksBox.add(t);
+    }
+    for (var t in _completedTasks) {
+      tasksBox.add(t);
+    }
+  }
+
+  void _saveSessions() {
+    final sessionsBox = Hive.box('study_sessions');
+    sessionsBox.put('weeklyFocusSeconds', _weeklyFocusSeconds);
+    sessionsBox.put('completedSessionsToday', _completedSessionsToday);
+    sessionsBox.put('lastDate', DateTime.now().toIso8601String().substring(0, 10));
+  }
 
   @override
   void dispose() {
@@ -66,6 +126,7 @@ class _StudyScreenState extends State<StudyScreen> with TickerProviderStateMixin
             _timerSeconds = _totalSeconds;
             _completedSessionsToday++;
           });
+          _saveSessions();
           final app = context.read<AppProvider>();
           app.completeFocusSession();
           // I3: Update Study challenge progress
@@ -159,6 +220,7 @@ class _StudyScreenState extends State<StudyScreen> with TickerProviderStateMixin
                     'done': false,
                   });
                 });
+                _saveTasks();
                 Navigator.pop(context);
               }
             },
@@ -445,6 +507,7 @@ class _StudyScreenState extends State<StudyScreen> with TickerProviderStateMixin
                     final item = _tasks.removeAt(oldIndex);
                     _tasks.insert(newIndex, item);
                   });
+                  _saveTasks();
                 },
                 itemBuilder: (context, index) {
                   final task = _tasks[index];
@@ -467,15 +530,17 @@ class _StudyScreenState extends State<StudyScreen> with TickerProviderStateMixin
                         // Complete
                         setState(() {
                           task['done'] = true;
-                          _completedTasks.insert(0, task);
+                          _completedTasks.add(task);
                           _tasks.removeAt(index);
                         });
+                        _saveTasks();
                         HapticFeedback.lightImpact();
                       } else {
                         // Delete
                         setState(() {
                           _tasks.removeAt(index);
                         });
+                        _saveTasks();
                       }
                     },
                     child: _buildTaskRow(task, isDark, theme),

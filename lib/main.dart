@@ -27,6 +27,8 @@ final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Hive.initFlutter();
+  await Hive.openBox('study_tasks');
+  await Hive.openBox('study_sessions');
   final prefs = await SharedPreferences.getInstance();
   await NotificationService.init();
 

@@ -8,6 +8,7 @@ import '../theme/app_colors.dart';
 import '../widgets/glass_card.dart';
 import '../services/follow_service.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:share_plus/share_plus.dart';
 import 'dart:io';
 
 // ─────────────────────────────────────────────────────────────────
@@ -767,11 +768,20 @@ class _ProfileScreenState extends State<ProfileScreen>
                   // ΓöÇΓöÇ 7. SOCIAL LINKS ΓöÇΓöÇ
                   Row(
                     children: [
-                      _socialPill('Strava', AppColors.solarAmber),
+                      _socialPill('Strava', AppColors.solarAmber, () {
+                        HapticFeedback.lightImpact();
+                        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Connecting to Strava...')));
+                      }),
                       const SizedBox(width: 8),
-                      _socialPill('Instagram', AppColors.pulseRed),
+                      _socialPill('Instagram', AppColors.pulseRed, () {
+                        HapticFeedback.lightImpact();
+                        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Opening Instagram profile...')));
+                      }),
                       const SizedBox(width: 8),
-                      _socialPill('Share Profile', AppColors.voltCyan),
+                      _socialPill('Share Profile', AppColors.voltCyan, () {
+                        HapticFeedback.lightImpact();
+                        Share.share('Check out my LifePulse profile: @${username.isNotEmpty ? username : 'user'}! I am on a ${app.longestStreak} day streak!');
+                      }),
                     ],
                   ),
                   const SizedBox(height: 48),
@@ -833,7 +843,7 @@ class _ProfileScreenState extends State<ProfileScreen>
     return GestureDetector(
       onLongPress: () {
         HapticFeedback.mediumImpact();
-        // Trigger share intent logic here
+        Share.share('I am on a $streak day $label streak on LifePulse!');
       },
       child: GlassCard(
         padding: const EdgeInsets.all(16),
@@ -1142,22 +1152,25 @@ class _ProfileScreenState extends State<ProfileScreen>
     );
   }
 
-  Widget _socialPill(String label, Color color) {
+  Widget _socialPill(String label, Color color, VoidCallback onTap) {
     return Expanded(
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 10),
-        decoration: BoxDecoration(
-          color: color.withValues(alpha: 0.1),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: color.withValues(alpha: 0.3)),
-        ),
-        child: Center(
-          child: Text(
-            label,
-            style: TextStyle(
-              color: color,
-              fontSize: 12,
-              fontWeight: FontWeight.bold,
+      child: GestureDetector(
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 10),
+          decoration: BoxDecoration(
+            color: color.withValues(alpha: 0.1),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: color.withValues(alpha: 0.3)),
+          ),
+          child: Center(
+            child: Text(
+              label,
+              style: TextStyle(
+                color: color,
+                fontSize: 12,
+                fontWeight: FontWeight.bold,
+              ),
             ),
           ),
         ),

@@ -5,6 +5,9 @@ import '../theme/app_colors.dart';
 import '../theme/app_spacing.dart';
 import '../widgets/create_post_sheet.dart';
 import '../widgets/community_search_delegate.dart';
+import '../services/community_service.dart';
+import '../services/challenge_service.dart';
+import 'package:intl/intl.dart';
 import 'dm_chat_screen.dart';
 
 // ====================================================
@@ -230,11 +233,28 @@ class _CommunityScreenState extends State<CommunityScreen> with SingleTickerProv
                       const SizedBox(height: 14),
                       SizedBox(
                         height: 140,
-                        child: ListView(
-                          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.screenMargin),
-                          scrollDirection: Axis.horizontal,
-                          physics: const BouncingScrollPhysics(),
-                          children: [], // removed dummy challenges
+                        child: FutureBuilder<Map<String, List<Map<String, dynamic>>>>(
+                          future: ChallengeService().getDiscoverChallenges(),
+                          builder: (context, snapshot) {
+                            if (snapshot.connectionState == ConnectionState.waiting) {
+                              return const Center(child: CircularProgressIndicator());
+                            }
+                            final groups = snapshot.data ?? {};
+                            final challenges = groups.values.expand((x) => x).toList();
+                            if (challenges.isEmpty) {
+                              return const Center(child: Text('No active challenges.'));
+                            }
+                            return ListView.builder(
+                              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.screenMargin),
+                              scrollDirection: Axis.horizontal,
+                              physics: const BouncingScrollPhysics(),
+                              itemCount: challenges.length,
+                              itemBuilder: (context, index) {
+                                final c = challenges[index];
+                                return _buildChallengeChip(c, isDark, theme);
+                              },
+                            );
+                          },
                         ),
                       ),
                       const SizedBox(height: AppSpacing.xl),
@@ -243,19 +263,40 @@ class _CommunityScreenState extends State<CommunityScreen> with SingleTickerProv
                 ),
 
               // ── 4. PREMIUM FEED ──
-              SliverPadding(
-                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.screenMargin),
-                sliver: SliverList(
-                  delegate: SliverChildBuilderDelegate(
-                    (context, index) {
-                      return Padding(
-                        padding: const EdgeInsets.only(bottom: 20),
-                        child: _PremiumFeedCard(index: index, isDark: isDark, theme: theme),
-                      );
-                    },
-                    childCount: 0, // removed dummy posts
-                  ),
-                ),
+              FutureBuilder<List<Map<String, dynamic>>>(
+                future: CommunityService().getPosts(filter: _activeFilter == 'All' ? null : _activeFilter),
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return const SliverToBoxAdapter(
+                      child: Center(child: CircularProgressIndicator()),
+                    );
+                  }
+                  final posts = snapshot.data ?? [];
+                  if (posts.isEmpty) {
+                    return SliverToBoxAdapter(
+                      child: Center(
+                        child: Padding(
+                          padding: const EdgeInsets.all(40.0),
+                          child: Text('No posts yet. Be the first!', style: TextStyle(color: AppColors.textSecondary)),
+                        ),
+                      ),
+                    );
+                  }
+                  return SliverPadding(
+                    padding: const EdgeInsets.symmetric(horizontal: AppSpacing.screenMargin),
+                    sliver: SliverList(
+                      delegate: SliverChildBuilderDelegate(
+                        (context, index) {
+                          return Padding(
+                            padding: const EdgeInsets.only(bottom: 20),
+                            child: _PremiumFeedCard(post: posts[index], index: index, isDark: isDark, theme: theme),
+                          );
+                        },
+                        childCount: posts.length,
+                      ),
+                    ),
+                  );
+                },
               ),
               
               // ── FIX FOR BOTTOM OVERFLOW ──
@@ -266,6 +307,40 @@ class _CommunityScreenState extends State<CommunityScreen> with SingleTickerProv
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildChallengeChip(Map<String, dynamic> challenge, bool isDark, ThemeData theme) {
+    return Container(
+      width: 240,
+      margin: const EdgeInsets.only(right: 16),
+      decoration: BoxDecoration(
+        color: isDark ? AppColors.surfaceElevated : Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: AppColors.irisViolet.withValues(alpha: 0.3), width: 1),
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 10, offset: const Offset(0, 4))],
+      ),
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(LucideIcons.target, color: AppColors.irisViolet, size: 20),
+              const SizedBox(width: 8),
+              Expanded(child: Text(challenge['title'] ?? 'Challenge', maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.bold))),
+            ],
+          ),
+          const Spacer(),
+          Text('${challenge['participants_count'] ?? 0} participants', style: const TextStyle(color: AppColors.textSecondary, fontSize: 12)),
+          const SizedBox(height: 8),
+          Container(
+            padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 12),
+            decoration: BoxDecoration(color: AppColors.irisViolet.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(12)),
+            child: const Center(child: Text('Join', style: TextStyle(color: AppColors.irisViolet, fontWeight: FontWeight.bold, fontSize: 12))),
+          ),
+        ],
       ),
     );
   }
@@ -322,11 +397,12 @@ class _HeaderIconButton extends StatelessWidget {
 }
 
 class _PremiumFeedCard extends StatefulWidget {
+  final Map<String, dynamic> post;
   final int index;
   final bool isDark;
   final ThemeData theme;
 
-  const _PremiumFeedCard({required this.index, required this.isDark, required this.theme});
+  const _PremiumFeedCard({required this.post, required this.index, required this.isDark, required this.theme});
 
   @override
   State<_PremiumFeedCard> createState() => _PremiumFeedCardState();
@@ -335,7 +411,7 @@ class _PremiumFeedCard extends StatefulWidget {
 class _PremiumFeedCardState extends State<_PremiumFeedCard> with SingleTickerProviderStateMixin {
   late final AnimationController _boostCtrl;
   late final Animation<double> _boostAnim;
-  int _boostCount = 24;
+  late int _boostCount;
   bool _boosted = false;
 
   final List<Color> _accents = [AppColors.voltCyan, AppColors.pulseRed, AppColors.irisViolet, AppColors.solarAmber];
@@ -343,7 +419,7 @@ class _PremiumFeedCardState extends State<_PremiumFeedCard> with SingleTickerPro
   @override
   void initState() {
     super.initState();
-    _boostCount += (widget.index * 7);
+    _boostCount = widget.post['likes_count'] ?? 0;
     _boostCtrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 600));
     _boostAnim = Tween<double>(begin: 0.0, end: 1.0).animate(CurvedAnimation(parent: _boostCtrl, curve: Curves.easeOutCubic));
   }
@@ -361,7 +437,18 @@ class _PremiumFeedCardState extends State<_PremiumFeedCard> with SingleTickerPro
       _boosted = true;
       _boostCount++;
     });
+    CommunityService().likePost(widget.post['id']);
     _boostCtrl.forward(from: 0);
+  }
+
+  String _formatTime(String? isoDate) {
+    if (isoDate == null) return '';
+    final date = DateTime.tryParse(isoDate);
+    if (date == null) return '';
+    final diff = DateTime.now().difference(date);
+    if (diff.inMinutes < 60) return '${diff.inMinutes}m ago';
+    if (diff.inHours < 24) return '${diff.inHours}h ago';
+    return '${diff.inDays}d ago';
   }
 
   @override
@@ -416,7 +503,7 @@ class _PremiumFeedCardState extends State<_PremiumFeedCard> with SingleTickerPro
                         child: CircleAvatar(
                           radius: 20,
                           backgroundColor: widget.isDark ? AppColors.surfaceElevated : Colors.grey[200],
-                          backgroundImage: const NetworkImage('https://i.pravatar.cc/150?img=32'),
+                          backgroundImage: NetworkImage((widget.post['author']?['avatar_url'] as String?) ?? 'https://i.pravatar.cc/150?img=${32 + widget.index}'),
                         ),
                       ),
                       const SizedBox(width: 12),
@@ -424,8 +511,8 @@ class _PremiumFeedCardState extends State<_PremiumFeedCard> with SingleTickerPro
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text('Sarah Jenkins', style: widget.theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold)),
-                            Text('2 hours ago • Morning Run', style: widget.theme.textTheme.bodySmall?.copyWith(color: AppColors.textSecondary, fontWeight: FontWeight.w500)),
+                            Text((widget.post['author']?['full_name'] as String?) ?? 'Anonymous', style: widget.theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold)),
+                            Text('${_formatTime(widget.post['created_at'])} • ${widget.post['activity_type'] ?? 'Update'}', style: widget.theme.textTheme.bodySmall?.copyWith(color: AppColors.textSecondary, fontWeight: FontWeight.w500)),
                           ],
                         ),
                       ),
@@ -440,12 +527,13 @@ class _PremiumFeedCardState extends State<_PremiumFeedCard> with SingleTickerPro
                   
                   // 2. Post Content
                   Text(
-                    'Crushed my morning 10k! The new trail by the river is absolutely stunning. Beating my PR by 2 minutes today. ðŸƒâ€â™€ï¸ðŸ’¨ðŸ”¥',
+                    widget.post['content'] ?? '',
                     style: widget.theme.textTheme.bodyMedium?.copyWith(height: 1.5, fontSize: 15),
                   ),
                   const SizedBox(height: 16),
                   
                   // 3. Activity Stats (Glassmorphic Pills)
+                  if (widget.post['activity_type'] == 'Running')
                   Row(
                     children: [
                       _buildStatPill('10.2', 'km', LucideIcons.mapPin, accent),
@@ -455,6 +543,7 @@ class _PremiumFeedCardState extends State<_PremiumFeedCard> with SingleTickerPro
                       _buildStatPill('5:08', '/km', LucideIcons.zap, accent),
                     ],
                   ),
+                  if (widget.post['activity_type'] == 'Running')
                   const SizedBox(height: 20),
                   Divider(color: widget.theme.colorScheme.outline.withValues(alpha: 0.1), height: 1),
                   const SizedBox(height: 16),

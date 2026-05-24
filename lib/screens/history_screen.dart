@@ -1,9 +1,14 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../theme/app_colors.dart';
 import '../widgets/glass_card.dart';
+import '../services/history_service.dart';
+import 'package:share_plus/share_plus.dart';
+import 'package:path_provider/path_provider.dart';
+import 'dart:io';
+import 'package:intl/intl.dart';
 
 class HistoryScreen extends StatefulWidget {
   const HistoryScreen({super.key});
@@ -18,7 +23,83 @@ class _HistoryScreenState extends State<HistoryScreen> with SingleTickerProvider
   final List<String> _filters = ['All', 'Running', 'Fitness', 'Study', 'Nutrition', 'Sleep'];
 
   // Dynamic activities (removed mock data)
-  final List<Map<String, dynamic>> _activities = [];
+  List<Map<String, dynamic>> _activities = [];
+  List<Map<String, dynamic>> _rawActivities = [];
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadHistory();
+  }
+
+  Future<void> _loadHistory() async {
+    setState(() => _isLoading = true);
+    final data = await HistoryService().getHistory();
+    _rawActivities = data;
+    _applyFilter();
+  }
+
+  void _applyFilter() {
+    // 1. Filter raw
+    final filtered = _rawActivities.where((a) {
+      if (_activeFilter == 'All') return true;
+      if (_activeFilter == 'Running' && a['_source'] == 'run') return true;
+      // Future: map other filters
+      return false;
+    }).toList();
+
+    // 2. Group by date
+    final Map<String, List<Map<String, dynamic>>> groups = {};
+    for (var act in filtered) {
+      final dateStr = act['created_at']?.toString() ?? '';
+      final dt = DateTime.tryParse(dateStr) ?? DateTime.now();
+      final dayStr = DateFormat('MMM d, yyyy').format(dt);
+      
+      String title = 'Activity';
+      String detail = '';
+      IconData icon = LucideIcons.activity;
+      Color color = AppColors.voltCyan;
+      String type = 'Other';
+
+      if (act['_source'] == 'run') {
+        title = 'Running';
+        type = 'Running';
+        final dist = act['distance_km']?.toString() ?? '0.0';
+        detail = '$dist km';
+        icon = LucideIcons.mapPin;
+        color = AppColors.solarAmber;
+      }
+
+      final item = {
+        'icon': icon,
+        'color': color,
+        'title': title,
+        'detail': detail,
+        'time': DateFormat('hh:mm a').format(dt),
+        'type': type,
+        'raw': act,
+      };
+
+      groups.putIfAbsent(dayStr, () => []).add(item);
+    }
+
+    // 3. Convert to list format for UI
+    final List<Map<String, dynamic>> result = [];
+    groups.forEach((key, value) {
+      result.add({
+        'date': key,
+        'items': value,
+      });
+    });
+
+    if (mounted) {
+      setState(() {
+        _activities = result;
+        _isLoading = false;
+      });
+    }
+  }
 
   void _showDetailSheet(Map<String, dynamic> item, bool isDark) {
     showModalBottomSheet(
@@ -126,7 +207,41 @@ class _HistoryScreenState extends State<HistoryScreen> with SingleTickerProvider
                       ),
                       IconButton(
                         icon: Icon(LucideIcons.filter, color: theme.colorScheme.onSurfaceVariant),
-                        onPressed: () {},
+                        onPressed: () {
+                          showModalBottomSheet(
+                            context: context,
+                            builder: (ctx) => Container(
+                              padding: const EdgeInsets.all(24),
+                              decoration: BoxDecoration(
+                                color: isDark ? AppColors.surfaceElevated : Colors.white,
+                                borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+                              ),
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Text('Filter by Activity', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                                  const SizedBox(height: 16),
+                                  Wrap(
+                                    spacing: 8,
+                                    children: _filters.map((f) => ChoiceChip(
+                                      label: Text(f),
+                                      selected: _activeFilter == f,
+                                      onSelected: (val) {
+                                        if (val) {
+                                          setState(() => _activeFilter = f);
+                                          _applyFilter();
+                                          Navigator.pop(ctx);
+                                        }
+                                      },
+                                    )).toList(),
+                                  ),
+                                  const SizedBox(height: 24),
+                                ],
+                              ),
+                            ),
+                          );
+                        },
                       ),
                     ],
                   ),
@@ -184,7 +299,10 @@ class _HistoryScreenState extends State<HistoryScreen> with SingleTickerProvider
                     label: Text(filter),
                     selected: isActive,
                     onSelected: (val) {
-                      if (val) setState(() => _activeFilter = filter);
+                      if (val) {
+                        setState(() => _activeFilter = filter);
+                        _applyFilter();
+                      }
                     },
                     selectedColor: AppColors.voltCyan,
                     labelStyle: TextStyle(color: isActive ? Colors.black : theme.colorScheme.onSurfaceVariant, fontWeight: isActive ? FontWeight.bold : FontWeight.normal),
@@ -243,7 +361,9 @@ class _HistoryScreenState extends State<HistoryScreen> with SingleTickerProvider
                   const SizedBox(height: 32),
 
                   // 6. ACTIVITY LIST
-                  if (_activities.isEmpty)
+                  if (_isLoading)
+                    const Center(child: Padding(padding: EdgeInsets.all(32), child: CircularProgressIndicator()))
+                  else if (_activities.isEmpty)
                     Center(
                       child: Padding(
                         padding: const EdgeInsets.all(32),
@@ -320,9 +440,22 @@ class _HistoryScreenState extends State<HistoryScreen> with SingleTickerProvider
                   
                   // 9. EXPORT CTA
                   TextButton.icon(
-                    onPressed: () {},
+                    onPressed: () async {
+                      try {
+                        final csv = _rawActivities.map((a) =>
+                          '${a['created_at']},${a['_source']},${a['distance_km'] ?? ''},${a['duration_seconds'] ?? ''}'
+                        ).join('\n');
+                        final header = 'date,type,distance_km,duration_seconds\n';
+                        final dir = await getTemporaryDirectory();
+                        final file = File('${dir.path}/history_export.csv');
+                        await file.writeAsString(header + csv);
+                        await Share.shareXFiles([XFile(file.path)], text: 'My Activity History from LifePulse');
+                      } catch (e) {
+                        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to export: $e')));
+                      }
+                    },
                     icon: Icon(LucideIcons.download, size: 16, color: theme.colorScheme.onSurfaceVariant),
-                    label: Text('Export to CSV / PDF', style: TextStyle(color: theme.colorScheme.onSurfaceVariant)),
+                    label: Text('Export to CSV', style: TextStyle(color: theme.colorScheme.onSurfaceVariant)),
                   ),
                   
                   const SizedBox(height: 100), // Nav bar padding
