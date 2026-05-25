@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class CommunityService {
@@ -32,7 +33,8 @@ class CommunityService {
         if (imageUrl != null) 'image_url': imageUrl,
       });
     } catch (e) {
-      // Ignored for now
+      debugPrint('Error creating post: $e');
+      rethrow;
     }
   }
 

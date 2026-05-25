@@ -68,10 +68,19 @@ class _CreatePostSheetState extends State<CreatePostSheet> {
       }
     }
     
-    await CommunityService().createPost(_contentCtrl.text.trim(), _selectedActivity, imageUrl: imageUrl);
-    
-    if (mounted) {
-      Navigator.pop(context, true); // Return true to indicate a refresh is needed
+    try {
+      await CommunityService().createPost(_contentCtrl.text.trim(), _selectedActivity, imageUrl: imageUrl);
+      
+      if (mounted) {
+        Navigator.pop(context, true); // Return true to indicate a refresh is needed
+      }
+    } catch (e) {
+      setState(() => _isSubmitting = false);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to create post: $e'), backgroundColor: Colors.red),
+        );
+      }
     }
   }
 
