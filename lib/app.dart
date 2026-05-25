@@ -1,7 +1,8 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'providers/app_provider.dart';
 import 'providers/auth_provider.dart';
 import 'screens/dashboard_screen.dart';
@@ -16,6 +17,7 @@ import 'screens/community_screen.dart';
 import 'screens/notifications_screen.dart';
 import 'theme/app_colors.dart';
 import 'widgets/glass_nav_bar.dart';
+
 
 class AppShell extends StatefulWidget {
   const AppShell({super.key});
@@ -33,7 +35,23 @@ class _AppShellState extends State<AppShell> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       Permission.notification.request();
       context.read<AppProvider>().syncProfileWithSupabase();
+      _loadInitialUnreadCount();
     });
+  }
+
+  Future<void> _loadInitialUnreadCount() async {
+    final uid = Supabase.instance.client.auth.currentUser?.id;
+    if (uid == null) return;
+    try {
+      final res = await Supabase.instance.client
+          .from('notifications')
+          .select('id')
+          .eq('user_id', uid)
+          .eq('is_read', false);
+      if (mounted) {
+        context.read<AppProvider>().setUnreadCount((res as List).length);
+      }
+    } catch (_) {}
   }
 
   List<Widget> get _screens => [
@@ -82,19 +100,23 @@ class _AppShellState extends State<AppShell> {
           Stack(
             children: [
               IconButton(icon: const Icon(LucideIcons.bell, size: 20), onPressed: () {
-                app.markNotificationsRead();
                 Navigator.push(context, MaterialPageRoute(builder: (_) => const NotificationsScreen()));
               }),
               if (app.hasUnreadNotifications)
                 Positioned(
-                  right: 10,
-                  top: 10,
+                  right: 6,
+                  top: 6,
                   child: Container(
-                    width: 8,
-                    height: 8,
+                    padding: const EdgeInsets.all(2),
+                    constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
                     decoration: const BoxDecoration(
                       color: AppColors.coral,
                       shape: BoxShape.circle,
+                    ),
+                    child: Text(
+                      app.unreadNotificationCount > 99 ? '99+' : '${app.unreadNotificationCount}',
+                      style: const TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.bold),
+                      textAlign: TextAlign.center,
                     ),
                   ),
                 ),

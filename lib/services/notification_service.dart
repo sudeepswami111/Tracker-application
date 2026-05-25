@@ -1,5 +1,6 @@
-﻿import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../providers/app_provider.dart';
 
 class NotificationService {
@@ -54,6 +55,7 @@ class NotificationService {
     final prefs = await SharedPreferences.getInstance();
     final today = _todayStr();
     final hour = DateTime.now().hour;
+    final uid = Supabase.instance.client.auth.currentUser?.id;
 
     const AndroidNotificationDetails androidDetails = AndroidNotificationDetails(
       _nudgeChannelId,
@@ -77,6 +79,18 @@ class NotificationService {
           body: "You've only had ${app.waterGlasses} glasses — drink up!",
           notificationDetails: details,
         );
+        // Also insert in-app notification
+        if (uid != null) {
+          try {
+            await Supabase.instance.client.from('notifications').insert({
+              'user_id': uid,
+              'type': 'goal_reached',
+              'title': "Don't forget to hydrate! 💧",
+              'body': "You've only had ${app.waterGlasses} glasses — drink up!",
+              'is_read': false,
+            });
+          } catch (_) {}
+        }
       }
     }
 
@@ -87,10 +101,22 @@ class NotificationService {
         await prefs.setString(key, 'sent');
         await _notificationsPlugin.show(
           id: 302,
-          title: 'Time to wind down ðŸŒ™',
+          title: 'Time to wind down 🌙',
           body: 'No sleep logged yet — you need 8 hours.',
           notificationDetails: details,
         );
+        // Also insert in-app notification
+        if (uid != null) {
+          try {
+            await Supabase.instance.client.from('notifications').insert({
+              'user_id': uid,
+              'type': 'goal_reached',
+              'title': 'Time to wind down 🌙',
+              'body': 'No sleep logged yet — you need 8 hours.',
+              'is_read': false,
+            });
+          } catch (_) {}
+        }
       }
     }
 
@@ -105,6 +131,18 @@ class NotificationService {
           body: 'Only ${app.steps} steps so far — take a walk after lunch.',
           notificationDetails: details,
         );
+        // Also insert in-app notification
+        if (uid != null) {
+          try {
+            await Supabase.instance.client.from('notifications').insert({
+              'user_id': uid,
+              'type': 'goal_reached',
+              'title': 'Get moving! 🚶',
+              'body': 'Only ${app.steps} steps so far — take a walk after lunch.',
+              'is_read': false,
+            });
+          } catch (_) {}
+        }
       }
     }
   }

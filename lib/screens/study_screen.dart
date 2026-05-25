@@ -131,6 +131,15 @@ class _StudyScreenState extends State<StudyScreen> with TickerProviderStateMixin
           app.completeFocusSession();
           // I3: Update Study challenge progress
           ChallengeService().updateStudyChallenges(app.studyHrs);
+          // I4: Study streak milestone notification
+          final studyStreak = app.studyStreak;
+          if (studyStreak > 0 && studyStreak % 7 == 0) {
+            app.addNotification(
+              '📚 ${studyStreak}-Day Study Streak!',
+              "You've studied for $studyStreak days in a row. Keep it up!",
+              type: 'streak',
+            );
+          }
           return;
         }
         setState(() => _timerSeconds--);

@@ -121,12 +121,13 @@ class ChallengeService {
       // Check if challenge is complete
       final challenge = await _client
           .from('challenges')
-          .select('target_value')
+          .select('target_value, title')
           .eq('id', challengeId)
           .single();
       final target = (challenge['target_value'] as num).toDouble();
       final Map<String, dynamic> updateData = {'current_value': newValue};
-      if (newValue >= target) {
+      final bool justCompleted = newValue >= target;
+      if (justCompleted) {
         updateData['completed_at'] = DateTime.now().toIso8601String();
       }
 
@@ -135,8 +136,23 @@ class ChallengeService {
           .update(updateData)
           .eq('challenge_id', challengeId)
           .eq('user_id', uid);
+
+      // Insert challenge_complete notification when target reached
+      if (justCompleted) {
+        try {
+          await _client.from('notifications').insert({
+            'user_id': uid,
+            'type': 'challenge_complete',
+            'title': 'Challenge Completed! 🏆',
+            'body': 'You completed "${challenge['title']}" — check your rank!',
+            'reference_id': challengeId,
+            'is_read': false,
+          });
+        } catch (_) {}
+      }
     } catch (_) {}
   }
+
 
   // Fetch leaderboard for a challenge
   Future<List<Map<String, dynamic>>> getLeaderboard(String challengeId) async {

@@ -29,6 +29,8 @@ import 'package:intl/intl.dart';
 import '../constants/activity_types.dart' hide ActivityType;
 import 'fitness_screen.dart';
 import '../services/challenge_service.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import '../services/notification_service.dart';
 
 enum RunState { planning, countdown, running, paused, finished }
 
@@ -1532,9 +1534,28 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
                 const SizedBox(width: 16),
                 Expanded(
                   child: ElevatedButton(
-                    onPressed: () {
-                      Navigator.pop(context);
-                      _resetRun();
+                    onPressed: () async {
+                      // Save run notification
+                      final uid = Supabase.instance.client.auth.currentUser?.id;
+                      if (uid != null && _distKm > 0) {
+                        try {
+                          await Supabase.instance.client.from('notifications').insert({
+                            'user_id': uid,
+                            'type': 'run_complete',
+                            'title': 'Run Completed! 🏃',
+                            'body': 'You ran ${_distKm.toStringAsFixed(2)} km in ${_fmtDur(_durSecs)}',
+                            'is_read': false,
+                          });
+                        } catch (_) {}
+                        await NotificationService.showNotification(
+                          'Run Completed! 🏃',
+                          'You ran ${_distKm.toStringAsFixed(2)} km in ${_fmtDur(_durSecs)}',
+                        );
+                      }
+                      if (mounted) {
+                        Navigator.pop(context);
+                        _resetRun();
+                      }
                     },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppColors.pulseRed,

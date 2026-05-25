@@ -287,6 +287,16 @@ class AppProvider extends ChangeNotifier with WidgetsBindingObserver {
     if (currentStreak > longestStreak) {
       longestStreak = currentStreak;
     }
+
+    // Streak milestone notification every 7 days
+    if (currentStreak > 0 && currentStreak % 7 == 0) {
+      addNotification(
+        '🔥 ${currentStreak}-Day Streak!',
+        "You've been active for $currentStreak days in a row!",
+        type: 'streak',
+      );
+    }
+
     lastActivityDate = today.toIso8601String();
     isStreakPending = false;
     _saveData();
@@ -390,8 +400,16 @@ class AppProvider extends ChangeNotifier with WidgetsBindingObserver {
     }
   }
 
-  bool hasUnreadNotifications = true;
+  bool hasUnreadNotifications = false;
+  int _supabaseUnreadCount = 0;
+  int get unreadNotificationCount => _supabaseUnreadCount;
   List<Map<String, dynamic>> notifications = [];
+
+  void setUnreadCount(int count) {
+    _supabaseUnreadCount = count;
+    hasUnreadNotifications = count > 0;
+    notifyListeners();
+  }
 
   // ──── 2.1 History ────
   List<DailySnapshot> history = [];
@@ -422,13 +440,15 @@ class AppProvider extends ChangeNotifier with WidgetsBindingObserver {
   Timer? _resetTimer; // 2.2 Hourly midnight-check timer
 
   void startLiveSimulation() {
-    _liveTimer = Timer.periodic(const Duration(seconds: 3), (_) {
+    _liveTimer = Timer.periodic(const Duration(seconds: 3), (_) async {
       if (heartRate == 0) heartRate = 60;
       final rng = Random();
       heartRate = (heartRate + rng.nextInt(7) - 3).clamp(55, 100);
       // steps += rng.nextInt(5); // Removed demo steps
       notifyListeners();
       _saveData();
+      // Smart nudges — checks hour internally, fires at most once/day per nudge
+      await NotificationService.scheduleSmartNudges(this);
     });
     // Check for midnight reset every 30 seconds for near-instant detection
     _resetTimer = Timer.periodic(const Duration(seconds: 30), (_) => _checkDailyReset());
@@ -674,18 +694,25 @@ class AppProvider extends ChangeNotifier with WidgetsBindingObserver {
     notifyListeners();
   }
 
-  void addNotification(String title, String message, IconData icon, Color color, {String type = 'Activity'}) {
-    final id = DateTime.now().millisecondsSinceEpoch.toString();
-    notifications.insert(0, {
-      'id': id,
-      'type': type,
-      'title': title,
-      'message': message,
-      'time': 'Just now',
-      'icon': icon,
-      'color': color,
-      'isRead': false,
-    });
+  Future<void> addNotification(String title, String body, {String type = 'achievement'}) async {
+    final uid = Supabase.instance.client.auth.currentUser?.id;
+    if (uid == null) return;
+
+    // Insert to Supabase so it appears in NotificationsScreen
+    try {
+      await Supabase.instance.client.from('notifications').insert({
+        'user_id': uid,
+        'type': type,
+        'title': title,
+        'body': body,
+        'is_read': false,
+      });
+    } catch (e) {
+      debugPrint('addNotification Supabase error: $e');
+    }
+
+    // Update badge count for immediate UI feedback
+    _supabaseUnreadCount++;
     hasUnreadNotifications = true;
     notifyListeners();
   }
@@ -724,7 +751,7 @@ class AppProvider extends ChangeNotifier with WidgetsBindingObserver {
       notifyListeners();
 
       if (waterGlasses == waterGlassGoal) {
-        addNotification('Hydration Hero! 💧', 'You reached your daily water goal of $waterGlassGoal glasses!', LucideIcons.droplets, const Color(0xFF00E5CC), type: 'Reminders');
+        addNotification('Hydration Hero! 💧', 'You reached your daily water goal of $waterGlassGoal glasses!', type: 'achievement');
         _showGoalPopup('Hydration Hero', 'You reached your daily water goal of $waterGlassGoal glasses!', LucideIcons.droplets);
       }
     }

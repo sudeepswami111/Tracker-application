@@ -216,42 +216,17 @@ class _ChallengeScreenState extends State<ChallengeScreen> with SingleTickerProv
       backgroundColor: isDark ? AppColors.backgroundDeep : AppColors.lightBg,
       floatingActionButton: FloatingActionButton(
         backgroundColor: AppColors.pulseRed,
-        onPressed: () {
+        onPressed: () async {
           HapticFeedback.mediumImpact();
-          showModalBottomSheet(
+          final result = await showModalBottomSheet(
             context: context,
             isScrollControlled: true,
             backgroundColor: Colors.transparent,
-            builder: (_) => CreateChallengeSheet(
-              onChallengeCreated: (challenge) async {
-                // M5: Save to Supabase
-                final challengeMap = {
-                  'title': challenge['title'],
-                  'goal_type': challenge['goalType'] ?? 'Distance',
-                  'target_value': challenge['total'] ?? challenge['target_value'] ?? 100.0,
-                  'difficulty': challenge['difficulty'] ?? 'Medium',
-                  'tier': challenge['tier'] ?? 'Silver',
-                  'stakes': challenge['stakes'],
-                  'end_date': challenge['endDate'],
-                };
-                final id = await _service.createChallenge(challengeMap);
-                setState(() {
-                  _activeChallenges.insert(0, {
-                    ...challenge,
-                    'id': id,
-                  });
-                });
-                _confetti.play();
-                if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                    content: Text('Challenge "${challenge['title']}" Created! 🎉'),
-                    backgroundColor: AppColors.irisViolet,
-                    behavior: SnackBarBehavior.floating,
-                  ));
-                }
-              },
-            ),
+            builder: (_) => const CreateChallengeSheet(),
           );
+          if (result == true) {
+            _loadData();
+          }
         },
         child: const Icon(LucideIcons.plus, color: Colors.white),
       ),

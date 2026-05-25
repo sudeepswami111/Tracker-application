@@ -56,3 +56,6 @@ graphify-out/
 .graphify/
 
 
+
+# Android build artifacts
+problems-report.html

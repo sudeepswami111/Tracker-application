@@ -4,9 +4,12 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:provider/provider.dart';
 import '../theme/app_colors.dart';
-import '../services/follow_service.dart'; // adjust import path
+import '../services/follow_service.dart';
 import '../providers/app_provider.dart';
 import '../screens/profile_screen.dart';
+import '../screens/challenge_screen.dart';
+import '../screens/history_screen.dart';
+import '../screens/dm_chat_screen.dart';
 
 // ─────────────────────────────────────────────────────────────────
 // NOTIFICATIONS SCREEN
@@ -28,6 +31,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   bool _loading = true;
 
   RealtimeChannel? _channel;
+  RealtimeChannel? _notifChannel;
 
   @override
   void initState() {
@@ -39,6 +43,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   @override
   void dispose() {
     _channel?.unsubscribe();
+    _notifChannel?.unsubscribe();
     super.dispose();
   }
 
@@ -71,14 +76,50 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       if (mounted) {
         setState(() =>
             _notifications = List<Map<String, dynamic>>.from(res as List));
+
+        // Update unread count — user is now on the screen
+        final unreadCount = _notifications
+            .where((n) => !(n['is_read'] as bool? ?? false))
+            .length;
+        context.read<AppProvider>().setUnreadCount(unreadCount);
       }
     } catch (_) {}
   }
 
   void _subscribeRealtime() {
+    // Existing: follow requests
     _channel = _followService.subscribeToIncomingRequests(
       onAnyChange: _loadRequests,
     );
+
+    // NEW: notifications table realtime
+    final uid = _supabase.auth.currentUser?.id;
+    if (uid == null) return;
+
+    _notifChannel = _supabase
+        .channel('notifs-$uid')
+        .onPostgresChanges(
+          event: PostgresChangeEvent.insert,
+          schema: 'public',
+          table: 'notifications',
+          filter: PostgresChangeFilter(
+            type: PostgresChangeFilterType.eq,
+            column: 'user_id',
+            value: uid,
+          ),
+          callback: (payload) {
+            final newRow = payload.newRecord;
+            if (mounted) {
+              setState(() => _notifications.insert(0, newRow));
+              context.read<AppProvider>().setUnreadCount(
+                _notifications
+                    .where((n) => !(n['is_read'] as bool? ?? false))
+                    .length,
+              );
+            }
+          },
+        )
+        .subscribe();
   }
 
   Future<void> _accept(String followId, String name) async {
@@ -90,6 +131,31 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         content: Text('You accepted $name\'s follow request! 🎉'),
         backgroundColor: AppColors.irisViolet,
         behavior: SnackBarBehavior.floating,
+        action: SnackBarAction(
+          label: 'Say Hi →',
+          textColor: Colors.white,
+          onPressed: () async {
+            final uid = _supabase.auth.currentUser?.id;
+            if (uid == null) return;
+            try {
+              final chats = await _supabase
+                  .from('chat_participants')
+                  .select('chat_id')
+                  .eq('participant_id', uid)
+                  .order('created_at', ascending: false)
+                  .limit(1);
+              if ((chats as List).isNotEmpty && mounted) {
+                Navigator.push(context, MaterialPageRoute(
+                  builder: (_) => DMChatScreen(
+                    chatId: chats.first['chat_id'] as String,
+                    otherUserId: 'unknown',
+                    otherUserName: name,
+                  ),
+                ));
+              }
+            } catch (_) {}
+          },
+        ),
       ));
       _loadRequests();
     } else {
@@ -115,7 +181,74 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         .update({'is_read': true})
         .eq('user_id', uid)
         .eq('is_read', false);
-    _loadNotifications();
+    await _loadNotifications();
+  }
+
+  Future<void> _clearRead() async {
+    final uid = _supabase.auth.currentUser?.id;
+    if (uid == null) return;
+    await _supabase
+        .from('notifications')
+        .delete()
+        .eq('user_id', uid)
+        .eq('is_read', true);
+    setState(() => _notifications.removeWhere((n) => n['is_read'] as bool? ?? false));
+  }
+
+  void _handleTap(Map<String, dynamic> notif) {
+    final id = notif['id'];
+    final type = notif['type'] as String? ?? '';
+
+    // Optimistic UI update
+    setState(() {
+      final idx = _notifications.indexWhere((n) => n['id'] == id);
+      if (idx != -1) {
+        _notifications[idx] = Map<String, dynamic>.from(_notifications[idx])..['is_read'] = true;
+      }
+    });
+
+    // Update unread count
+    final unreadCount = _notifications.where((n) => !(n['is_read'] as bool? ?? false)).length;
+    context.read<AppProvider>().setUnreadCount(unreadCount);
+
+    // Fire-and-forget DB update
+    _supabase
+        .from('notifications')
+        .update({'is_read': true})
+        .eq('id', id);
+
+    // Route based on type
+    if (type == 'follow_request' || type == 'follow_accepted' || type == 'new_follower') {
+      Navigator.push(context, MaterialPageRoute(
+        builder: (_) => ProfileScreen(targetUserId: notif['actor_id'] as String?),
+      ));
+    } else if (type == 'message') {
+      final chatId = notif['reference_id'] as String?;
+      if (chatId != null) {
+        Navigator.push(context, MaterialPageRoute(
+          builder: (_) => DMChatScreen(
+            chatId: chatId,
+            otherUserId: notif['actor_id'] as String? ?? 'unknown',
+            otherUserName: (notif['actor_details'] as Map<String, dynamic>?)?['full_name'] as String? ?? 'User',
+          ),
+        ));
+      }
+    } else if (type == 'challenge' || type == 'challenge_complete') {
+      Navigator.push(context, MaterialPageRoute(
+        builder: (_) => const ChallengeScreen(),
+      ));
+    } else if (type == 'community_post' || type == 'post_like') {
+      context.read<AppProvider>().setTabIndex(3);
+      Navigator.pop(context);
+    } else if (type == 'run_complete') {
+      Navigator.push(context, MaterialPageRoute(
+        builder: (_) => const HistoryScreen(),
+      ));
+    } else if (type == 'achievement' || type == 'goal_reached' || type == 'streak') {
+      Navigator.push(context, MaterialPageRoute(
+        builder: (_) => const ProfileScreen(),
+      ));
+    }
   }
 
   @override
@@ -136,6 +269,16 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                 onPressed: () => Navigator.pop(context))
             : null,
         actions: [
+          if (read.isNotEmpty)
+            TextButton(
+              onPressed: _clearRead,
+              child: Text(
+                'Clear read',
+                style: TextStyle(
+                    color: Colors.grey,
+                    fontWeight: FontWeight.bold),
+              ),
+            ),
           if (unread.isNotEmpty)
             TextButton(
               onPressed: _markAllRead,
@@ -178,38 +321,36 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                       _SectionHeader(label: 'NEW', color: AppColors.solarAmber),
                       SliverList(
                         delegate: SliverChildBuilderDelegate(
-                          (_, i) => _NotifTile(
-                            data: unread[i],
-                            theme: theme,
-                            isDark: isDark,
-                            onTap: () {
-                              final notif = unread[i];
-                              final id = notif['id'];
-                              final type = notif['type'] as String? ?? '';
-                              
-                              // Optimistic UI update
-                              setState(() {
-                                final idx = _notifications.indexWhere((n) => n['id'] == id);
-                                if (idx != -1) {
-                                  _notifications[idx] = Map<String, dynamic>.from(_notifications[idx])..['is_read'] = true;
-                                }
-                              });
-
-                              // Fire-and-forget DB update
-                              _supabase
-                                  .from('notifications')
-                                  .update({'is_read': true})
-                                  .eq('id', id);
-
-                              if (type == 'follow_request' || type == 'follow_accepted' || type == 'new_follower') {
-                                Navigator.push(context, MaterialPageRoute(
-                                  builder: (_) => ProfileScreen(targetUserId: unread[i]['actor_id'] as String?),
-                                ));
-                              } else if (type == 'community_post' || type == 'post_like' || type == 'challenge') {
-                                context.read<AppProvider>().setTabIndex(3); // Community tab
-                                Navigator.pop(context);
+                          (_, i) => Dismissible(
+                            key: ValueKey(unread[i]['id']),
+                            direction: DismissDirection.endToStart,
+                            background: Container(
+                              alignment: Alignment.centerRight,
+                              padding: const EdgeInsets.only(right: 20),
+                              margin: const EdgeInsets.fromLTRB(16, 0, 16, 10),
+                              decoration: BoxDecoration(
+                                color: AppColors.pulseRed.withValues(alpha: 0.15),
+                                borderRadius: BorderRadius.circular(16),
+                              ),
+                              child: const Icon(LucideIcons.trash2, color: AppColors.pulseRed),
+                            ),
+                            onDismissed: (_) async {
+                              final id = unread[i]['id'] as String;
+                              setState(() => _notifications.removeWhere((n) => n['id'] == id));
+                              await _supabase.from('notifications').delete().eq('id', id);
+                              if (mounted) {
+                                final unreadCount = _notifications
+                                    .where((n) => !(n['is_read'] as bool? ?? false))
+                                    .length;
+                                context.read<AppProvider>().setUnreadCount(unreadCount);
                               }
                             },
+                            child: _NotifTile(
+                              data: unread[i],
+                              theme: theme,
+                              isDark: isDark,
+                              onTap: () => _handleTap(unread[i]),
+                            ),
                           ),
                           childCount: unread.length,
                         ),
@@ -219,21 +360,31 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                       _SectionHeader(label: 'EARLIER', color: Colors.grey),
                       SliverList(
                         delegate: SliverChildBuilderDelegate(
-                          (_, i) => _NotifTile(
+                          (_, i) => Dismissible(
+                            key: ValueKey(read[i]['id']),
+                            direction: DismissDirection.endToStart,
+                            background: Container(
+                              alignment: Alignment.centerRight,
+                              padding: const EdgeInsets.only(right: 20),
+                              margin: const EdgeInsets.fromLTRB(16, 0, 16, 10),
+                              decoration: BoxDecoration(
+                                color: AppColors.pulseRed.withValues(alpha: 0.15),
+                                borderRadius: BorderRadius.circular(16),
+                              ),
+                              child: const Icon(LucideIcons.trash2, color: AppColors.pulseRed),
+                            ),
+                            onDismissed: (_) async {
+                              final id = read[i]['id'] as String;
+                              setState(() => _notifications.removeWhere((n) => n['id'] == id));
+                              await _supabase.from('notifications').delete().eq('id', id);
+                            },
+                            child: _NotifTile(
                               data: read[i],
                               theme: theme,
                               isDark: isDark,
-                              onTap: () {
-                                final type = read[i]['type'] as String? ?? '';
-                                if (type == 'follow_request' || type == 'follow_accepted' || type == 'new_follower') {
-                                  Navigator.push(context, MaterialPageRoute(
-                                    builder: (_) => ProfileScreen(targetUserId: read[i]['actor_id'] as String?),
-                                  ));
-                                } else if (type == 'community_post' || type == 'post_like' || type == 'challenge') {
-                                  context.read<AppProvider>().setTabIndex(3);
-                                  Navigator.pop(context);
-                                }
-                              }),
+                              onTap: () => _handleTap(read[i]),
+                            ),
+                          ),
                           childCount: read.length,
                         ),
                       ),
@@ -426,12 +577,19 @@ class _NotifTile extends StatelessWidget {
 
   IconData _icon() {
     switch (data['type'] as String?) {
-      case 'follow_request':  return LucideIcons.userPlus;
-      case 'follow_accepted': return LucideIcons.userCheck;
-      case 'new_follower':    return LucideIcons.users;
-      case 'message':         return LucideIcons.messageCircle;
-      case 'challenge':       return LucideIcons.trophy;
-      default:                return LucideIcons.bell;
+      case 'follow_request':       return LucideIcons.userPlus;
+      case 'follow_accepted':      return LucideIcons.userCheck;
+      case 'new_follower':         return LucideIcons.users;
+      case 'message':              return LucideIcons.messageCircle;
+      case 'challenge':
+      case 'challenge_complete':   return LucideIcons.trophy;
+      case 'post_like':            return LucideIcons.heart;
+      case 'community_post':       return LucideIcons.fileText;
+      case 'run_complete':         return LucideIcons.mapPin;
+      case 'achievement':          return LucideIcons.medal;
+      case 'streak':               return LucideIcons.flame;
+      case 'goal_reached':         return LucideIcons.target;
+      default:                     return LucideIcons.bell;
     }
   }
 
@@ -439,17 +597,23 @@ class _NotifTile extends StatelessWidget {
     switch (data['type'] as String?) {
       case 'follow_request':
       case 'follow_accepted':
-      case 'new_follower':  return AppColors.irisViolet;
-      case 'message':       return AppColors.voltCyan;
-      case 'challenge':     return AppColors.solarAmber;
-      default:              return AppColors.primary;
+      case 'new_follower':         return AppColors.irisViolet;
+      case 'message':              return AppColors.voltCyan;
+      case 'challenge':
+      case 'challenge_complete':   return AppColors.solarAmber;
+      case 'post_like':            return AppColors.pulseRed;
+      case 'community_post':       return AppColors.primary;
+      case 'run_complete':         return const Color(0xFF00C853);
+      case 'achievement':          return AppColors.solarAmber;
+      case 'streak':               return AppColors.solarAmber;
+      case 'goal_reached':         return AppColors.voltCyan;
+      default:                     return AppColors.primary;
     }
   }
 
   @override
   Widget build(BuildContext context) {
     final isRead  = data['is_read'] as bool? ?? false;
-    final actor   = data['actor'] as Map<String, dynamic>?;
     final body    = data['body'] as String? ?? '';
     final title   = data['title'] as String? ?? '';
     final created = data['created_at'] as String?;

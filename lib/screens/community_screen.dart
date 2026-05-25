@@ -437,7 +437,10 @@ class _PremiumFeedCardState extends State<_PremiumFeedCard> with SingleTickerPro
       _boosted = true;
       _boostCount++;
     });
-    CommunityService().likePost(widget.post['id']);
+    CommunityService().likePost(
+      widget.post['id'],
+      postAuthorId: widget.post['user_id'] as String?,
+    );
     _boostCtrl.forward(from: 0);
   }
 

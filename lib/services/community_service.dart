@@ -35,9 +35,26 @@ class CommunityService {
     }
   }
 
-  Future<void> likePost(String postId) async {
+  /// Like a post and notify the post author (not for self-likes).
+  /// Pass [postAuthorId] to enable the notification; falls back to
+  /// the plain RPC-only path if [postAuthorId] is null.
+  Future<void> likePost(String postId, {String? postAuthorId}) async {
     try {
       await _client.rpc('increment_likes', params: {'post_id': postId});
+
+      final uid = _client.auth.currentUser?.id;
+      if (uid == null || postAuthorId == null || uid == postAuthorId) return;
+
+      // Notify the post author
+      await _client.from('notifications').insert({
+        'user_id': postAuthorId,
+        'actor_id': uid,
+        'type': 'post_like',
+        'title': 'Someone liked your post ❤️',
+        'body': 'Check out the reactions on your post',
+        'reference_id': postId,
+        'is_read': false,
+      });
     } catch (e) {
       // Ignored for now
     }
