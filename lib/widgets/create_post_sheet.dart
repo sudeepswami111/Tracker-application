@@ -38,11 +38,11 @@ class _CreatePostSheetState extends State<CreatePostSheet> {
     final appProv = context.read<AppProvider>();
     final watchProv = context.read<WatchMetricsProvider>();
     
-    final steps = watchProv.steps;
+    final pulse = watchProv.pulse;
     final sleep = watchProv.sleepHours;
-    final streak = appProv.runningStreak;
+    final streak = appProv.currentStreak;
     
-    final stampText = '\n\n🔥 Live Stats: [ 👟 Steps: $steps | 💤 Sleep: ${sleep}h | 🏃‍♂️ Streak: $streak Days ]';
+    final stampText = '\n\n🔥 Live Stats: [ 💓 Pulse: $pulse bpm | 💤 Sleep: ${sleep}h | 🏃‍♂️ Streak: $streak Days ]';
     
     _contentCtrl.text = _contentCtrl.text + stampText;
     // Move cursor to end
