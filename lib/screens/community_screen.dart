@@ -67,14 +67,17 @@ class _CommunityScreenState extends State<CommunityScreen> with SingleTickerProv
                 ],
               ),
               child: FloatingActionButton(
-                onPressed: () {
+                onPressed: () async {
                   HapticFeedback.mediumImpact();
-                  showModalBottomSheet(
+                  final result = await showModalBottomSheet<bool>(
                     context: context,
                     isScrollControlled: true,
                     backgroundColor: Colors.transparent,
                     builder: (_) => const CreatePostSheet(),
                   );
+                  if (result == true && mounted) {
+                    setState(() {});
+                  }
                 },
                 backgroundColor: AppColors.irisViolet,
                 elevation: 0,
@@ -533,6 +536,17 @@ class _PremiumFeedCardState extends State<_PremiumFeedCard> with SingleTickerPro
                     widget.post['content'] ?? '',
                     style: widget.theme.textTheme.bodyMedium?.copyWith(height: 1.5, fontSize: 15),
                   ),
+                  if (widget.post['image_url'] != null) ...[
+                    const SizedBox(height: 12),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(16),
+                      child: Image.network(
+                        widget.post['image_url'],
+                        width: double.infinity,
+                        fit: BoxFit.cover,
+                      ),
+                    ),
+                  ],
                   const SizedBox(height: 16),
                   
                   // 3. Activity Stats (Glassmorphic Pills)

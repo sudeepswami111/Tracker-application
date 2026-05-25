@@ -20,7 +20,7 @@ class CommunityService {
     }
   }
 
-  Future<void> createPost(String content, String activityType) async {
+  Future<void> createPost(String content, String activityType, {String? imageUrl}) async {
     try {
       final uid = _client.auth.currentUser?.id;
       if (uid == null) return;
@@ -29,6 +29,7 @@ class CommunityService {
         'user_id': uid,
         'content': content,
         'activity_type': activityType,
+        if (imageUrl != null) 'image_url': imageUrl,
       });
     } catch (e) {
       // Ignored for now
