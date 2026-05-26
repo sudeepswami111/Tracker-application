@@ -14,8 +14,10 @@ class WeatherProvider extends ChangeNotifier {
   bool get isLoading => _isLoading;
 
   WeatherProvider() {
-    fetchWeather();
-    _startLocationStream();
+    Future.microtask(() {
+      fetchWeather();
+      _startLocationStream();
+    });
   }
 
   Future<void> fetchWeather() async {

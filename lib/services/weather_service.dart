@@ -35,47 +35,50 @@ class WeatherService {
       }
 
       // 2. Get Location
-      var perm = await Geolocator.checkPermission();
-      if (perm == LocationPermission.denied) {
-        perm = await Geolocator.requestPermission();
-      }
-      if (perm == LocationPermission.deniedForever || perm == LocationPermission.denied) {
-        throw Exception('LocationPermissionDenied');
-      }
-
-      Position? position;
+      double lat = 12.9716; // Fallback Bangalore
+      double lon = 77.5946;
+      
       try {
-        position = await Geolocator.getCurrentPosition(
-          locationSettings: const LocationSettings(
-            accuracy: LocationAccuracy.low,
-            timeLimit: Duration(seconds: 5),
-          ),
-        );
-      } catch (_) {
+        var perm = await Geolocator.checkPermission();
+        if (perm == LocationPermission.denied) {
+          perm = await Geolocator.requestPermission();
+        }
+
+        Position? position;
         try {
           position = await Geolocator.getCurrentPosition(
             locationSettings: const LocationSettings(
               accuracy: LocationAccuracy.low,
-              timeLimit: Duration(seconds: 10),
+              timeLimit: Duration(seconds: 5),
             ),
           );
         } catch (_) {
-          position = await Geolocator.getLastKnownPosition();
+          try {
+            position = await Geolocator.getCurrentPosition(
+              locationSettings: const LocationSettings(
+                accuracy: LocationAccuracy.low,
+                timeLimit: Duration(seconds: 10),
+              ),
+            );
+          } catch (_) {
+            position = await Geolocator.getLastKnownPosition();
+          }
         }
-      }
 
-      double lat;
-      double lon;
-
-      if (position != null) {
-        lat = position.latitude;
-        lon = position.longitude;
-        await prefs.setDouble('last_lat', lat);
-        await prefs.setDouble('last_lon', lon);
-      } else {
-        lat = prefs.getDouble('last_lat') ?? 0.0;
-        lon = prefs.getDouble('last_lon') ?? 0.0;
-        if (lat == 0.0 && lon == 0.0) throw Exception('LocationTimeout');
+        if (position != null) {
+          lat = position.latitude;
+          lon = position.longitude;
+          await prefs.setDouble('last_lat', lat);
+          await prefs.setDouble('last_lon', lon);
+        } else {
+          lat = prefs.getDouble('last_lat') ?? 12.9716;
+          lon = prefs.getDouble('last_lon') ?? 77.5946;
+        }
+      } catch (e) {
+        // If anything in Geolocator crashes (e.g. LocationServiceDisabledException), safely fallback
+        debugPrint('Geolocator failed, using fallback location: $e');
+        lat = prefs.getDouble('last_lat') ?? 12.9716;
+        lon = prefs.getDouble('last_lon') ?? 77.5946;
       }
 
       // 3. Phase 2D — Reverse Geocoding with subLocality priority
@@ -267,12 +270,6 @@ class WeatherService {
       return weatherModel;
     } catch (e) {
       debugPrint('Weather fetch error: $e');
-      if (e.toString().contains('LocationPermissionDenied')) {
-        throw Exception('LocationPermissionDenied');
-      }
-      if (e.toString().contains('LocationTimeout')) {
-        throw Exception('LocationTimeout');
-      }
       return null;
     }
   }
