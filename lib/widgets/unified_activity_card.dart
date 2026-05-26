@@ -34,12 +34,13 @@ class UnifiedActivityCard extends StatelessWidget {
     
     final double rawProgress = stepGoal > 0 ? steps / stepGoal : 0.0;
     final double progress = rawProgress.clamp(0.0, 1.0);
+    final int percentage = (progress * 100).toInt();
     final statusText = _getStatusText(progress);
 
     final trackColor = isDark ? AppColors.surfaceElevated : AppColors.lightSurfaceContainer;
 
     return Container(
-      padding: const EdgeInsets.all(AppSpacing.lg),
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg, vertical: AppSpacing.md),
       decoration: BoxDecoration(
         color: isDark ? AppColors.surfaceCard.withValues(alpha: 0.6) : AppColors.lightSurface,
         borderRadius: BorderRadius.circular(24),
@@ -60,87 +61,91 @@ class UnifiedActivityCard extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Header
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text("Today's Activity", style: theme.textTheme.headlineMedium),
-              const Icon(LucideIcons.footprints, color: AppColors.voltCyan, size: 20),
-            ],
-          ),
-          const SizedBox(height: AppSpacing.xl),
-          
-          // Main Progress Ring
-          SizedBox(
-            height: 180,
-            width: 180,
-            child: Stack(
-              alignment: Alignment.center,
-              children: [
-                TweenAnimationBuilder<double>(
-                  tween: Tween<double>(begin: 0, end: progress),
-                  duration: const Duration(milliseconds: 1200),
-                  curve: Curves.easeOutCubic,
-                  builder: (context, value, child) {
-                    return CustomPaint(
-                      size: const Size(180, 180),
-                      painter: _RingPainter(
-                        progress: value,
-                        activeColor: AppColors.voltCyan,
-                        backgroundColor: trackColor,
-                        strokeWidth: 14,
-                      ),
-                    );
-                  },
-                ),
-                Column(
-                  mainAxisSize: MainAxisSize.min,
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      steps.toString(),
-                      style: theme.textTheme.displayLarge?.copyWith(fontWeight: FontWeight.bold),
+                    Row(
+                      children: [
+                        const Icon(LucideIcons.footprints, color: AppColors.voltCyan, size: 16),
+                        const SizedBox(width: 8),
+                        Text("Today's Activity", style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+                      ],
                     ),
-                    Text(
-                      'STEPS',
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        letterSpacing: 1.5,
-                        color: AppColors.textSecondary,
-                        fontWeight: FontWeight.w600,
-                      ),
+                    const SizedBox(height: 12),
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.baseline,
+                      textBaseline: TextBaseline.alphabetic,
+                      children: [
+                        Text(
+                          steps.toString(),
+                          style: theme.textTheme.displayMedium?.copyWith(fontWeight: FontWeight.bold, height: 1),
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          'steps',
+                          style: theme.textTheme.bodyMedium?.copyWith(color: AppColors.textSecondary),
+                        ),
+                      ],
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      'Goal: $stepGoal',
-                      style: theme.textTheme.labelSmall?.copyWith(color: AppColors.textSecondary),
+                      'Goal $stepGoal',
+                      style: theme.textTheme.labelMedium?.copyWith(color: AppColors.textSecondary),
+                    ),
+                    const SizedBox(height: 12),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: AppColors.voltCyan.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Text(
+                        statusText,
+                        style: theme.textTheme.labelSmall?.copyWith(color: AppColors.voltCyan, fontWeight: FontWeight.w600),
+                      ),
                     ),
                   ],
                 ),
-              ],
-            ),
+              ),
+              SizedBox(
+                height: 80,
+                width: 80,
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    TweenAnimationBuilder<double>(
+                      tween: Tween<double>(begin: 0, end: progress),
+                      duration: const Duration(milliseconds: 1200),
+                      curve: Curves.easeOutCubic,
+                      builder: (context, value, child) {
+                        return CustomPaint(
+                          size: const Size(80, 80),
+                          painter: _RingPainter(
+                            progress: value,
+                            activeColor: AppColors.voltCyan,
+                            backgroundColor: trackColor,
+                            strokeWidth: 8,
+                          ),
+                        );
+                      },
+                    ),
+                    Text(
+                      '$percentage%',
+                      style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ),
-          
           const SizedBox(height: 16),
-          
-          // Status Text
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-            decoration: BoxDecoration(
-              color: AppColors.voltCyan.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: Text(
-              statusText,
-              style: theme.textTheme.labelMedium?.copyWith(color: AppColors.voltCyan, fontWeight: FontWeight.w600),
-            ),
-          ),
-          
-          const SizedBox(height: AppSpacing.xl),
           Divider(color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.black.withValues(alpha: 0.05), height: 1),
-          const SizedBox(height: AppSpacing.lg),
-          
-          // Mini Metrics Row
+          const SizedBox(height: 12),
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               _buildMiniMetric(
                 icon: LucideIcons.heartPulse,
@@ -151,7 +156,7 @@ class UnifiedActivityCard extends StatelessWidget {
               ),
               _buildMiniMetric(
                 icon: LucideIcons.activity,
-                label: 'Active Mins',
+                label: 'Active',
                 value: activeMinutes > 0 ? '${activeMinutes}m' : '---',
                 color: AppColors.voltCyan,
                 theme: theme,
@@ -177,19 +182,23 @@ class UnifiedActivityCard extends StatelessWidget {
     required Color color,
     required ThemeData theme,
   }) {
-    return Column(
+    return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(icon, size: 18, color: color),
-        const SizedBox(height: 6),
-        Text(
-          value,
-          style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold),
-        ),
-        const SizedBox(height: 2),
-        Text(
-          label,
-          style: theme.textTheme.labelSmall?.copyWith(color: AppColors.textSecondary, fontSize: 10),
+        Icon(icon, size: 16, color: color),
+        const SizedBox(width: 8),
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              label,
+              style: theme.textTheme.labelSmall?.copyWith(color: AppColors.textSecondary, fontSize: 10),
+            ),
+            Text(
+              value,
+              style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold, fontSize: 12),
+            ),
+          ],
         ),
       ],
     );
