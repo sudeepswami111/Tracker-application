@@ -13,6 +13,7 @@ class SmartTodayPlanCard extends StatelessWidget {
   final WeatherModel? weather;
   final AppProvider app;
   final VoidCallback onStart;
+  final VoidCallback? onDelete;
 
   const SmartTodayPlanCard({
     super.key,
@@ -20,7 +21,35 @@ class SmartTodayPlanCard extends StatelessWidget {
     required this.weather,
     required this.app,
     required this.onStart,
+    this.onDelete,
   });
+
+  void _confirmDelete(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppColors.surfaceElevated,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text('Remove this plan?',
+            style: TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.w700)),
+        content: const Text('This will delete the plan from your list.',
+            style: TextStyle(color: AppColors.textSecondary)),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel', style: TextStyle(color: AppColors.textSecondary)),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              onDelete?.call();
+            },
+            child: const Text('Remove', style: TextStyle(color: AppColors.pulseRed, fontWeight: FontWeight.w700)),
+          ),
+        ],
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -98,13 +127,28 @@ class SmartTodayPlanCard extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      plan.title,
-                      style: theme.textTheme.titleLarge?.copyWith(
-                        fontWeight: FontWeight.bold,
-                        color: AppColors.textPrimary,
-                        decoration: isCompleted ? TextDecoration.lineThrough : null,
-                      ),
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          child: Text(
+                            plan.title,
+                            style: theme.textTheme.titleLarge?.copyWith(
+                              fontWeight: FontWeight.bold,
+                              color: AppColors.textPrimary,
+                              decoration: isCompleted ? TextDecoration.lineThrough : null,
+                            ),
+                          ),
+                        ),
+                        if (onDelete != null)
+                          GestureDetector(
+                            onTap: () => _confirmDelete(context),
+                            child: Padding(
+                              padding: const EdgeInsets.only(left: 6, top: 2),
+                              child: Icon(LucideIcons.trash2, size: 16, color: AppColors.textSecondary),
+                            ),
+                          ),
+                      ],
                     ),
                     const SizedBox(height: 8),
                     Row(

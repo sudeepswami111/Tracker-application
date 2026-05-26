@@ -6,31 +6,17 @@ import '../providers/app_provider.dart';
 import '../screens/challenge_screen.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_spacing.dart';
-import 'daily_plan_tile.dart';
+import '../providers/weather_provider.dart';
+import 'smart_today_plan_card.dart';
 
 class ViewAllPlansSheet extends StatelessWidget {
   const ViewAllPlansSheet({super.key});
-
-  Color _getAccentColor(String type) {
-    switch (type) {
-      case 'Run':
-        return AppColors.pulseRed;
-      case 'Yoga':
-      case 'Swim':
-        return AppColors.voltCyan;
-      case 'Gym':
-        return AppColors.solarAmber;
-      case 'Cycle':
-        return AppColors.irisViolet;
-      default:
-        return AppColors.pulseRed;
-    }
-  }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final app = context.watch<AppProvider>();
+    final weather = context.watch<WeatherProvider>().weather;
 
     return Container(
       padding: const EdgeInsets.all(AppSpacing.lg),
@@ -61,13 +47,10 @@ class ViewAllPlansSheet extends StatelessWidget {
                       final plan = app.dailyPlans[index];
                       return Padding(
                         padding: const EdgeInsets.only(bottom: AppSpacing.md),
-                        child: DailyPlanTile(
-                          activityName: plan.title,
-                          durationOrReps: plan.duration,
-                          kcal: plan.kcal,
-                          imageUrl: plan.imageUrl,
-                          isCompleted: plan.isCompleted,
-                          accentColor: _getAccentColor(plan.type),
+                        child: SmartTodayPlanCard(
+                          plan: plan,
+                          weather: weather,
+                          app: app,
                           onStart: () {
                             app.togglePlanComplete(plan.id);
                             if (!plan.isCompleted) {
