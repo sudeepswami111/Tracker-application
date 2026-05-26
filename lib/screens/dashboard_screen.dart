@@ -13,6 +13,7 @@ import 'challenge_screen.dart';
 import '../widgets/animated_card_enter.dart';
 import '../widgets/daily_plan_tile.dart';
 import '../widgets/metric_ring_card.dart';
+import '../widgets/unified_activity_card.dart';
 import '../widgets/streak_badge.dart';
 import '../widgets/add_plan_sheet.dart';
 import '../widgets/dashboard_fun_widgets.dart';
@@ -66,36 +67,17 @@ class DashboardScreen extends StatelessWidget {
               ),
               const SizedBox(height: AppSpacing.xl),
 
-
-              // 2. Health Stats Strip (Heart Rate, Active Mins, Sleep Score)
+              // 2. Primary Hero Card (Unified Activity)
               AnimatedCardEnter(
                 index: 2,
-                child: _buildHealthStats(theme, app, isDark, context),
-              ),
-              const SizedBox(height: AppSpacing.xl),
-
-              // 3. Primary Hero Card (Metric Ring - Today's Activity)
-              AnimatedCardEnter(
-                index: 3,
-                child: Consumer<StepTrackerProvider>(
-                  builder: (context, stepTracker, child) {
-                    if (!stepTracker.isAvailable && !stepTracker.isLoading) {
-                      return MetricRingCard(
-                        progress: 0,
-                        value: 'N/A',
-                        unit: 'UNSUPPORTED',
-                        label: "Today's Activity",
-                        ringColor: AppColors.textSecondary,
-                        icon: LucideIcons.footprints,
-                      );
-                    }
-                    return MetricRingCard(
-                      progress: stepTracker.progress,
-                      value: stepTracker.steps.toString(),
-                      unit: 'STEPS',
-                      label: "Today's Activity",
-                      ringColor: AppColors.voltCyan,
-                      icon: LucideIcons.footprints,
+                child: Consumer2<StepTrackerProvider, WatchMetricsProvider>(
+                  builder: (context, stepTracker, watchProvider, child) {
+                    return UnifiedActivityCard(
+                      steps: stepTracker.steps,
+                      stepGoal: 10000,
+                      activeMinutes: stepTracker.activeMinutes,
+                      heartRate: watchProvider.pulse,
+                      sleepDuration: watchProvider.sleepHours,
                     );
                   },
                 ),
@@ -158,52 +140,6 @@ class DashboardScreen extends StatelessWidget {
         ),
         const DailyQuoteSpark(),
       ],
-    );
-  }
-
-  Widget _buildHealthStats(ThemeData theme, AppProvider app, bool isDark, BuildContext context) {
-    final watchProvider = context.watch<WatchMetricsProvider>();
-    final isConnected = watchProvider.isConnected;
-
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      clipBehavior: Clip.none,
-      child: Row(
-        children: [
-          _QuickStatPill(
-            icon: isConnected ? LucideIcons.heartPulse : LucideIcons.lock,
-            label: 'Heart Rate',
-            value: isConnected ? '${watchProvider.pulse > 0 ? watchProvider.pulse : 72} bpm' : '---',
-            color: isConnected ? AppColors.pulseRed : (isDark ? Colors.white38 : Colors.black38),
-            theme: theme,
-            isDark: isDark,
-          ),
-          const SizedBox(width: AppSpacing.md),
-          Consumer<StepTrackerProvider>(
-            builder: (context, stepTracker, _) => _QuickStatPill(
-              icon: LucideIcons.activity,
-              label: 'Active Mins',
-              value: '${stepTracker.activeMinutes} m',
-              color: AppColors.voltCyan,
-              theme: theme,
-              isDark: isDark,
-            ),
-          ),
-          const SizedBox(width: AppSpacing.md),
-          _QuickStatPill(
-            icon: isConnected ? LucideIcons.moon : LucideIcons.lock,
-            label: 'Sleep',
-            value: isConnected
-                ? watchProvider.sleepHours > 0
-                    ? '${watchProvider.sleepHours.toStringAsFixed(1)}h'
-                    : '---'
-                : '---',
-            color: isConnected ? AppColors.irisViolet : (isDark ? Colors.white38 : Colors.black38),
-            theme: theme,
-            isDark: isDark,
-          ),
-        ],
-      ),
     );
   }
 
@@ -486,72 +422,6 @@ class DashboardScreen extends StatelessWidget {
           ),
         ),
       ],
-    );
-  }
-}
-
-class _QuickStatPill extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final String value;
-  final Color color;
-  final ThemeData theme;
-  final bool isDark;
-
-  const _QuickStatPill({
-    required this.icon,
-    required this.label,
-    required this.value,
-    required this.color,
-    required this.theme,
-    required this.isDark,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surface,
-        borderRadius: BorderRadius.circular(AppSpacing.pillRadius),
-        border: Border.all(
-          color: isDark
-              ? Colors.white.withValues(alpha: 0.06)
-              : Colors.black.withValues(alpha: 0.06),
-        ),
-        boxShadow: isDark
-            ? []
-            : [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.04),
-                  blurRadius: 6,
-                  offset: const Offset(0, 2),
-                ),
-              ],
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 16, color: color),
-          const SizedBox(width: 8),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                label,
-                style: theme.textTheme.labelSmall?.copyWith(fontSize: 10),
-              ),
-              Text(
-                value,
-                style: theme.textTheme.labelLarge?.copyWith(
-                  color: theme.colorScheme.onSurface,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
     );
   }
 }
