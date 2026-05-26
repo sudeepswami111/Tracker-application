@@ -153,88 +153,127 @@ class DashboardWeatherSection extends StatelessWidget {
         border: Border.all(color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.black.withValues(alpha: 0.05)),
       ),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start, // Align to left
         children: [
+          // 1. TOP ROW: Score, Temp/Cond, Icon
           Row(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               // Ring Score
               SizedBox(
-                height: 70,
-                width: 70,
+                height: 72,
+                width: 72,
                 child: Stack(
                   alignment: Alignment.center,
                   children: [
-                    CircularProgressIndicator(
-                      value: fitnessScore.score / 100,
-                      strokeWidth: 6,
-                      backgroundColor: isDark ? Colors.white12 : Colors.black12,
-                      color: _getScoreColor(fitnessScore.score),
-                      strokeCap: StrokeCap.round,
+                    SizedBox(
+                      height: 72,
+                      width: 72,
+                      child: CircularProgressIndicator(
+                        value: fitnessScore.score / 100,
+                        strokeWidth: 5,
+                        backgroundColor: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.black.withValues(alpha: 0.05),
+                        color: _getScoreColor(fitnessScore.score),
+                        strokeCap: StrokeCap.round,
+                      ),
                     ),
                     Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Text('${fitnessScore.score}', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
-                        Text('Score', style: theme.textTheme.labelSmall?.copyWith(fontSize: 8)),
+                        Text('${fitnessScore.score}', style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold, height: 1.1)),
+                        Text('Score', style: theme.textTheme.labelSmall?.copyWith(fontSize: 9, color: AppColors.textSecondary)),
                       ],
                     ),
                   ],
                 ),
               ),
-              const SizedBox(width: AppSpacing.md),
+              const SizedBox(width: AppSpacing.lg),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('${weather.currentTemp.round()}° ${weather.condition}', style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
+                    Text('${weather.currentTemp.round()}°', style: theme.textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.bold, height: 1)),
                     const SizedBox(height: 4),
-                    Text(fitnessScore.status, style: theme.textTheme.bodyMedium?.copyWith(color: AppColors.textSecondary)),
+                    Text(weather.condition, style: theme.textTheme.bodyMedium?.copyWith(color: AppColors.textSecondary)),
                   ],
                 ),
               ),
-              Icon(_getIcon(weather.condition, isDay: weather.isDay), size: 36, color: AppColors.textSecondary.withValues(alpha: 0.5)),
+              Icon(_getIcon(weather.condition, isDay: weather.isDay), size: 42, color: AppColors.textSecondary.withValues(alpha: 0.7)),
             ],
           ),
+          
           const SizedBox(height: AppSpacing.md),
           
-          // Activity Chips
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: activities.map((act) => Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-              decoration: BoxDecoration(
-                color: AppColors.voltCyan.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: Text(act, style: theme.textTheme.labelSmall?.copyWith(color: AppColors.voltCyan, fontWeight: FontWeight.bold)),
-            )).toList(),
+          // 2. SECOND ROW: Short status message
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            decoration: BoxDecoration(
+              color: _getScoreColor(fitnessScore.score).withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(6),
+            ),
+            child: Row(
+              children: [
+                Icon(LucideIcons.activity, size: 14, color: _getScoreColor(fitnessScore.score)),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    fitnessScore.status, 
+                    style: theme.textTheme.labelMedium?.copyWith(color: _getScoreColor(fitnessScore.score), fontWeight: FontWeight.bold),
+                  ),
+                ),
+              ],
+            ),
           ),
-
+          
           const SizedBox(height: AppSpacing.md),
           
-          // Should I Run Now Button
-          InkWell(
-            onTap: () => _showRunNowSheet(context, fitnessScore, theme, isDark),
-            borderRadius: BorderRadius.circular(12),
-            child: Container(
-              width: double.infinity,
-              padding: const EdgeInsets.symmetric(vertical: 12),
-              decoration: BoxDecoration(
-                color: AppColors.primary.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: AppColors.primary.withValues(alpha: 0.3)),
-              ),
-              alignment: Alignment.center,
-              child: const Text('Should I run now?', style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold)),
+          // 3. THIRD ROW: Activity Chips
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: activities.map((act) => Container(
+                margin: const EdgeInsets.only(right: 8),
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.black.withValues(alpha: 0.05),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: isDark ? Colors.white.withValues(alpha: 0.1) : Colors.black.withValues(alpha: 0.1)),
+                ),
+                child: Text(act, style: theme.textTheme.labelSmall?.copyWith(fontWeight: FontWeight.w600)),
+              )).toList(),
             ),
           ),
 
-          const SizedBox(height: AppSpacing.md),
-          Divider(color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.black.withValues(alpha: 0.05), height: 1),
-          const SizedBox(height: AppSpacing.md),
+          const SizedBox(height: AppSpacing.lg),
+          
+          // 4. FOURTH ROW: Should I run now button
+          InkWell(
+            onTap: () => _showRunNowSheet(context, fitnessScore, theme, isDark),
+            borderRadius: BorderRadius.circular(24),
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(vertical: 10),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(24),
+                border: Border.all(color: AppColors.voltCyan.withValues(alpha: 0.4)),
+              ),
+              alignment: Alignment.center,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(LucideIcons.helpCircle, size: 16, color: AppColors.voltCyan),
+                  const SizedBox(width: 8),
+                  const Text('Should I run now?', style: TextStyle(color: AppColors.voltCyan, fontWeight: FontWeight.bold, fontSize: 13)),
+                ],
+              ),
+            ),
+          ),
 
-          // Risk Indicators Row
+          const SizedBox(height: AppSpacing.lg),
+          Divider(color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.black.withValues(alpha: 0.05), height: 1),
+          const SizedBox(height: AppSpacing.lg),
+
+          // 5. FIFTH ROW: Risk Indicators
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -246,16 +285,33 @@ class DashboardWeatherSection extends StatelessWidget {
             ],
           ),
 
-          const SizedBox(height: AppSpacing.sm),
+          const SizedBox(height: AppSpacing.md),
           Divider(color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.black.withValues(alpha: 0.05), height: 1),
-          const SizedBox(height: AppSpacing.sm),
+          const SizedBox(height: AppSpacing.md),
 
-          // Best Window
+          // 6. SIXTH ROW: Best Window
           Row(
             children: [
-              const Icon(LucideIcons.clock, size: 14, color: AppColors.textSecondary),
-              const SizedBox(width: 8),
-              Text('Best Window: $bestWindow', style: theme.textTheme.bodySmall?.copyWith(fontWeight: FontWeight.w600)),
+              Container(
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  color: AppColors.primary.withValues(alpha: 0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(LucideIcons.clock, size: 14, color: AppColors.primary),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Best Window', style: theme.textTheme.labelSmall?.copyWith(color: AppColors.textSecondary)),
+                    Text(bestWindow, style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.bold)),
+                  ],
+                ),
+              ),
+              if (bestWindow != 'Try tomorrow' && bestWindow != 'No data')
+                Text('Optimal conditions', style: theme.textTheme.labelSmall?.copyWith(color: Colors.green)),
             ],
           )
         ],
@@ -271,22 +327,29 @@ class DashboardWeatherSection extends StatelessWidget {
 
   Widget _buildRiskIndicator(RiskIndicator risk, ThemeData theme) {
     Color color;
+    String levelText;
     switch(risk.level) {
-      case RiskLevel.low: color = Colors.green; break;
-      case RiskLevel.moderate: color = AppColors.solarAmber; break;
-      case RiskLevel.high: color = AppColors.coral; break;
-      case RiskLevel.extreme: color = Colors.red; break;
+      case RiskLevel.low: color = Colors.green; levelText = 'Low'; break;
+      case RiskLevel.moderate: color = AppColors.solarAmber; levelText = 'Mod'; break;
+      case RiskLevel.high: color = AppColors.coral; levelText = 'High'; break;
+      case RiskLevel.extreme: color = Colors.red; levelText = 'Ext'; break;
     }
     
     return Column(
       children: [
+        Text(risk.label, style: theme.textTheme.labelSmall?.copyWith(color: AppColors.textSecondary, fontSize: 10)),
+        const SizedBox(height: 6),
         Container(
-          width: 8,
-          height: 8,
-          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+          decoration: BoxDecoration(
+            color: color.withValues(alpha: 0.15),
+            borderRadius: BorderRadius.circular(4),
+          ),
+          child: Text(
+            levelText, 
+            style: theme.textTheme.labelSmall?.copyWith(color: color, fontSize: 9, fontWeight: FontWeight.bold),
+          ),
         ),
-        const SizedBox(height: 4),
-        Text(risk.label, style: theme.textTheme.labelSmall?.copyWith(fontSize: 10)),
       ],
     );
   }
@@ -353,9 +416,9 @@ class DashboardWeatherSection extends StatelessWidget {
           }
 
           return Container(
-            width: 110,
+            width: 100,
             margin: const EdgeInsets.only(right: AppSpacing.sm),
-            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 12),
+            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 10),
             decoration: BoxDecoration(
               color: theme.colorScheme.surface,
               borderRadius: BorderRadius.circular(AppSpacing.cardRadius),
@@ -370,31 +433,34 @@ class DashboardWeatherSection extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(DateFormat('EEE').format(day.date), style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold)),
-                const SizedBox(height: 8),
-                Icon(_getIcon(day.condition), size: 24, color: badgeColor),
-                const SizedBox(height: 8),
+                const SizedBox(height: 6),
+                Icon(_getIcon(day.condition), size: 22, color: badgeColor),
+                const SizedBox(height: 6),
                 Text(
-                  '${day.minTemp.round()}° / ${day.maxTemp.round()}°',
+                  '${day.minTemp.round()}°/${day.maxTemp.round()}°',
                   style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600, fontSize: 12),
                   maxLines: 1,
-                  overflow: TextOverflow.visible,
                 ),
                 const SizedBox(height: 2),
                 Text(
                   '${day.precipitationProbabilityMax.round()}% Rain',
-                  style: theme.textTheme.bodySmall?.copyWith(color: AppColors.voltCyan, fontSize: 10, fontWeight: FontWeight.bold),
+                  style: theme.textTheme.labelSmall?.copyWith(color: AppColors.voltCyan, fontSize: 9, fontWeight: FontWeight.bold),
                 ),
-                const SizedBox(height: 6),
+                const SizedBox(height: 8),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+                  width: double.infinity,
                   decoration: BoxDecoration(
                     color: badgeColor.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: BorderRadius.circular(6),
                     border: Border.all(color: badgeColor.withValues(alpha: 0.2)),
                   ),
+                  alignment: Alignment.center,
                   child: Text(
                     fitnessPlan,
-                    style: theme.textTheme.labelSmall?.copyWith(color: badgeColor, fontSize: 9, fontWeight: FontWeight.bold),
+                    style: theme.textTheme.labelSmall?.copyWith(color: badgeColor, fontSize: 8, fontWeight: FontWeight.bold),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
               ],
