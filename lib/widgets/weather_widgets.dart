@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import '../models/weather_model.dart';
 import '../providers/weather_provider.dart';
 import '../screens/weather_forecast_screen.dart';
+import '../services/weather_fitness_service.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_spacing.dart';
 
@@ -51,7 +52,7 @@ class DashboardWeatherSection extends StatelessWidget {
           ],
         ),
         const SizedBox(height: AppSpacing.md),
-        _buildWeatherInsightCard(weather, theme, isDark),
+        _buildWeatherInsightCard(context, weather, theme, isDark),
         const SizedBox(height: AppSpacing.xl),
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -139,126 +140,197 @@ class DashboardWeatherSection extends StatelessWidget {
     return Colors.red[900] ?? Colors.red; // Severe
   }
 
-  Widget _buildWeatherInsightCard(WeatherModel weather, ThemeData theme, bool isDark) {
-    // ── Insight Logic ──
-    final bool isHot = weather.currentTemp > 30;
-    final bool isRainy = weather.condition.toLowerCase().contains('rain');
-    final bool isBadAir = weather.aqi > 100;
-
-    String insightTitle = "Perfect weather for a run!";
-    IconData insightIcon = LucideIcons.checkCircle;
-    Color insightColor = AppColors.primary;
-
-    if (isHot) {
-      insightTitle = "Hot outside. Swim or light jog.";
-      insightIcon = LucideIcons.alertTriangle;
-      insightColor = AppColors.solarAmber;
-    } else if (isBadAir) {
-      insightTitle = "Poor air quality. Train indoors.";
-      insightIcon = LucideIcons.alertTriangle;
-      insightColor = AppColors.coral;
-    } else if (isRainy) {
-      insightTitle = "Rain expected. Bring a jacket.";
-      insightIcon = LucideIcons.cloudRain;
-      insightColor = AppColors.voltCyan;
-    }
+  Widget _buildWeatherInsightCard(BuildContext context, WeatherModel weather, ThemeData theme, bool isDark) {
+    final fitnessScore = WeatherFitnessService.calculateReadiness(weather);
+    final bestWindow = WeatherFitnessService.getBestWorkoutWindow(weather.hourly);
+    final activities = WeatherFitnessService.getActivityChips(weather, fitnessScore);
 
     return Container(
       padding: const EdgeInsets.all(AppSpacing.md),
       decoration: BoxDecoration(
         color: theme.colorScheme.surface,
         borderRadius: BorderRadius.circular(AppSpacing.cardRadius),
-        border: Border.all(color: insightColor.withValues(alpha: 0.25)),
+        border: Border.all(color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.black.withValues(alpha: 0.05)),
       ),
-      clipBehavior: Clip.antiAlias,
       child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // ── TOP: Weather Row ──
           Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              Icon(_getIcon(weather.condition, isDay: weather.isDay), size: 38, color: AppColors.textSecondary),
-              const SizedBox(width: 14),
+              // Ring Score
+              SizedBox(
+                height: 70,
+                width: 70,
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    CircularProgressIndicator(
+                      value: fitnessScore.score / 100,
+                      strokeWidth: 6,
+                      backgroundColor: isDark ? Colors.white12 : Colors.black12,
+                      color: _getScoreColor(fitnessScore.score),
+                      strokeCap: StrokeCap.round,
+                    ),
+                    Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text('${fitnessScore.score}', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+                        Text('Score', style: theme.textTheme.labelSmall?.copyWith(fontSize: 8)),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: AppSpacing.md),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('${weather.currentTemp.round()}°', style: theme.textTheme.displaySmall?.copyWith(fontWeight: FontWeight.bold, height: 1)),
-                    Text(weather.condition, style: theme.textTheme.bodyMedium?.copyWith(color: AppColors.textSecondary)),
+                    Text('${weather.currentTemp.round()}° ${weather.condition}', style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 4),
+                    Text(fitnessScore.status, style: theme.textTheme.bodyMedium?.copyWith(color: AppColors.textSecondary)),
                   ],
                 ),
               ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                decoration: BoxDecoration(
-                  color: _getAqiColor(weather.aqi).withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(AppSpacing.pillRadius),
-                  border: Border.all(color: _getAqiColor(weather.aqi).withValues(alpha: 0.3)),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    Text('AQI (IN)', style: theme.textTheme.labelSmall?.copyWith(color: _getAqiColor(weather.aqi), fontSize: 10)),
-                    Text('${weather.aqi}', style: theme.textTheme.titleMedium?.copyWith(color: _getAqiColor(weather.aqi), fontWeight: FontWeight.bold, height: 1.1)),
-                    // Phase 2A: Indian NAQI label so users know this differs from phone app AQI
-                    Text('Indian NAQI', style: theme.textTheme.labelSmall?.copyWith(color: AppColors.textSecondary, fontSize: 8)),
-                    Text('(Open-Meteo)', style: theme.textTheme.labelSmall?.copyWith(color: AppColors.textSecondary.withValues(alpha: 0.5), fontSize: 7)),
-                  ],
-                ),
-              ),
+              Icon(_getIcon(weather.condition, isDay: weather.isDay), size: 36, color: AppColors.textSecondary.withValues(alpha: 0.5)),
             ],
+          ),
+          const SizedBox(height: AppSpacing.md),
+          
+          // Activity Chips
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: activities.map((act) => Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              decoration: BoxDecoration(
+                color: AppColors.voltCyan.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Text(act, style: theme.textTheme.labelSmall?.copyWith(color: AppColors.voltCyan, fontWeight: FontWeight.bold)),
+            )).toList(),
           ),
 
           const SizedBox(height: AppSpacing.md),
-          Divider(color: isDark ? Colors.white.withValues(alpha: 0.06) : Colors.black.withValues(alpha: 0.06), height: 1),
+          
+          // Should I Run Now Button
+          InkWell(
+            onTap: () => _showRunNowSheet(context, fitnessScore, theme, isDark),
+            borderRadius: BorderRadius.circular(12),
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              decoration: BoxDecoration(
+                color: AppColors.primary.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: AppColors.primary.withValues(alpha: 0.3)),
+              ),
+              alignment: Alignment.center,
+              child: const Text('Should I run now?', style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold)),
+            ),
+          ),
+
+          const SizedBox(height: AppSpacing.md),
+          Divider(color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.black.withValues(alpha: 0.05), height: 1),
           const SizedBox(height: AppSpacing.md),
 
-          // ── BOTTOM: Insights Row ──
+          // Risk Indicators Row
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              _buildRiskIndicator(fitnessScore.heatRisk, theme),
+              _buildRiskIndicator(fitnessScore.uvRisk, theme),
+              _buildRiskIndicator(fitnessScore.aqiRisk, theme),
+              _buildRiskIndicator(fitnessScore.rainRisk, theme),
+              _buildRiskIndicator(fitnessScore.windRisk, theme),
+            ],
+          ),
+
+          const SizedBox(height: AppSpacing.sm),
+          Divider(color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.black.withValues(alpha: 0.05), height: 1),
+          const SizedBox(height: AppSpacing.sm),
+
+          // Best Window
           Row(
             children: [
-              Icon(insightIcon, color: insightColor, size: 18),
+              const Icon(LucideIcons.clock, size: 14, color: AppColors.textSecondary),
               const SizedBox(width: 8),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(insightTitle, style: theme.textTheme.bodyMedium?.copyWith(color: insightColor, fontWeight: FontWeight.bold)),
-                    Text('Based on ${weather.currentTemp.round()}° & AQI ${weather.aqi}', style: theme.textTheme.bodySmall?.copyWith(color: AppColors.textSecondary)),
-                  ],
-                ),
-              ),
+              Text('Best Window: $bestWindow', style: theme.textTheme.bodySmall?.copyWith(fontWeight: FontWeight.w600)),
             ],
-          ),
-          const SizedBox(height: AppSpacing.md),
-          Row(
-            children: [
-              Expanded(child: _buildInsightDetail(LucideIcons.clock, 'Best Time', weather.bestTime, theme)),
-              Expanded(child: _buildInsightDetail(LucideIcons.activity, 'Intensity', weather.intensity, theme)),
-              Expanded(child: _buildInsightDetail(LucideIcons.droplets, 'Hydration', weather.hydration, theme)),
-            ],
-          ),
+          )
         ],
       ),
     );
   }
 
-  Widget _buildInsightDetail(IconData icon, String label, String value, ThemeData theme) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
+  Color _getScoreColor(int score) {
+    if (score >= 80) return Colors.green;
+    if (score >= 50) return AppColors.solarAmber;
+    return AppColors.coral;
+  }
+
+  Widget _buildRiskIndicator(RiskIndicator risk, ThemeData theme) {
+    Color color;
+    switch(risk.level) {
+      case RiskLevel.low: color = Colors.green; break;
+      case RiskLevel.moderate: color = AppColors.solarAmber; break;
+      case RiskLevel.high: color = AppColors.coral; break;
+      case RiskLevel.extreme: color = Colors.red; break;
+    }
+    
+    return Column(
       children: [
-        Icon(icon, size: 14, color: AppColors.textSecondary),
-        const SizedBox(width: 6),
-        Expanded(
+        Container(
+          width: 8,
+          height: 8,
+          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+        ),
+        const SizedBox(height: 4),
+        Text(risk.label, style: theme.textTheme.labelSmall?.copyWith(fontSize: 10)),
+      ],
+    );
+  }
+
+  void _showRunNowSheet(BuildContext context, WeatherFitnessScore score, ThemeData theme, bool isDark) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: theme.colorScheme.surface,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      builder: (context) {
+        return Padding(
+          padding: const EdgeInsets.all(AppSpacing.xl),
           child: Column(
+            mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(label, style: theme.textTheme.labelSmall?.copyWith(color: AppColors.textSecondary, fontSize: 10)),
-              Text(value, style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600, fontSize: 13)),
+              Text('Should I run now?', style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold)),
+              const SizedBox(height: 16),
+              Text('Answer:', style: theme.textTheme.labelMedium?.copyWith(color: AppColors.textSecondary)),
+              Text(score.runRecommendation, style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold, color: _getScoreColor(score.score))),
+              const SizedBox(height: 12),
+              Text('Reason:', style: theme.textTheme.labelMedium?.copyWith(color: AppColors.textSecondary)),
+              Text(score.runReason, style: theme.textTheme.bodyMedium),
+              const SizedBox(height: 12),
+              Text('Recommended Alternatives:', style: theme.textTheme.labelMedium?.copyWith(color: AppColors.textSecondary)),
+              Text(score.alternativeActivity, style: theme.textTheme.bodyMedium),
+              const SizedBox(height: 24),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: () => Navigator.pop(context),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primary,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                  child: const Text('Got it', style: TextStyle(fontWeight: FontWeight.bold)),
+                ),
+              ),
             ],
           ),
-        ),
-      ],
+        );
+      },
     );
   }
 
@@ -268,32 +340,16 @@ class DashboardWeatherSection extends StatelessWidget {
       clipBehavior: Clip.hardEdge,
       child: Row(
         children: weather.daily.take(4).map((day) {
-          bool isAvoid = false;
-          bool isCaution = false;
-
-          // Avoid rules
-          if (day.weatherCode == 95 || day.weatherCode == 96 || day.weatherCode == 99) isAvoid = true;
-          
-          // Caution rules
-          if (day.maxTemp >= 40) isCaution = true;
-          if (day.uvIndexMax >= 8) isCaution = true;
-          if (day.precipitationProbabilityMax >= 70) isCaution = true;
-
+          String fitnessPlan = WeatherFitnessService.getDailyFitnessPlan(day);
           Color badgeColor = AppColors.primary;
-          String badgeText = "Great";
-
-          if (isAvoid) {
+          if (fitnessPlan == 'Avoid Outdoor') {
             badgeColor = AppColors.coral;
-            badgeText = "Avoid";
-          } else if (isCaution) {
+          } else if (fitnessPlan == 'Indoor Strength' || fitnessPlan == 'Recovery Day') {
             badgeColor = AppColors.solarAmber;
-            badgeText = "Caution";
-          } else if (day.maxTemp > 30 || day.precipitationProbabilityMax > 20) {
+          } else if (fitnessPlan == 'Best for Run' || fitnessPlan == 'Swim Day') {
             badgeColor = AppColors.voltCyan;
-            badgeText = "Good";
           } else {
             badgeColor = Colors.green;
-            badgeText = "Great";
           }
 
           return Container(
@@ -337,8 +393,8 @@ class DashboardWeatherSection extends StatelessWidget {
                     border: Border.all(color: badgeColor.withValues(alpha: 0.2)),
                   ),
                   child: Text(
-                    badgeText,
-                    style: theme.textTheme.labelSmall?.copyWith(color: badgeColor, fontSize: 10, fontWeight: FontWeight.bold),
+                    fitnessPlan,
+                    style: theme.textTheme.labelSmall?.copyWith(color: badgeColor, fontSize: 9, fontWeight: FontWeight.bold),
                   ),
                 ),
               ],

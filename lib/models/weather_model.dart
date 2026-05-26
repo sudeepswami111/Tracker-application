@@ -1,5 +1,7 @@
 class WeatherModel {
   final double currentTemp;
+  final double currentApparentTemp;
+  final double currentPrecipitationProbability;
   final int weatherCode;
   final String conditionText; // WeatherAPI condition string (e.g. "Haze", "Partly cloudy")
   final int aqi;
@@ -17,6 +19,8 @@ class WeatherModel {
 
   WeatherModel({
     required this.currentTemp,
+    required this.currentApparentTemp,
+    required this.currentPrecipitationProbability,
     required this.weatherCode,
     this.conditionText = '',
     required this.aqi,
@@ -62,6 +66,8 @@ class WeatherModel {
 
   Map<String, dynamic> toJson() => {
         'currentTemp': currentTemp,
+        'currentApparentTemp': currentApparentTemp,
+        'currentPrecipitationProbability': currentPrecipitationProbability,
         'weatherCode': weatherCode,
         'conditionText': conditionText,
         'aqi': aqi,
@@ -79,6 +85,8 @@ class WeatherModel {
 
   factory WeatherModel.fromJson(Map<String, dynamic> json) => WeatherModel(
         currentTemp: (json['currentTemp'] as num).toDouble(),
+        currentApparentTemp: (json['currentApparentTemp'] as num?)?.toDouble() ?? 0.0,
+        currentPrecipitationProbability: (json['currentPrecipitationProbability'] as num?)?.toDouble() ?? 0.0,
         weatherCode: json['weatherCode'] as int? ?? 0,
         conditionText: json['conditionText'] as String? ?? '',
         aqi: json['aqi'] as int,

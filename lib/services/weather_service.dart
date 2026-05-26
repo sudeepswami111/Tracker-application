@@ -110,7 +110,7 @@ class WeatherService {
       final weatherUrl = Uri.parse(
         'https://api.open-meteo.com/v1/forecast'
         '?latitude=$lat&longitude=$lon'
-        '&current=temperature_2m,weather_code,wind_speed_10m,relative_humidity_2m,is_day'
+        '&current=temperature_2m,apparent_temperature,weather_code,wind_speed_10m,relative_humidity_2m,is_day'
         '&hourly=temperature_2m,apparent_temperature,weather_code,precipitation_probability,wind_speed_10m,relative_humidity_2m,uv_index'
         '&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,uv_index_max,sunrise,sunset'
         '&timezone=auto',
@@ -145,6 +145,7 @@ class WeatherService {
       final dailyRaw = data['daily'] as Map<String, dynamic>;
 
       final currentTemp = (current['temperature_2m'] as num).toDouble();
+      final currentApparentTemp = (current['apparent_temperature'] as num?)?.toDouble() ?? currentTemp;
       final currentHumidity = (current['relative_humidity_2m'] as num?)?.toDouble() ?? 50.0;
       final windSpeed = (current['wind_speed_10m'] as num).toDouble();
       final isDay = (current['is_day'] as int?) == 1;
@@ -245,6 +246,8 @@ class WeatherService {
 
       final weatherModel = WeatherModel(
         currentTemp: currentTemp,
+        currentApparentTemp: currentApparentTemp,
+        currentPrecipitationProbability: hourlyList.isNotEmpty ? hourlyList.first.precipitationProbability : 0.0,
         weatherCode: currentWeatherCode,
         conditionText: conditionText,
         windSpeed: windSpeed,

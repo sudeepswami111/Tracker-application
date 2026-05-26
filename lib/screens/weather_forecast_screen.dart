@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:intl/intl.dart';
 import '../models/weather_model.dart';
+import '../services/weather_fitness_service.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_spacing.dart';
 
@@ -48,29 +49,17 @@ class WeatherForecastScreen extends StatelessWidget {
         itemBuilder: (context, index) {
           final day = weather.daily[index];
           
-          bool isAvoid = false;
-          bool isCaution = false;
-
-          if (day.weatherCode == 95 || day.weatherCode == 96 || day.weatherCode == 99) isAvoid = true;
-          if (day.maxTemp >= 40) isCaution = true;
-          if (day.uvIndexMax >= 8) isCaution = true;
-          if (day.precipitationProbabilityMax >= 70) isCaution = true;
-
+          String fitnessPlan = WeatherFitnessService.getDailyFitnessPlan(day);
           Color badgeColor = AppColors.primary;
-          String badgeText = "Great";
-
-          if (isAvoid) {
+          
+          if (fitnessPlan == 'Avoid Outdoor') {
             badgeColor = AppColors.coral;
-            badgeText = "Avoid";
-          } else if (isCaution) {
+          } else if (fitnessPlan == 'Indoor Strength' || fitnessPlan == 'Recovery Day') {
             badgeColor = AppColors.solarAmber;
-            badgeText = "Caution";
-          } else if (day.maxTemp > 30 || day.precipitationProbabilityMax > 20) {
+          } else if (fitnessPlan == 'Best for Run' || fitnessPlan == 'Swim Day') {
             badgeColor = AppColors.voltCyan;
-            badgeText = "Good";
           } else {
             badgeColor = Colors.green;
-            badgeText = "Great";
           }
 
           final dateStr = index == 0 ? "Today" : DateFormat('EEEE, MMM d').format(day.date);
@@ -154,7 +143,7 @@ class WeatherForecastScreen extends StatelessWidget {
                     border: Border.all(color: badgeColor.withValues(alpha: 0.2)),
                   ),
                   child: Text(
-                    badgeText,
+                    fitnessPlan,
                     style: theme.textTheme.labelMedium?.copyWith(color: badgeColor, fontWeight: FontWeight.bold),
                   ),
                 ),
