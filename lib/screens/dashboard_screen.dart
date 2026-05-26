@@ -24,6 +24,7 @@ import '../widgets/people_suggestion_section.dart';
 import '../widgets/streak_details_sheet.dart';
 import '../widgets/smart_calendar_sheet.dart';
 import '../widgets/smart_today_plan_card.dart';
+import '../widgets/dashboard_community_section.dart';
 
 class DashboardScreen extends StatelessWidget {
   const DashboardScreen({super.key});
@@ -112,7 +113,7 @@ class DashboardScreen extends StatelessWidget {
               // 6. Community Teaser
               AnimatedCardEnter(
                 index: 6,
-                child: _buildCommunityTeaser(theme, isDark, context),
+                child: const DashboardCommunitySection(),
               ),
             ],
           ),
@@ -309,106 +310,6 @@ class DashboardScreen extends StatelessWidget {
               ),
             )).toList(),
           ),
-      ],
-    );
-  }
-
-  Widget _buildCommunityTeaser(ThemeData theme, bool isDark, BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text("Community Feed", style: theme.textTheme.headlineLarge),
-        const SizedBox(height: AppSpacing.md),
-        FutureBuilder<List<Map<String, dynamic>>>(
-          future: CommunityService().getPosts(),
-          builder: (context, snap) {
-            final posts = snap.data ?? [];
-            if (posts.isEmpty) {
-              return const SizedBox.shrink();
-            }
-            final latest = posts.first;
-            final authorMap = latest['author'] as Map<String, dynamic>?;
-            final authorAvatar = authorMap?['avatar_url'] as String?;
-            final authorName = authorMap?['full_name'] as String? ?? 'Someone';
-            final content = latest['content'] as String? ?? '';
-
-            return Container(
-              padding: const EdgeInsets.all(AppSpacing.md),
-              decoration: BoxDecoration(
-                color: theme.colorScheme.surface,
-                borderRadius: BorderRadius.circular(AppSpacing.cardRadius),
-                border: Border.all(
-                  color: isDark
-                      ? Colors.white.withValues(alpha: 0.06)
-                      : Colors.black.withValues(alpha: 0.06),
-                ),
-                boxShadow: isDark
-                    ? []
-                    : [
-                        BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.04),
-                          blurRadius: 8,
-                          offset: const Offset(0, 2),
-                        ),
-                      ],
-              ),
-              child: Row(
-                children: [
-                  CircleAvatar(
-                    radius: 16,
-                    backgroundImage: authorAvatar != null && authorAvatar.isNotEmpty
-                        ? NetworkImage(authorAvatar)
-                        : null,
-                    child: authorAvatar == null || authorAvatar.isEmpty
-                        ? Text(
-                            authorName.isNotEmpty ? authorName[0].toUpperCase() : 'U',
-                            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
-                          )
-                        : null,
-                  ),
-                  const SizedBox(width: AppSpacing.sm),
-                  Expanded(
-                    child: Text(
-                      '$authorName: $content',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        color: theme.colorScheme.onSurface,
-                      ),
-                    ),
-                  ),
-                  const Icon(LucideIcons.zap, size: 16, color: AppColors.solarAmber),
-                ],
-              ),
-            );
-          },
-        ),
-        const SizedBox(height: AppSpacing.md),
-        SizedBox(
-          width: double.infinity,
-          child: OutlinedButton(
-            onPressed: () {
-              context.read<AppProvider>().setTabIndex(3);
-            },
-            style: OutlinedButton.styleFrom(
-              padding: const EdgeInsets.symmetric(vertical: 14),
-              side: BorderSide(
-                color: isDark
-                    ? AppColors.borderSubtle
-                    : AppColors.lightOutline,
-              ),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(AppSpacing.cardRadius),
-              ),
-            ),
-            child: Text(
-              'Open Community',
-              style: theme.textTheme.labelLarge?.copyWith(
-                color: theme.colorScheme.onSurface,
-              ),
-            ),
-          ),
-        ),
       ],
     );
   }
