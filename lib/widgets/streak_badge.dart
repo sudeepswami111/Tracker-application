@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import '../theme/app_colors.dart';
 
 class StreakBadge extends StatefulWidget {
@@ -6,6 +6,7 @@ class StreakBadge extends StatefulWidget {
   final bool isActive;
   final IconData icon;
   final Color activeColor;
+  final VoidCallback? onTap;
   
   const StreakBadge({
     super.key,
@@ -13,6 +14,7 @@ class StreakBadge extends StatefulWidget {
     required this.isActive,
     required this.icon,
     this.activeColor = AppColors.solarAmber,
+    this.onTap,
   });
 
   @override
@@ -70,31 +72,34 @@ class _StreakBadgeState extends State<StreakBadge> with SingleTickerProviderStat
         ? widget.activeColor
         : theme.colorScheme.onSurfaceVariant;
 
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      decoration: BoxDecoration(
-        color: backgroundColor,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: borderColor, width: 1.5),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(widget.icon, size: 16, color: contentColor),
-          const SizedBox(width: 6),
-          AnimatedBuilder(
-            animation: _countAnimation,
-            builder: (context, child) {
-              return Text(
-                '${_countAnimation.value}',
-                style: theme.textTheme.labelLarge?.copyWith(
-                  color: contentColor,
-                  fontWeight: FontWeight.w700,
-                ),
-              );
-            },
-          ),
-        ],
+    return GestureDetector(
+      onTap: widget.onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+          color: backgroundColor,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: borderColor, width: 1.5),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(widget.icon, size: 16, color: contentColor),
+            const SizedBox(width: 6),
+            AnimatedBuilder(
+              animation: _countAnimation,
+              builder: (context, child) {
+                return Text(
+                  '${_countAnimation.value}',
+                  style: theme.textTheme.labelLarge?.copyWith(
+                    color: contentColor,
+                    fontWeight: FontWeight.w700,
+                  ),
+                );
+              },
+            ),
+          ],
+        ),
       ),
     );
   }

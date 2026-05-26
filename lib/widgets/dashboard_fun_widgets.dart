@@ -1,8 +1,9 @@
-﻿import 'dart:math';
+import 'dart:math';
 import 'package:flutter/services.dart';
 import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import '../theme/app_colors.dart';
+import 'daily_thought_sheet.dart';
 
 // ── Daily Quote Data ─────────────────────────────────────────
 class _QuoteData {
@@ -63,61 +64,14 @@ class DailyQuoteSpark extends StatelessWidget {
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: () {
-        showDialog(
+        final quote = _getTodaysQuote();
+        showModalBottomSheet(
           context: context,
-          builder: (context) => AlertDialog(
-            backgroundColor: Theme.of(context).colorScheme.surface,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-            contentPadding: const EdgeInsets.all(24),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Icon(LucideIcons.sparkles, size: 48, color: AppColors.solarAmber),
-                const SizedBox(height: 16),
-                Builder(
-                  builder: (context) {
-                    final quote = _getTodaysQuote();
-                    final now = DateTime.now();
-                    return Column(
-                      children: [
-                        Text(
-                          'Day ${now.difference(DateTime(now.year)).inDays + 1} of the year',
-                          style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                            color: AppColors.textSecondary,
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        Text(
-                          '"${quote.text}"',
-                          textAlign: TextAlign.center,
-                          style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                            fontStyle: FontStyle.italic,
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        Text(
-                          '— ${quote.author}',
-                          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                            color: AppColors.textSecondary,
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-                        TextButton.icon(
-                          icon: const Icon(LucideIcons.copy, size: 16),
-                          label: const Text('Copy'),
-                          onPressed: () {
-                            Clipboard.setData(ClipboardData(text: '"${quote.text}" — ${quote.author}'));
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text('Quote copied!')),
-                            );
-                          },
-                        ),
-                      ],
-                    );
-                  },
-                ),
-              ],
-            ),
+          isScrollControlled: true,
+          backgroundColor: Colors.transparent,
+          builder: (context) => DailyThoughtSheet(
+            quote: quote.text,
+            author: quote.author,
           ),
         );
       },

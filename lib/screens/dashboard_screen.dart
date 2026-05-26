@@ -20,6 +20,8 @@ import '../widgets/dashboard_fun_widgets.dart';
 import '../widgets/view_all_plans_sheet.dart';
 import '../widgets/weather_widgets.dart';
 import '../widgets/people_suggestion_section.dart';
+import '../widgets/streak_details_sheet.dart';
+import '../widgets/smart_calendar_sheet.dart';
 
 class DashboardScreen extends StatelessWidget {
   const DashboardScreen({super.key});
@@ -63,7 +65,7 @@ class DashboardScreen extends StatelessWidget {
               // 1. Streak Row
               AnimatedCardEnter(
                 index: 0,
-                child: _buildStreakRow(theme, app),
+                child: _buildStreakRow(theme, app, context),
               ),
               const SizedBox(height: AppSpacing.xl),
 
@@ -117,7 +119,7 @@ class DashboardScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildStreakRow(ThemeData theme, AppProvider app) {
+  Widget _buildStreakRow(ThemeData theme, AppProvider app, BuildContext context) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
@@ -128,6 +130,14 @@ class DashboardScreen extends StatelessWidget {
               isActive: app.currentStreak > 0,
               icon: app.isStreakPending ? LucideIcons.hourglass : LucideIcons.flame,
               activeColor: app.isStreakPending ? AppColors.borderSubtle : AppColors.solarAmber,
+              onTap: () {
+                showModalBottomSheet(
+                  context: context,
+                  isScrollControlled: true,
+                  backgroundColor: Colors.transparent,
+                  builder: (context) => StreakDetailsSheet(app: app),
+                );
+              },
             ),
             const SizedBox(width: AppSpacing.sm),
             StreakBadge(
@@ -135,6 +145,14 @@ class DashboardScreen extends StatelessWidget {
               isActive: true,
               icon: LucideIcons.calendarCheck,
               activeColor: AppColors.voltCyan,
+              onTap: () {
+                showModalBottomSheet(
+                  context: context,
+                  isScrollControlled: true,
+                  backgroundColor: Colors.transparent,
+                  builder: (context) => const SmartCalendarSheet(),
+                );
+              },
             ),
           ],
         ),
