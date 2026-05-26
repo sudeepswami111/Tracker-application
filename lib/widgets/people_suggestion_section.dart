@@ -92,10 +92,13 @@ class _PeopleSuggestionSectionState extends State<PeopleSuggestionSection> {
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             Expanded(
-              child: Text(
-                'People You May Know',
-                style: theme.textTheme.headlineLarge?.copyWith(fontWeight: FontWeight.bold),
-                overflow: TextOverflow.ellipsis,
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  'People suggestions',
+                  style: theme.textTheme.headlineLarge?.copyWith(fontWeight: FontWeight.bold),
+                ),
               ),
             ),
             TextButton(
