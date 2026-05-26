@@ -4,6 +4,7 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:intl/intl.dart';
 import '../models/weather_model.dart';
 import '../providers/weather_provider.dart';
+import '../screens/weather_forecast_screen.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_spacing.dart';
 
@@ -28,7 +29,6 @@ class DashboardWeatherSection extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // 1. Combined Weather + Insights + Forecast Card
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           crossAxisAlignment: CrossAxisAlignment.end,
@@ -52,6 +52,27 @@ class DashboardWeatherSection extends StatelessWidget {
         ),
         const SizedBox(height: AppSpacing.md),
         _buildWeatherInsightCard(weather, theme, isDark),
+        const SizedBox(height: AppSpacing.xl),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Text("7-Day Forecast", style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+            TextButton(
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => WeatherForecastScreen(weather: weather),
+                  ),
+                );
+              },
+              child: const Text('View All', style: TextStyle(color: AppColors.voltCyan, fontSize: 13)),
+            ),
+          ],
+        ),
+        const SizedBox(height: AppSpacing.sm),
+        _buildForecastList(weather, theme, isDark),
       ],
     );
   }
@@ -214,23 +235,9 @@ class DashboardWeatherSection extends StatelessWidget {
             children: [
               Expanded(child: _buildInsightDetail(LucideIcons.clock, 'Best Time', weather.bestTime, theme)),
               Expanded(child: _buildInsightDetail(LucideIcons.activity, 'Intensity', weather.intensity, theme)),
+              Expanded(child: _buildInsightDetail(LucideIcons.droplets, 'Hydration', weather.hydration, theme)),
             ],
           ),
-          const SizedBox(height: AppSpacing.sm),
-          _buildInsightDetail(LucideIcons.droplets, 'Hydration', weather.hydration, theme),
-          
-          const SizedBox(height: AppSpacing.xl),
-          Divider(color: isDark ? Colors.white.withValues(alpha: 0.06) : Colors.black.withValues(alpha: 0.06), height: 1),
-          const SizedBox(height: AppSpacing.lg),
-
-          // ── 7-Day Forecast ──
-          Align(
-            alignment: Alignment.centerLeft,
-            child: Text("7-Day Forecast", style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
-          ),
-          const SizedBox(height: AppSpacing.md),
-          _buildForecastList(weather, theme, isDark),
-          const SizedBox(height: AppSpacing.sm), // Added bottom buffer
         ],
       ),
     );
@@ -260,7 +267,7 @@ class DashboardWeatherSection extends StatelessWidget {
       scrollDirection: Axis.horizontal,
       clipBehavior: Clip.hardEdge,
       child: Row(
-        children: weather.daily.map((day) {
+        children: weather.daily.take(4).map((day) {
           bool isAvoid = false;
           bool isCaution = false;
 
@@ -290,9 +297,9 @@ class DashboardWeatherSection extends StatelessWidget {
           }
 
           return Container(
-            width: 100,
+            width: 110,
             margin: const EdgeInsets.only(right: AppSpacing.sm),
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 16),
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 12),
             decoration: BoxDecoration(
               color: theme.colorScheme.surface,
               borderRadius: BorderRadius.circular(AppSpacing.cardRadius),
@@ -306,30 +313,22 @@ class DashboardWeatherSection extends StatelessWidget {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text(DateFormat('EEE').format(day.date), style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
-                const SizedBox(height: 12),
-                Icon(_getIcon(day.condition), size: 28, color: badgeColor),
-                const SizedBox(height: 12),
+                Text(DateFormat('EEE').format(day.date), style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold)),
+                const SizedBox(height: 8),
+                Icon(_getIcon(day.condition), size: 24, color: badgeColor),
+                const SizedBox(height: 8),
                 Text(
                   '${day.minTemp.round()}° / ${day.maxTemp.round()}°',
-                  style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600, fontSize: 13),
+                  style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600, fontSize: 12),
                   maxLines: 1,
                   overflow: TextOverflow.visible,
                 ),
-                const SizedBox(height: 4),
+                const SizedBox(height: 2),
                 Text(
                   '${day.precipitationProbabilityMax.round()}% Rain',
                   style: theme.textTheme.bodySmall?.copyWith(color: AppColors.voltCyan, fontSize: 10, fontWeight: FontWeight.bold),
                 ),
-                const SizedBox(height: 4),
-                Text(
-                  day.condition,
-                  style: theme.textTheme.bodySmall?.copyWith(color: AppColors.textSecondary, fontSize: 10),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 6),
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   decoration: BoxDecoration(
