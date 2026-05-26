@@ -239,14 +239,58 @@ class SmartTodayPlanCard extends StatelessWidget {
             const SizedBox(height: 20),
 
             // ── Workout Timeline ──
-            Row(
-              children: [
-                _TimelineStep('Warm-up\n5m', isActive: true),
-                _TimelineDivider(),
-                _TimelineStep('${plan.type}\n${plan.duration}', isActive: false),
-                _TimelineDivider(),
-                _TimelineStep('Cooldown\n5m', isActive: false),
-              ],
+            Builder(
+              builder: (context) {
+                List<String> getTimelineSteps() {
+                  String mainActivity = plan.type;
+                  String lowerType = mainActivity.toLowerCase();
+                  
+                  if (recommendation.adaptiveActionText == 'Switch to Indoor') {
+                    if (lowerType.contains('run')) mainActivity = 'Treadmill';
+                    else if (lowerType.contains('cycle') || lowerType.contains('bike')) mainActivity = 'Indoor Spin';
+                    else if (lowerType.contains('walk')) mainActivity = 'Treadmill Walk';
+                    else mainActivity = 'Indoor $mainActivity';
+                  } else {
+                    if (lowerType == 'run') mainActivity = 'Outdoor Run';
+                    if (lowerType == 'cycle' || lowerType == 'bike') mainActivity = 'Outdoor Cycle';
+                    if (lowerType == 'walk') mainActivity = 'Outdoor Walk';
+                  }
+
+                  if (lowerType.contains('yoga')) {
+                    return ['Meditation\n5m', '$mainActivity\n${plan.duration}', 'Savasana\n5m'];
+                  } else if (lowerType.contains('gym') || lowerType.contains('strength') || lowerType.contains('weight')) {
+                    return ['Mobility\n5m', '$mainActivity\n${plan.duration}', 'Stretch\n5m'];
+                  } else if (lowerType.contains('swim')) {
+                    return ['Warm-up\n5m', '$mainActivity\n${plan.duration}', 'Dryland\n5m'];
+                  } else if (lowerType.contains('hiit') || lowerType.contains('cardio') || lowerType.contains('crossfit')) {
+                    return ['Active Prep\n5m', '$mainActivity\n${plan.duration}', 'Recovery\n5m'];
+                  } else if (lowerType.contains('pilates') || lowerType.contains('barre')) {
+                    return ['Centering\n5m', '$mainActivity\n${plan.duration}', 'Relaxation\n5m'];
+                  } else if (lowerType.contains('dance') || lowerType.contains('zumba')) {
+                    return ['Groove\n5m', '$mainActivity\n${plan.duration}', 'Cool Down\n5m'];
+                  } else if (lowerType.contains('box') || lowerType.contains('martial')) {
+                    return ['Shadowbox\n5m', '$mainActivity\n${plan.duration}', 'Stretching\n5m'];
+                  } else if (lowerType.contains('sport') || lowerType.contains('basket') || lowerType.contains('foot') || lowerType.contains('tennis')) {
+                    return ['Drills\n10m', '$mainActivity\n${plan.duration}', 'Stretch\n5m'];
+                  } else if (lowerType.contains('walk') || lowerType.contains('hike')) {
+                    return ['Brisk Pace\n5m', '$mainActivity\n${plan.duration}', 'Slow Pace\n5m'];
+                  }
+                  
+                  return ['Warm-up\n5m', '$mainActivity\n${plan.duration}', 'Cooldown\n5m'];
+                }
+
+                final steps = getTimelineSteps();
+                
+                return Row(
+                  children: [
+                    _TimelineStep(steps[0], isActive: true),
+                    _TimelineDivider(),
+                    _TimelineStep(steps[1], isActive: false),
+                    _TimelineDivider(),
+                    _TimelineStep(steps[2], isActive: false),
+                  ],
+                );
+              },
             ),
             
             const SizedBox(height: 20),

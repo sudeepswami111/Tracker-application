@@ -288,62 +288,26 @@ class DashboardScreen extends StatelessWidget {
             ),
           )
 
-        // ── Plans: Smart card for the primary plan, standard tiles for the rest ──
+        // ── Plans: Smart cards for all plans ──
         else
           Column(
-            children: [
-              // Smart Card for the first plan
-              SmartTodayPlanCard(
-                plan: plans.first,
+            children: plans.map((plan) => Padding(
+              padding: const EdgeInsets.only(bottom: AppSpacing.md),
+              child: SmartTodayPlanCard(
+                plan: plan,
                 weather: weather,
                 app: app,
                 onStart: () {
-                  if (!plans.first.isCompleted) {
-                    app.setActiveRunPlan(plans.first);
+                  if (!plan.isCompleted) {
+                    app.setActiveRunPlan(plan);
                     Navigator.push(context, MaterialPageRoute(builder: (_) => const ChallengeScreen()));
                   } else {
-                    app.togglePlanComplete(plans.first.id);
+                    app.togglePlanComplete(plan.id);
                   }
                 },
+                onDelete: () => app.removeDailyPlan(plan.id),
               ),
-              if (planCount > 1) ...[
-                const SizedBox(height: AppSpacing.md),
-                SizedBox(
-                  height: 185,
-                  child: ListView.builder(
-                    scrollDirection: Axis.horizontal,
-                    physics: const BouncingScrollPhysics(),
-                    itemCount: planCount - 1,
-                    itemBuilder: (context, index) {
-                      final plan = plans[index + 1];
-                      return Padding(
-                        padding: EdgeInsets.only(right: index < planCount - 2 ? 12 : 0),
-                        child: SizedBox(
-                          width: MediaQuery.of(context).size.width - 64,
-                          child: DailyPlanTile(
-                            activityName: plan.title,
-                            durationOrReps: plan.duration,
-                            kcal: plan.kcal,
-                            imageUrl: plan.imageUrl,
-                            isCompleted: plan.isCompleted,
-                            accentColor: _getAccentColor(plan.type),
-                            onStart: () {
-                              if (!plan.isCompleted) {
-                                app.setActiveRunPlan(plan);
-                                Navigator.push(context, MaterialPageRoute(builder: (_) => const ChallengeScreen()));
-                              } else {
-                                app.togglePlanComplete(plan.id);
-                              }
-                            },
-                            onDelete: () => app.removeDailyPlan(plan.id),
-                          ),
-                        ),
-                      );
-                    },
-                  ),
-                ),
-              ],
-            ],
+            )).toList(),
           ),
       ],
     );
