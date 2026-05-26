@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:intl/intl.dart';
@@ -29,7 +29,27 @@ class DashboardWeatherSection extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         // 1. Combined Weather + Insights + Forecast Card
-        Text(weather.cityName, style: theme.textTheme.headlineSmall),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(weather.cityName, style: theme.textTheme.headlineSmall),
+                  const SizedBox(height: 2),
+                  Text('Last updated: ${DateFormat('h:mm a').format(weather.lastFetched)}', style: theme.textTheme.labelSmall?.copyWith(color: AppColors.textSecondary)),
+                ],
+              ),
+            ),
+            IconButton(
+              icon: const Icon(LucideIcons.refreshCw, size: 18, color: AppColors.textSecondary),
+              onPressed: () => context.read<WeatherProvider>().refreshWeather(),
+              tooltip: 'Force refresh weather',
+            ),
+          ],
+        ),
         const SizedBox(height: AppSpacing.md),
         _buildWeatherInsightCard(weather, theme, isDark),
       ],
@@ -162,6 +182,7 @@ class DashboardWeatherSection extends StatelessWidget {
                     Text('${weather.aqi}', style: theme.textTheme.titleMedium?.copyWith(color: _getAqiColor(weather.aqi), fontWeight: FontWeight.bold, height: 1.1)),
                     // Phase 2A: Indian NAQI label so users know this differs from phone app AQI
                     Text('Indian NAQI', style: theme.textTheme.labelSmall?.copyWith(color: AppColors.textSecondary, fontSize: 8)),
+                    Text('(Open-Meteo)', style: theme.textTheme.labelSmall?.copyWith(color: AppColors.textSecondary.withValues(alpha: 0.5), fontSize: 7)),
                   ],
                 ),
               ),
@@ -240,25 +261,38 @@ class DashboardWeatherSection extends StatelessWidget {
       clipBehavior: Clip.hardEdge,
       child: Row(
         children: weather.daily.map((day) {
-          final condL = day.condition.toLowerCase();
-          final bool isBad = condL.contains('rain') || condL.contains('thunder') || condL.contains('snow') || day.maxTemp > 35;
-          final bool isCaution = day.maxTemp > 30 || day.minTemp < 5 || condL.contains('haz') || condL.contains('mist');
+          bool isAvoid = false;
+          bool isCaution = false;
+
+          // Avoid rules
+          if (day.weatherCode == 95 || day.weatherCode == 96 || day.weatherCode == 99) isAvoid = true;
           
+          // Caution rules
+          if (day.maxTemp >= 40) isCaution = true;
+          if (day.uvIndexMax >= 8) isCaution = true;
+          if (day.precipitationProbabilityMax >= 70) isCaution = true;
+
           Color badgeColor = AppColors.primary;
-          String badgeText = "Safe";
-          
-          if (isBad) {
+          String badgeText = "Great";
+
+          if (isAvoid) {
             badgeColor = AppColors.coral;
             badgeText = "Avoid";
           } else if (isCaution) {
             badgeColor = AppColors.solarAmber;
             badgeText = "Caution";
+          } else if (day.maxTemp > 30 || day.precipitationProbabilityMax > 20) {
+            badgeColor = AppColors.voltCyan;
+            badgeText = "Good";
+          } else {
+            badgeColor = Colors.green;
+            badgeText = "Great";
           }
 
           return Container(
             width: 100,
             margin: const EdgeInsets.only(right: AppSpacing.sm),
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 16),
             decoration: BoxDecoration(
               color: theme.colorScheme.surface,
               borderRadius: BorderRadius.circular(AppSpacing.cardRadius),
@@ -279,6 +313,13 @@ class DashboardWeatherSection extends StatelessWidget {
                 Text(
                   '${day.minTemp.round()}° / ${day.maxTemp.round()}°',
                   style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600, fontSize: 13),
+                  maxLines: 1,
+                  overflow: TextOverflow.visible,
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  '${day.precipitationProbabilityMax.round()}% Rain',
+                  style: theme.textTheme.bodySmall?.copyWith(color: AppColors.voltCyan, fontSize: 10, fontWeight: FontWeight.bold),
                 ),
                 const SizedBox(height: 4),
                 Text(

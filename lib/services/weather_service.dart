@@ -1,4 +1,4 @@
-﻿import 'dart:convert';
+import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:hive/hive.dart';
@@ -12,17 +12,17 @@ import '../models/weather_model.dart';
 /// from PM2.5 and PM10 readings fetched from the Open-Meteo Air Quality API.
 class WeatherService {
   static const String _boxName = 'weatherBox';
-  static const String _cacheKey = 'weatherCache';
+  static const String _cacheKey = 'weatherCacheV2';
   static const int _ttlMinutes = 30;
 
-  static Future<WeatherModel?> getWeather() async {
+  static Future<WeatherModel?> getWeather({bool forceRefresh = false}) async {
     try {
       final box = await Hive.openBox(_boxName);
       final prefs = await SharedPreferences.getInstance();
 
       // 1. Check Cache with TTL
       final cachedData = box.get(_cacheKey);
-      if (cachedData != null) {
+      if (cachedData != null && !forceRefresh) {
         try {
           final map = Map<String, dynamic>.from(cachedData);
           final weather = WeatherModel.fromJson(map);
@@ -111,8 +111,8 @@ class WeatherService {
         'https://api.open-meteo.com/v1/forecast'
         '?latitude=$lat&longitude=$lon'
         '&current=temperature_2m,weather_code,wind_speed_10m,relative_humidity_2m,is_day'
-        '&hourly=temperature_2m,weather_code,uv_index,precipitation_probability'
-        '&daily=weather_code,temperature_2m_max,temperature_2m_min'
+        '&hourly=temperature_2m,apparent_temperature,weather_code,precipitation_probability,wind_speed_10m,relative_humidity_2m,uv_index'
+        '&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,uv_index_max,sunrise,sunset'
         '&timezone=auto',
       );
       final weatherResponse = await http.get(weatherUrl);
@@ -190,11 +190,22 @@ class WeatherService {
       final List<DailyForecast> dailyList = [];
       final List dailyTimes = dailyRaw['time'] as List;
       for (int i = 0; i < dailyTimes.length && i < 7; i++) {
-        final code = dailyRaw['weather_code'][i] as int;
+        int code = dailyRaw['weather_code'][i] as int;
+        final popMax = (dailyRaw['precipitation_probability_max'][i] as num?)?.toDouble() ?? 0.0;
+        
+        // Safeguard against Open-Meteo dry Thunderstorm glitch
+        if ((code == 95 || code == 96 || code == 99) && popMax < 10) {
+          code = 1; // Mainly Clear
+        }
+
         dailyList.add(DailyForecast(
           date: DateTime.parse(dailyTimes[i] as String),
           maxTemp: (dailyRaw['temperature_2m_max'][i] as num).toDouble(),
           minTemp: (dailyRaw['temperature_2m_min'][i] as num).toDouble(),
+          precipitationProbabilityMax: popMax,
+          uvIndexMax: (dailyRaw['uv_index_max'][i] as num?)?.toDouble() ?? 0.0,
+          sunrise: dailyRaw['sunrise'][i] as String? ?? '',
+          sunset: dailyRaw['sunset'][i] as String? ?? '',
           weatherCode: code,
           conditionText: _getConditionFromCode(code),
         ));

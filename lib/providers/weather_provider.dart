@@ -1,4 +1,4 @@
-﻿import 'dart:async';
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -23,6 +23,16 @@ class WeatherProvider extends ChangeNotifier {
     notifyListeners();
 
     _weather = await WeatherService.getWeather();
+    
+    _isLoading = false;
+    notifyListeners();
+  }
+
+  Future<void> refreshWeather() async {
+    _isLoading = true;
+    notifyListeners();
+
+    _weather = await WeatherService.getWeather(forceRefresh: true);
     
     _isLoading = false;
     notifyListeners();

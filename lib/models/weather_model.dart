@@ -1,4 +1,4 @@
-﻿class WeatherModel {
+class WeatherModel {
   final double currentTemp;
   final int weatherCode;
   final String conditionText; // WeatherAPI condition string (e.g. "Haze", "Partly cloudy")
@@ -145,6 +145,10 @@ class DailyForecast {
   final double minTemp;
   final int weatherCode;
   final String conditionText;
+  final double precipitationProbabilityMax;
+  final double uvIndexMax;
+  final String sunrise;
+  final String sunset;
 
   DailyForecast({
     required this.date,
@@ -152,6 +156,10 @@ class DailyForecast {
     required this.minTemp,
     required this.weatherCode,
     this.conditionText = '',
+    required this.precipitationProbabilityMax,
+    required this.uvIndexMax,
+    required this.sunrise,
+    required this.sunset,
   });
 
   String get condition =>
@@ -163,6 +171,10 @@ class DailyForecast {
         'minTemp': minTemp,
         'weatherCode': weatherCode,
         'conditionText': conditionText,
+        'precipitationProbabilityMax': precipitationProbabilityMax,
+        'uvIndexMax': uvIndexMax,
+        'sunrise': sunrise,
+        'sunset': sunset,
       };
 
   factory DailyForecast.fromJson(Map<String, dynamic> json) => DailyForecast(
@@ -171,5 +183,9 @@ class DailyForecast {
         minTemp: (json['minTemp'] as num).toDouble(),
         weatherCode: json['weatherCode'] as int? ?? 0,
         conditionText: json['conditionText'] as String? ?? '',
+        precipitationProbabilityMax: (json['precipitationProbabilityMax'] as num?)?.toDouble() ?? 0.0,
+        uvIndexMax: (json['uvIndexMax'] as num?)?.toDouble() ?? 0.0,
+        sunrise: json['sunrise'] as String? ?? '',
+        sunset: json['sunset'] as String? ?? '',
       );
 }
