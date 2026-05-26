@@ -21,7 +21,7 @@ class DashboardCommunitySection extends StatelessWidget {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text("Community", style: theme.textTheme.headlineLarge),
+            Text("Community", style: theme.textTheme.headlineLarge?.copyWith(fontWeight: FontWeight.bold)),
           ],
         ),
         const SizedBox(height: AppSpacing.md),

@@ -178,7 +178,7 @@ class DashboardScreen extends StatelessWidget {
           children: [
             Row(
               children: [
-                Text("Today's Plan", style: theme.textTheme.headlineLarge),
+                Text("Today's Plan", style: theme.textTheme.headlineLarge?.copyWith(fontWeight: FontWeight.bold)),
                 if (planCount > 0) ...[
                   const SizedBox(width: 8),
                   Container(
