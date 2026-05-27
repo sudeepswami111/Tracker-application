@@ -14,7 +14,7 @@ class WeatherProvider extends ChangeNotifier {
   bool get isLoading => _isLoading;
 
   WeatherProvider() {
-    Future.microtask(() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
       fetchWeather();
       _startLocationStream();
     });
