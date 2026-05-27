@@ -25,7 +25,7 @@ class StepTrackerProvider extends ChangeNotifier with WidgetsBindingObserver {
   StreamSubscription<PedestrianStatus>? _pedestrianStatusSub;
 
   int _steps = 0;
-  final int _dailyGoal = 10000;
+
   String _status = 'stopped';
   bool _isAvailable = false;
   bool _permissionGranted = false;
@@ -44,14 +44,14 @@ class StepTrackerProvider extends ChangeNotifier with WidgetsBindingObserver {
   int _lastChallengeUpdateSteps = 0;
 
   int get steps => _steps;
-  int get dailyGoal => _dailyGoal;
+  int get dailyGoal => _appProvider?.stepsGoal ?? 10000;
   String get status => _status;
   bool get isAvailable => _isAvailable;
   bool get permissionGranted => _permissionGranted;
   bool get isLoading => _isLoading;
   String get error => _error;
 
-  double get progress => _dailyGoal > 0 ? (_steps / _dailyGoal).clamp(0.0, 1.0) : 0.0;
+  double get progress => dailyGoal > 0 ? (_steps / dailyGoal).clamp(0.0, 1.0) : 0.0;
   int get calories => (_steps * 0.04).round(); // ~0.04 kcal per step
   double get distance => (_steps * 0.00078); // ~0.78 meters per step = 0.00078 km
   int get activeMinutes => (_steps / 100).round(); // ~100 steps per active minute

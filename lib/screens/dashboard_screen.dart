@@ -79,7 +79,7 @@ class DashboardScreen extends StatelessWidget {
                   builder: (context, stepTracker, watchProvider, child) {
                     return UnifiedActivityCard(
                       steps: stepTracker.steps,
-                      stepGoal: 10000,
+                      stepGoal: app.stepsGoal,
                       activeMinutes: stepTracker.activeMinutes,
                       heartRate: watchProvider.pulse,
                       sleepDuration: watchProvider.sleepHours,

@@ -170,10 +170,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       Slider.adaptive(
                         value: app.dailyStepsGoal,
                         min: 1000,
-                        max: 20000,
-                        divisions: 19,
-                         activeColor: AppColors.voltCyan,
+                        max: 100000,
+                        divisions: 99,
+                        activeColor: AppColors.voltCyan,
                         onChanged: (v) => app.setDailyStepsGoal(v),
+                        onChangeEnd: (v) {
+                          ScaffoldMessenger.of(context).clearSnackBars();
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text('Daily step goal updated to ${v.toInt()}'),
+                              behavior: SnackBarBehavior.floating,
+                            ),
+                          );
+                        },
                       ),
                     ],
                   ),
