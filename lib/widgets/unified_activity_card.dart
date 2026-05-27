@@ -10,6 +10,7 @@ class UnifiedActivityCard extends StatelessWidget {
   final int activeMinutes;
   final int heartRate;
   final double sleepDuration;
+  final bool isHealthDataAvailable;
 
   const UnifiedActivityCard({
     super.key,
@@ -18,6 +19,7 @@ class UnifiedActivityCard extends StatelessWidget {
     required this.activeMinutes,
     required this.heartRate,
     required this.sleepDuration,
+    this.isHealthDataAvailable = false,
   });
 
   String _getStatusText(double progress) {
@@ -145,15 +147,16 @@ class UnifiedActivityCard extends StatelessWidget {
           Divider(color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.black.withValues(alpha: 0.05), height: 1),
           const SizedBox(height: 12),
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
-              _buildMiniMetric(
-                icon: LucideIcons.heartPulse,
-                label: 'Heart Rate',
-                value: heartRate > 0 ? '$heartRate bpm' : '---',
-                color: AppColors.pulseRed,
-                theme: theme,
-              ),
+              if (isHealthDataAvailable)
+                _buildMiniMetric(
+                  icon: LucideIcons.heartPulse,
+                  label: 'Heart Rate',
+                  value: heartRate > 0 ? '$heartRate bpm' : '---',
+                  color: AppColors.pulseRed,
+                  theme: theme,
+                ),
               _buildMiniMetric(
                 icon: LucideIcons.activity,
                 label: 'Active',
@@ -161,13 +164,14 @@ class UnifiedActivityCard extends StatelessWidget {
                 color: AppColors.voltCyan,
                 theme: theme,
               ),
-              _buildMiniMetric(
-                icon: LucideIcons.moon,
-                label: 'Sleep',
-                value: sleepDuration > 0 ? '${sleepDuration.toStringAsFixed(1)}h' : '---',
-                color: AppColors.irisViolet,
-                theme: theme,
-              ),
+              if (isHealthDataAvailable)
+                _buildMiniMetric(
+                  icon: LucideIcons.moon,
+                  label: 'Sleep',
+                  value: sleepDuration > 0 ? '${sleepDuration.toStringAsFixed(1)}h' : '---',
+                  color: AppColors.irisViolet,
+                  theme: theme,
+                ),
             ],
           ),
         ],
