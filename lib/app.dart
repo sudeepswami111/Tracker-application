@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:permission_handler/permission_handler.dart';
@@ -30,15 +31,24 @@ class AppShell extends StatefulWidget {
 
 class _AppShellState extends State<AppShell> {
   bool _isMapFullscreen = false;
+  late PageController _pageController;
 
   @override
   void initState() {
     super.initState();
+    final initialIndex = context.read<AppProvider>().currentTabIndex;
+    _pageController = PageController(initialPage: initialIndex);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       Permission.notification.request();
       context.read<AppProvider>().syncProfileWithSupabase();
       _loadInitialUnreadCount();
     });
+  }
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
   }
 
   Future<void> _loadInitialUnreadCount() async {
@@ -138,31 +148,34 @@ class _AppShellState extends State<AppShell> {
       ),
       body: Stack(
         children: [
-          AnimatedSwitcher(
-            duration: const Duration(milliseconds: 300),
-            transitionBuilder: (Widget child, Animation<double> animation) {
-              return FadeTransition(
-                opacity: animation,
-                child: SlideTransition(
-                  position: Tween<Offset>(
-                    begin: const Offset(0.0, 0.05),
-                    end: Offset.zero,
-                  ).animate(animation),
-                  child: child,
-                ),
-              );
+          PageView(
+            controller: _pageController,
+            physics: const BouncingScrollPhysics(),
+            onPageChanged: (index) {
+              final app = context.read<AppProvider>();
+              if (app.currentTabIndex != index) {
+                app.setTabIndex(index);
+                HapticFeedback.selectionClick();
+              }
             },
-            child: KeyedSubtree(
-              key: ValueKey<int>(app.currentTabIndex),
-              child: _screens[app.currentTabIndex],
-            ),
+            children: _screens.map((screen) => Padding(
+              padding: const EdgeInsets.only(bottom: 110.0), // Padding to prevent nav bar overlap
+              child: screen,
+            )).toList(),
           ),
           if (!_isMapFullscreen)
             Align(
               alignment: Alignment.bottomCenter,
               child: GlassNavBar(
                 currentIndex: app.currentTabIndex,
-                onTap: (index) => app.setTabIndex(index),
+                onTap: (index) {
+                  app.setTabIndex(index);
+                  _pageController.animateToPage(
+                    index,
+                    duration: const Duration(milliseconds: 300),
+                    curve: Curves.easeOutCubic,
+                  );
+                },
               ),
             ),
         ],
