@@ -440,7 +440,7 @@ class _PremiumFeedCardState extends State<_PremiumFeedCard> with SingleTickerPro
           });
           _saveReplies();
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Reply sent')),
+            const SnackBar(content: Text('Reply sent', style: TextStyle(color: Colors.white))),
           );
         },
       ),

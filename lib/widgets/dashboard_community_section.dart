@@ -258,7 +258,7 @@ class _CommunityFeedCardState extends State<_CommunityFeedCard> {
           });
           _saveReplies();
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Reply sent')),
+            const SnackBar(content: Text('Reply sent', style: TextStyle(color: Colors.white))),
           );
         },
       ),
@@ -356,7 +356,7 @@ class _CommunityFeedCardState extends State<_CommunityFeedCard> {
         SnackBar(
           content: Text(
             type == 'cheer' ? 'You cheered this activity! 👏' : 'You gave fire to this activity! 🔥',
-            style: const TextStyle(fontWeight: FontWeight.bold),
+            style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
           ),
           backgroundColor: AppColors.surfaceElevated,
           behavior: SnackBarBehavior.floating,
