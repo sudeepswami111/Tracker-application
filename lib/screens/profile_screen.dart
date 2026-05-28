@@ -177,7 +177,12 @@ class _ProfileScreenState extends State<ProfileScreen>
   Future<void> _pickImage(AppProvider app) async {
     try {
       final ImagePicker picker = ImagePicker();
-      final XFile? image = await picker.pickImage(source: ImageSource.gallery);
+      final XFile? image = await picker.pickImage(
+        source: ImageSource.gallery,
+        imageQuality: 70,
+        maxWidth: 800,
+        maxHeight: 800,
+      );
       if (image != null) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
