@@ -225,8 +225,8 @@ class _CommunityFeedCardState extends State<_CommunityFeedCard> {
   @override
   void initState() {
     super.initState();
-    _cheerCount = widget.post['likes_count'] ?? 12;
-    _fireCount = widget.post['fire_count'] ?? 5;
+    _cheerCount = widget.post['likes_count'] ?? 0;
+    _fireCount = widget.post['fire_count'] ?? 0;
     _loadReplies();
   }
 
@@ -509,7 +509,7 @@ class _CommunityFeedCardState extends State<_CommunityFeedCard> {
             children: [
               _ReactionButton(
                 icon: LucideIcons.thumbsUp,
-                label: '$_cheerCount Cheer',
+                label: _cheerCount > 0 ? '$_cheerCount Cheer' : 'Cheer',
                 isActive: _cheered,
                 activeColor: AppColors.teal,
                 onTap: () => _toggleReaction('cheer'),
@@ -517,7 +517,7 @@ class _CommunityFeedCardState extends State<_CommunityFeedCard> {
               const SizedBox(width: 16),
               _ReactionButton(
                 icon: LucideIcons.flame,
-                label: '$_fireCount Fire',
+                label: _fireCount > 0 ? '$_fireCount Fire' : 'Fire',
                 isActive: _fired,
                 activeColor: AppColors.solarAmber,
                 onTap: () => _toggleReaction('fire'),
