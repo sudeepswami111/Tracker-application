@@ -140,14 +140,6 @@ class SmartTodayPlanCard extends StatelessWidget {
                             ),
                           ),
                         ),
-                        if (onDelete != null)
-                          GestureDetector(
-                            onTap: () => _confirmDelete(context),
-                            child: Padding(
-                              padding: const EdgeInsets.only(left: 6, top: 2),
-                              child: Icon(LucideIcons.trash2, size: 16, color: AppColors.textSecondary),
-                            ),
-                          ),
                       ],
                     ),
                     const SizedBox(height: 8),
@@ -311,38 +303,59 @@ class SmartTodayPlanCard extends StatelessWidget {
 
           const SizedBox(height: 24),
 
-          // ── Action Button ──
-          SizedBox(
-            width: double.infinity,
-            height: 48,
-            child: isCompleted
-                ? Container(
-                    decoration: BoxDecoration(
-                      color: AppColors.green.withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(14),
-                      border: Border.all(color: AppColors.green.withValues(alpha: 0.5)),
-                    ),
-                    child: const Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(LucideIcons.checkCircle2, color: AppColors.green),
-                        SizedBox(width: 8),
-                        Text('Completed', style: TextStyle(color: AppColors.green, fontWeight: FontWeight.bold)),
-                      ],
-                    ),
-                  )
-                : ElevatedButton(
-                    onPressed: onStart,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: statusColor == AppColors.pulseRed ? AppColors.pulseRed : AppColors.voltCyan,
-                      foregroundColor: Colors.black,
+          // ── Action Buttons ──
+          Row(
+            children: [
+              Expanded(
+                child: SizedBox(
+                  height: 48,
+                  child: isCompleted
+                      ? Container(
+                          decoration: BoxDecoration(
+                            color: AppColors.green.withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(14),
+                            border: Border.all(color: AppColors.green.withValues(alpha: 0.5)),
+                          ),
+                          child: const Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(LucideIcons.checkCircle2, color: AppColors.green),
+                              SizedBox(width: 8),
+                              Text('Completed', style: TextStyle(color: AppColors.green, fontWeight: FontWeight.bold)),
+                            ],
+                          ),
+                        )
+                      : ElevatedButton(
+                          onPressed: onStart,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: statusColor == AppColors.pulseRed ? AppColors.pulseRed : AppColors.voltCyan,
+                            foregroundColor: Colors.black,
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                          ),
+                          child: Text(
+                            recommendation.adaptiveActionText,
+                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                          ),
+                        ),
+                ),
+              ),
+              if (onDelete != null) ...[
+                const SizedBox(width: 12),
+                SizedBox(
+                  height: 48,
+                  width: 48,
+                  child: OutlinedButton(
+                    onPressed: () => _confirmDelete(context),
+                    style: OutlinedButton.styleFrom(
+                      padding: EdgeInsets.zero,
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                      side: BorderSide(color: isDark ? Colors.white.withValues(alpha: 0.1) : Colors.black.withValues(alpha: 0.1)),
                     ),
-                    child: Text(
-                      recommendation.adaptiveActionText,
-                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                    ),
+                    child: const Icon(LucideIcons.trash2, size: 20, color: AppColors.textSecondary),
                   ),
+                ),
+              ],
+            ],
           ),
         ],
       ),
