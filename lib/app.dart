@@ -150,7 +150,7 @@ class _AppShellState extends State<AppShell> {
         children: [
           PageView(
             controller: _pageController,
-            physics: const BouncingScrollPhysics(),
+            physics: const NeverScrollableScrollPhysics(),
             onPageChanged: (index) {
               final app = context.read<AppProvider>();
               if (app.currentTabIndex != index) {
@@ -170,11 +170,7 @@ class _AppShellState extends State<AppShell> {
                 currentIndex: app.currentTabIndex,
                 onTap: (index) {
                   app.setTabIndex(index);
-                  _pageController.animateToPage(
-                    index,
-                    duration: const Duration(milliseconds: 300),
-                    curve: Curves.easeOutCubic,
-                  );
+                  _pageController.jumpToPage(index);
                 },
               ),
             ),

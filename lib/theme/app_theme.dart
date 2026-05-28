@@ -6,6 +6,13 @@ class AppTheme {
   static ThemeData dark({Color accentColor = AppColors.voltCyan}) {
     return ThemeData(
       useMaterial3: true,
+      pageTransitionsTheme: const PageTransitionsTheme(
+        builders: {
+          TargetPlatform.android: ZoomPageTransitionsBuilder(),
+          TargetPlatform.iOS: ZoomPageTransitionsBuilder(),
+          TargetPlatform.macOS: ZoomPageTransitionsBuilder(),
+        },
+      ),
       brightness: Brightness.dark,
       scaffoldBackgroundColor: AppColors.backgroundDeep,
       colorScheme: ColorScheme.dark(
@@ -87,6 +94,13 @@ class AppTheme {
 
     return ThemeData(
       useMaterial3: true,
+      pageTransitionsTheme: const PageTransitionsTheme(
+        builders: {
+          TargetPlatform.android: ZoomPageTransitionsBuilder(),
+          TargetPlatform.iOS: ZoomPageTransitionsBuilder(),
+          TargetPlatform.macOS: ZoomPageTransitionsBuilder(),
+        },
+      ),
       brightness: Brightness.light,
       scaffoldBackgroundColor: lightBg,
       colorScheme: ColorScheme.light(
