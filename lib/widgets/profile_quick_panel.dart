@@ -70,7 +70,7 @@ class _ProfileQuickPanel extends StatelessWidget {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
     
-    final double panelWidth = min(MediaQuery.of(context).size.width * 0.86, 330);
+    final double panelWidth = min(MediaQuery.of(context).size.width * 0.85, 290);
 
     return Container(
       width: panelWidth,
@@ -165,7 +165,7 @@ class _ProfileQuickPanel extends StatelessWidget {
 
   Widget _buildHeader(BuildContext context, AppProvider app, ThemeData theme) {
     return Padding(
-      padding: const EdgeInsets.all(20.0),
+      padding: const EdgeInsets.all(16.0),
       child: Row(
         children: [
           ProfileAvatar(
@@ -214,9 +214,9 @@ class _ProfileQuickPanel extends StatelessWidget {
     final isDark = theme.brightness == Brightness.dark;
     
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 4.0),
+      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 4.0),
       child: Container(
-        padding: const EdgeInsets.all(12),
+        padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 10.0),
         decoration: BoxDecoration(
           color: isDark ? Colors.white.withValues(alpha: 0.03) : Colors.black.withValues(alpha: 0.03),
           borderRadius: BorderRadius.circular(16),
@@ -245,7 +245,7 @@ class _ProfileQuickPanel extends StatelessWidget {
 
   Widget _buildQuickActions(BuildContext context, AppProvider app, ThemeData theme) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
@@ -445,7 +445,7 @@ class _ProfileQuickPanelItem extends StatelessWidget {
       child: InkWell(
         onTap: onTap,
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 12.0),
+          padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 10.0),
           child: Row(
             children: [
               Container(
