@@ -175,11 +175,32 @@ class _ProfileScreenState extends State<ProfileScreen>
   }
 
   Future<void> _pickImage(AppProvider app) async {
-    final ImagePicker picker = ImagePicker();
-    final XFile? image = await picker.pickImage(source: ImageSource.gallery);
-    if (image != null) {
-      await app.uploadProfileImage(File(image.path));
-      await _loadProfile();
+    try {
+      final ImagePicker picker = ImagePicker();
+      final XFile? image = await picker.pickImage(source: ImageSource.gallery);
+      if (image != null) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Uploading profile photo...')),
+          );
+        }
+        await app.uploadProfileImage(File(image.path));
+        await _loadProfile();
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Profile photo updated successfully!')),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Upload failed. Please ensure the "avatars" storage bucket exists in Supabase and has public write access. Error: $e'),
+            duration: const Duration(seconds: 5),
+          ),
+        );
+      }
     }
   }
 

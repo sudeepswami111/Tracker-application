@@ -693,6 +693,7 @@ class AppProvider extends ChangeNotifier with WidgetsBindingObserver {
           
     } catch (e) {
       debugPrint("Error uploading profile image: $e");
+      rethrow;
     }
   }
 
