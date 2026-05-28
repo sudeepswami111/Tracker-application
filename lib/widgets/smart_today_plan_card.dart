@@ -176,20 +176,6 @@ class SmartTodayPlanCard extends StatelessWidget {
                   ],
                 ),
               ),
-              if (onDelete != null) ...[
-                const SizedBox(width: 8),
-                GestureDetector(
-                  onTap: () => _confirmDelete(context),
-                  child: Container(
-                    padding: const EdgeInsets.all(6),
-                    decoration: BoxDecoration(
-                      color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.black.withValues(alpha: 0.05),
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Icon(LucideIcons.x, size: 16, color: AppColors.textSecondary),
-                  ),
-                ),
-              ],
             ],
           ),
           
@@ -353,6 +339,21 @@ class SmartTodayPlanCard extends StatelessWidget {
                         ),
                 ),
               ),
+              if (onDelete != null) ...[
+                const SizedBox(width: 12),
+                SizedBox(
+                  height: 48,
+                  width: 48,
+                  child: IconButton(
+                    onPressed: () => _confirmDelete(context),
+                    icon: const Icon(LucideIcons.trash2, size: 20, color: AppColors.textSecondary),
+                    style: IconButton.styleFrom(
+                      backgroundColor: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.black.withValues(alpha: 0.05),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                    ),
+                  ),
+                ),
+              ],
             ],
           ),
         ],
