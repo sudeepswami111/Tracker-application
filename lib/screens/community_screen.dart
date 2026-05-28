@@ -9,6 +9,7 @@ import '../services/community_service.dart';
 import '../services/challenge_service.dart';
 import 'package:intl/intl.dart';
 import 'dm_chat_screen.dart';
+import '../widgets/profile_avatar.dart';
 
 // ====================================================
 // PREMIUM COMMUNITY FEED
@@ -506,10 +507,11 @@ class _PremiumFeedCardState extends State<_PremiumFeedCard> with SingleTickerPro
                           shape: BoxShape.circle,
                           gradient: LinearGradient(colors: [accent, accent.withValues(alpha: 0.2)]),
                         ),
-                        child: CircleAvatar(
+                        child: ProfileAvatar(
+                          imageUrl: widget.post['author']?['avatar_url'] as String?,
+                          name: (widget.post['author']?['full_name'] as String?) ?? 'Anonymous',
                           radius: 20,
-                          backgroundColor: widget.isDark ? AppColors.surfaceElevated : Colors.grey[200],
-                          backgroundImage: NetworkImage((widget.post['author']?['avatar_url'] as String?) ?? 'https://i.pravatar.cc/150?img=${32 + widget.index}'),
+                          backgroundColor: widget.isDark ? AppColors.surfaceElevated : Colors.grey[200]!,
                         ),
                       ),
                       const SizedBox(width: 12),

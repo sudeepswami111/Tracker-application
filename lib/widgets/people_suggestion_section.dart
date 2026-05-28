@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
+import 'profile_avatar.dart';
 import '../theme/app_colors.dart';
 import '../services/follow_service.dart'; // adjust path
 
@@ -96,14 +97,21 @@ class _PeopleSuggestionSectionState extends State<PeopleSuggestionSection> {
                 fit: BoxFit.scaleDown,
                 alignment: Alignment.centerLeft,
                 child: Text(
-                  'People suggestions',
+                  'Discover People',
                   style: theme.textTheme.headlineLarge?.copyWith(fontWeight: FontWeight.bold),
                 ),
               ),
             ),
-            IconButton(
-              onPressed: _load,
-              icon: Icon(LucideIcons.refreshCw, color: AppColors.primary, size: 20),
+            GestureDetector(
+              onTap: _load,
+              child: Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: AppColors.primary.withValues(alpha: 0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(LucideIcons.refreshCw, color: AppColors.primary, size: 18),
+              ),
             ),
           ],
         ),
@@ -149,22 +157,12 @@ class _PeopleSuggestionSectionState extends State<PeopleSuggestionSection> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   // Avatar
-                  CircleAvatar(
+                  ProfileAvatar(
+                    imageUrl: user.avatarUrl,
+                    name: name,
                     radius: 32,
-                    backgroundColor:
-                        AppColors.primary.withValues(alpha: 0.15),
-                    backgroundImage: user.avatarUrl != null &&
-                            user.avatarUrl!.isNotEmpty
-                        ? NetworkImage(user.avatarUrl!)
-                        : null,
-                    child: user.avatarUrl == null ||
-                            user.avatarUrl!.isEmpty
-                        ? Text(initials,
-                            style: const TextStyle(
-                                color: AppColors.primary,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 18))
-                        : null,
+                    backgroundColor: AppColors.primary.withValues(alpha: 0.15),
+                    foregroundColor: AppColors.primary,
                   ),
                   const SizedBox(height: 10),
 

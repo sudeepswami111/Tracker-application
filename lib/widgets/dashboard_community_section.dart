@@ -6,6 +6,7 @@ import '../providers/app_provider.dart';
 import '../services/community_service.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_spacing.dart';
+import 'profile_avatar.dart';
 
 class DashboardCommunitySection extends StatelessWidget {
   const DashboardCommunitySection({super.key});
@@ -267,18 +268,10 @@ class _CommunityFeedCardState extends State<_CommunityFeedCard> {
           // Header
           Row(
             children: [
-              CircleAvatar(
+              ProfileAvatar(
+                imageUrl: authorAvatar,
+                name: authorName,
                 radius: 18,
-                backgroundColor: AppColors.surfaceElevated,
-                backgroundImage: authorAvatar != null && authorAvatar.isNotEmpty
-                    ? NetworkImage(authorAvatar)
-                    : null,
-                child: authorAvatar == null || authorAvatar.isEmpty
-                    ? Text(
-                        authorName.isNotEmpty ? authorName[0].toUpperCase() : 'U',
-                        style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
-                      )
-                    : null,
               ),
               const SizedBox(width: 12),
               Expanded(

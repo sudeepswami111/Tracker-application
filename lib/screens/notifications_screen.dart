@@ -10,6 +10,7 @@ import '../screens/profile_screen.dart';
 import '../screens/challenge_screen.dart';
 import '../screens/history_screen.dart';
 import '../screens/dm_chat_screen.dart';
+import '../widgets/profile_avatar.dart';
 
 // ─────────────────────────────────────────────────────────────────
 // NOTIFICATIONS SCREEN
@@ -464,19 +465,12 @@ class _RequestsSection extends StatelessWidget {
               ),
               child: Row(children: [
                 // Avatar
-                CircleAvatar(
+                ProfileAvatar(
+                  imageUrl: avatarUrl,
+                  name: name,
                   radius: 22,
                   backgroundColor: AppColors.irisViolet.withValues(alpha: 0.15),
-                  backgroundImage: avatarUrl != null && avatarUrl.isNotEmpty
-                      ? NetworkImage(avatarUrl)
-                      : null,
-                  child: avatarUrl == null || avatarUrl.isEmpty
-                      ? Text(initials,
-                          style: const TextStyle(
-                              color: AppColors.irisViolet,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 13))
-                      : null,
+                  foregroundColor: AppColors.irisViolet,
                 ),
                 const SizedBox(width: 12),
                 // Name

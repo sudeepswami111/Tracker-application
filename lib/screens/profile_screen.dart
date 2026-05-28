@@ -11,6 +11,7 @@ import '../services/follow_service.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:share_plus/share_plus.dart';
 import 'dart:io';
+import '../widgets/profile_avatar.dart';
 
 // ─────────────────────────────────────────────────────────────────
 // PROFILE SCREEN
@@ -177,7 +178,8 @@ class _ProfileScreenState extends State<ProfileScreen>
     final ImagePicker picker = ImagePicker();
     final XFile? image = await picker.pickImage(source: ImageSource.gallery);
     if (image != null) {
-      app.updateProfileImagePath(image.path);
+      await app.uploadProfileImage(File(image.path));
+      await _loadProfile();
     }
   }
 
@@ -449,25 +451,10 @@ class _ProfileScreenState extends State<ProfileScreen>
                                   ),
                                 ],
                               ),
-                              child: CircleAvatar(
+                              child: ProfileAvatar(
+                                imageUrl: _isOwnProfile ? app.avatarUrl : avatarUrl,
+                                name: fullName,
                                 radius: 40,
-                                backgroundColor: AppColors.surfaceElevated,
-                                backgroundImage:
-                                    avatarUrl != null && avatarUrl.isNotEmpty
-                                    ? NetworkImage(avatarUrl)
-                                    : null,
-                                child: avatarUrl == null || avatarUrl.isEmpty
-                                    ? Text(
-                                        fullName.isNotEmpty
-                                            ? fullName[0].toUpperCase()
-                                            : '?',
-                                        style: const TextStyle(
-                                          fontSize: 32,
-                                          color: Colors.white,
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                      )
-                                    : null,
                               ),
                             ),
                           ),

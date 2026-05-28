@@ -18,6 +18,7 @@ import '../widgets/glass_card.dart';
 import '../screens/profile_screen.dart';
 import '../widgets/device_scanner_sheet.dart';
 import '../widgets/permission_request_sheet.dart';
+import '../widgets/profile_avatar.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -61,20 +62,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
               padding: const EdgeInsets.all(16),
               child: Row(
                 children: [
-                  Container(
-                    width: 64,
-                    height: 64,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      border: Border.all(color: Colors.white, width: 2),
-                      image: app.profileImagePath.isNotEmpty
-                          ? DecorationImage(image: FileImage(File(app.profileImagePath)), fit: BoxFit.cover)
-                          : null,
-                      color: AppColors.surfaceElevated,
-                    ),
-                    child: app.profileImagePath.isEmpty
-                        ? Center(child: Text(app.userName.isNotEmpty ? app.userName[0].toUpperCase() : 'U', style: const TextStyle(fontSize: 24, color: Colors.white, fontWeight: FontWeight.bold)))
-                        : null,
+                  ProfileAvatar(
+                    imageUrl: app.avatarUrl,
+                    name: app.userName,
+                    radius: 32,
                   ),
                   const SizedBox(width: 16),
                   Expanded(

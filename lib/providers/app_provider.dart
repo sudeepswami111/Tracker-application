@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'dart:async';
 import 'dart:convert';
 import 'dart:math';
@@ -125,7 +126,7 @@ class ChallengeModel {
 
 class PrefsKeys {
   static const userName = 'userName';
-  static const profileImagePath = 'profileImagePath';
+  static const avatarUrl = 'avatarUrl';
   static const isMetric = 'isMetric';
   static const steps = 'steps';
   static const distance = 'distance';
@@ -163,7 +164,7 @@ class AppProvider extends ChangeNotifier with WidgetsBindingObserver {
   String userName = 'User';
   int completedTasksCount = 0;
   String email = 'user@example.com';
-  String profileImagePath = '';
+  String avatarUrl = '';
   int userLevel = 1;
   int userXP = 0;
   int userXPToNext = 1000;
@@ -461,7 +462,7 @@ class AppProvider extends ChangeNotifier with WidgetsBindingObserver {
 
   void _loadData() {
     userName = prefs.getString(PrefsKeys.userName) ?? 'User';
-    profileImagePath = prefs.getString(PrefsKeys.profileImagePath) ?? '';
+    avatarUrl = prefs.getString(PrefsKeys.avatarUrl) ?? '';
     isMetric = prefs.getBool(PrefsKeys.isMetric) ?? true;
     steps = prefs.getInt(PrefsKeys.steps) ?? 0;
     distance = prefs.getDouble(PrefsKeys.distance) ?? 0.0;
@@ -575,7 +576,7 @@ class AppProvider extends ChangeNotifier with WidgetsBindingObserver {
 
   void _saveData() {
     prefs.setString(PrefsKeys.userName, userName);
-    prefs.setString(PrefsKeys.profileImagePath, profileImagePath);
+    prefs.setString(PrefsKeys.avatarUrl, avatarUrl);
     prefs.setBool(PrefsKeys.isMetric, isMetric);
     prefs.setInt(PrefsKeys.steps, steps);
     prefs.setInt(PrefsKeys.calories, calories);
@@ -637,8 +638,15 @@ class AppProvider extends ChangeNotifier with WidgetsBindingObserver {
           .eq('id', user.id)
           .maybeSingle();
 
-      if (data != null && data['name'] != null) {
-        userName = data['name'] as String;
+      if (data != null) {
+        if (data['name'] != null) {
+          userName = data['name'] as String;
+        } else if (data['full_name'] != null) {
+          userName = data['full_name'] as String;
+        }
+        if (data['avatar_url'] != null) {
+          avatarUrl = data['avatar_url'] as String;
+        }
       } else {
         // Insert initial data if row doesn't exist
         await Supabase.instance.client.from('profiles').insert({
@@ -654,8 +662,42 @@ class AppProvider extends ChangeNotifier with WidgetsBindingObserver {
     }
   }
 
-  void updateProfileImagePath(String newPath) {
-    profileImagePath = newPath;
+  Future<void> uploadProfileImage(File file) async {
+    final user = Supabase.instance.client.auth.currentUser;
+    if (user == null) return;
+    
+    try {
+      final fileName = '${user.id}_${DateTime.now().millisecondsSinceEpoch}.jpg';
+      await Supabase.instance.client.storage
+          .from('avatars')
+          .upload(fileName, file, fileOptions: const FileOptions(cacheControl: '3600', upsert: true));
+          
+      final String publicUrl = Supabase.instance.client.storage
+          .from('avatars')
+          .getPublicUrl(fileName);
+          
+      // Update the profiles table so other users see the new avatar
+      await Supabase.instance.client
+          .from('profiles')
+          .update({'avatar_url': publicUrl})
+          .eq('id', user.id);
+          
+      avatarUrl = publicUrl;
+      _saveData();
+      notifyListeners();
+      
+      await Supabase.instance.client
+          .from('profiles')
+          .update({'avatar_url': publicUrl})
+          .eq('id', user.id);
+          
+    } catch (e) {
+      debugPrint("Error uploading profile image: $e");
+    }
+  }
+
+  void updateAvatarUrl(String newUrl) {
+    avatarUrl = newUrl;
     _saveData();
     notifyListeners();
   }

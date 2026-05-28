@@ -1,4 +1,4 @@
-﻿import 'dart:async';
+import 'dart:async';
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -7,7 +7,8 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import '../models/chat_models.dart';
 import '../services/chat_service.dart';
 import '../theme/app_colors.dart';
-import '../services/follow_service.dart'; // adjust path
+import '../services/follow_service.dart';
+import '../widgets/profile_avatar.dart';
 
 // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 // DM LIST SCREEN — shows all conversations + search bar
@@ -273,19 +274,12 @@ class _DMListScreenState extends State<DMListScreen> {
         ),
         child: Row(children: [
           // Avatar
-          CircleAvatar(
+          ProfileAvatar(
+            imageUrl: chat.friend.avatarUrl,
+            name: name,
             radius: 26,
             backgroundColor: AppColors.irisViolet.withValues(alpha: 0.15),
-            backgroundImage: chat.friend.avatarUrl != null &&
-                    chat.friend.avatarUrl!.isNotEmpty
-                ? NetworkImage(chat.friend.avatarUrl!)
-                : null,
-            child: chat.friend.avatarUrl == null || chat.friend.avatarUrl!.isEmpty
-                ? Text(initials,
-                    style: const TextStyle(
-                        color: AppColors.irisViolet,
-                        fontWeight: FontWeight.bold))
-                : null,
+            foregroundColor: AppColors.irisViolet,
           ),
           const SizedBox(width: 14),
           Expanded(
@@ -387,19 +381,12 @@ class _SearchUserTile extends StatelessWidget {
               color: theme.colorScheme.outline.withValues(alpha: 0.1)),
         ),
         child: Row(children: [
-          CircleAvatar(
+          ProfileAvatar(
+            imageUrl: user.avatarUrl,
+            name: name,
             radius: 24,
             backgroundColor: AppColors.primary.withValues(alpha: 0.15),
-            backgroundImage:
-                user.avatarUrl != null && user.avatarUrl!.isNotEmpty
-                    ? NetworkImage(user.avatarUrl!)
-                    : null,
-            child: user.avatarUrl == null || user.avatarUrl!.isEmpty
-                ? Text(initials,
-                    style: const TextStyle(
-                        color: AppColors.primary,
-                        fontWeight: FontWeight.bold))
-                : null,
+            foregroundColor: AppColors.primary,
           ),
           const SizedBox(width: 14),
           Expanded(
@@ -542,16 +529,12 @@ class _DMChatScreenState extends State<DMChatScreen> {
           onPressed: () => Navigator.pop(context),
         ),
         title: Row(children: [
-          CircleAvatar(
+          ProfileAvatar(
+            imageUrl: null, // Don't have avatar url here, but we can pass null and let it use name
+            name: widget.otherUserName,
             radius: 18,
             backgroundColor: AppColors.irisViolet.withValues(alpha: 0.2),
-            child: Text(
-              widget.otherUserName.isNotEmpty
-                  ? widget.otherUserName[0].toUpperCase()
-                  : '?',
-              style: const TextStyle(
-                  color: AppColors.irisViolet, fontWeight: FontWeight.bold),
-            ),
+            foregroundColor: AppColors.irisViolet,
           ),
           const SizedBox(width: 10),
           Text(widget.otherUserName,

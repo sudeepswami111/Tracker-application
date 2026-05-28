@@ -17,6 +17,7 @@ import 'screens/community_screen.dart';
 import 'screens/notifications_screen.dart';
 import 'theme/app_colors.dart';
 import 'widgets/glass_nav_bar.dart';
+import 'widgets/profile_avatar.dart';
 
 
 class AppShell extends StatefulWidget {
@@ -155,10 +156,10 @@ class _AppShellState extends State<AppShell> {
               const PopupMenuItem<String>(value: 'Settings', child: Text('Settings')),
               const PopupMenuItem<String>(value: 'Logout', child: Text('Logout')),
             ],
-            child: CircleAvatar(
+            child: ProfileAvatar(
+              imageUrl: app.avatarUrl,
+              name: app.userName,
               radius: 18,
-              backgroundColor: AppColors.primary,
-              child: Text(app.userName[0].toUpperCase(), style: theme.textTheme.labelLarge?.copyWith(color: Colors.white)),
             ),
           ),
           const SizedBox(width: 16),
