@@ -18,6 +18,7 @@ import 'screens/notifications_screen.dart';
 import 'theme/app_colors.dart';
 import 'widgets/glass_nav_bar.dart';
 import 'widgets/profile_avatar.dart';
+import 'widgets/profile_quick_panel.dart';
 
 
 class AppShell extends StatefulWidget {
@@ -124,38 +125,8 @@ class _AppShellState extends State<AppShell> {
             ],
           ),
           const SizedBox(width: 8),
-          PopupMenuButton<String>(
-            offset: const Offset(0, 40),
-            onSelected: (value) {
-              if (value == 'Profile') {
-                Navigator.push(context, MaterialPageRoute(builder: (_) => const ProfileScreen()));
-              } else if (value == 'Challenges') {
-                Navigator.push(context, MaterialPageRoute(builder: (_) => const ChallengeScreen()));
-              } else if (value == 'History') {
-                Navigator.push(context, MaterialPageRoute(builder: (_) => const HistoryScreen()));
-              } else if (value == 'Settings') {
-                Navigator.push(context, MaterialPageRoute(builder: (_) => const SettingsScreen()));
-              } else if (value == 'Logout') {
-                showDialog(context: context, builder: (ctx) => AlertDialog(
-                  title: const Text('Logout'),
-                  content: const Text('Are you sure you want to log out?'),
-                  actions: [
-                    TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
-                    ElevatedButton(onPressed: () async {
-                      Navigator.pop(ctx);
-                      await context.read<AuthProvider>().signOut();
-                    }, child: const Text('Logout')),
-                  ],
-                ));
-              }
-            },
-            itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
-              const PopupMenuItem<String>(value: 'Profile', child: Text('Profile')),
-              const PopupMenuItem<String>(value: 'Challenges', child: Text('ðŸ… Challenges')),
-              const PopupMenuItem<String>(value: 'History', child: Text('History')),
-              const PopupMenuItem<String>(value: 'Settings', child: Text('Settings')),
-              const PopupMenuItem<String>(value: 'Logout', child: Text('Logout')),
-            ],
+          GestureDetector(
+            onTap: () => showProfileQuickPanel(context),
             child: ProfileAvatar(
               imageUrl: app.avatarUrl,
               name: app.userName,
