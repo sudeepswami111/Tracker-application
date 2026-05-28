@@ -101,11 +101,9 @@ class _PeopleSuggestionSectionState extends State<PeopleSuggestionSection> {
                 ),
               ),
             ),
-            TextButton(
+            IconButton(
               onPressed: _load,
-              child: Text('Refresh',
-                  style: TextStyle(
-                      color: AppColors.primary, fontSize: 13)),
+              icon: Icon(LucideIcons.refreshCw, color: AppColors.primary, size: 20),
             ),
           ],
         ),
