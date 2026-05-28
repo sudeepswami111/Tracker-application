@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:provider/provider.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../providers/app_provider.dart';
 import '../services/community_service.dart';
@@ -218,6 +220,26 @@ class _CommunityFeedCardState extends State<_CommunityFeedCard> {
   bool _fired = false;
   List<String> _localReplies = [];
 
+  @override
+  void initState() {
+    super.initState();
+    _loadReplies();
+  }
+
+  Future<void> _loadReplies() async {
+    final prefs = await SharedPreferences.getInstance();
+    final key = 'replies_${widget.post['id']}';
+    setState(() {
+      _localReplies = prefs.getStringList(key) ?? [];
+    });
+  }
+
+  Future<void> _saveReplies() async {
+    final prefs = await SharedPreferences.getInstance();
+    final key = 'replies_${widget.post['id']}';
+    await prefs.setStringList(key, _localReplies);
+  }
+
   void _showReplySheet(String authorName, String originalText) {
     showModalBottomSheet(
       context: context,
@@ -230,10 +252,83 @@ class _CommunityFeedCardState extends State<_CommunityFeedCard> {
           setState(() {
             _localReplies.add(reply);
           });
+          _saveReplies();
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('Reply sent')),
           );
         },
+      ),
+    );
+  }
+
+  void _showReplyOptions(int index, String currentReply) {
+    showModalBottomSheet(
+      context: context,
+      builder: (context) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(LucideIcons.edit2),
+              title: const Text('Edit Reply'),
+              onTap: () {
+                Navigator.pop(context);
+                _editReply(index, currentReply);
+              },
+            ),
+            ListTile(
+              leading: const Icon(LucideIcons.trash2, color: AppColors.pulseRed),
+              title: const Text('Delete Reply', style: TextStyle(color: AppColors.pulseRed)),
+              onTap: () {
+                setState(() {
+                  _localReplies.removeAt(index);
+                });
+                _saveReplies();
+                Navigator.pop(context);
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _editReply(int index, String currentReply) {
+    final controller = TextEditingController(text: currentReply);
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: Theme.of(context).brightness == Brightness.dark ? const Color(0xFF1A1A1A) : Colors.white,
+        title: const Text('Edit Reply'),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          maxLines: null,
+          decoration: InputDecoration(
+            hintText: 'Edit your reply...',
+            filled: true,
+            fillColor: Theme.of(context).brightness == Brightness.dark ? Colors.white.withValues(alpha: 0.05) : Colors.black.withValues(alpha: 0.05),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel', style: TextStyle(color: AppColors.textSecondary)),
+          ),
+          TextButton(
+            onPressed: () {
+              if (controller.text.trim().isNotEmpty) {
+                setState(() {
+                  _localReplies[index] = controller.text.trim();
+                });
+                _saveReplies();
+                Navigator.pop(context);
+              }
+            },
+            child: const Text('Save', style: TextStyle(color: AppColors.voltCyan, fontWeight: FontWeight.bold)),
+          ),
+        ],
       ),
     );
   }
@@ -376,16 +471,23 @@ class _CommunityFeedCardState extends State<_CommunityFeedCard> {
                 children: [
                   Text('Replies', style: theme.textTheme.labelMedium?.copyWith(color: AppColors.textSecondary, fontWeight: FontWeight.bold)),
                   const SizedBox(height: 8),
-                  ..._localReplies.map((reply) => Padding(
-                    padding: const EdgeInsets.only(bottom: 6.0),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text('You: ', style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.bold, color: AppColors.voltCyan)),
-                        Expanded(child: Text(reply, style: theme.textTheme.bodyMedium)),
-                      ],
-                    ),
-                  )),
+                  ..._localReplies.asMap().entries.map((entry) {
+                    final index = entry.key;
+                    final reply = entry.value;
+                    return GestureDetector(
+                      onLongPress: () => _showReplyOptions(index, reply),
+                      child: Padding(
+                        padding: const EdgeInsets.only(bottom: 6.0),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('You: ', style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.bold, color: AppColors.voltCyan)),
+                            Expanded(child: Text(reply, style: theme.textTheme.bodyMedium)),
+                          ],
+                        ),
+                      ),
+                    );
+                  }),
                 ],
               ),
             ),
