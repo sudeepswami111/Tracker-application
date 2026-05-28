@@ -7,6 +7,7 @@ import '../services/community_service.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_spacing.dart';
 import 'profile_avatar.dart';
+import 'reply_bottom_sheet.dart';
 
 class DashboardCommunitySection extends StatelessWidget {
   const DashboardCommunitySection({super.key});
@@ -215,6 +216,27 @@ class _CommunityFeedCard extends StatefulWidget {
 class _CommunityFeedCardState extends State<_CommunityFeedCard> {
   bool _cheered = false;
   bool _fired = false;
+  List<String> _localReplies = [];
+
+  void _showReplySheet(String authorName, String originalText) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => ReplyBottomSheet(
+        authorName: authorName,
+        originalText: originalText,
+        onReplySent: (String reply) {
+          setState(() {
+            _localReplies.add(reply);
+          });
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Reply sent')),
+          );
+        },
+      ),
+    );
+  }
 
   void _toggleReaction(String type) {
     setState(() {
@@ -340,6 +362,36 @@ class _CommunityFeedCardState extends State<_CommunityFeedCard> {
           const Divider(height: 1, color: AppColors.borderSubtle),
           const SizedBox(height: 12),
           
+          // Local Replies Preview
+          if (_localReplies.isNotEmpty) ...[
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.black.withValues(alpha: 0.03),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Replies', style: theme.textTheme.labelMedium?.copyWith(color: AppColors.textSecondary, fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 8),
+                  ..._localReplies.map((reply) => Padding(
+                    padding: const EdgeInsets.only(bottom: 6.0),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('You: ', style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.bold, color: AppColors.voltCyan)),
+                        Expanded(child: Text(reply, style: theme.textTheme.bodyMedium)),
+                      ],
+                    ),
+                  )),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+          ],
+
           // Reactions
           Row(
             children: [
@@ -361,14 +413,10 @@ class _CommunityFeedCardState extends State<_CommunityFeedCard> {
               const Spacer(),
               _ReactionButton(
                 icon: LucideIcons.messageSquare,
-                label: 'Reply',
-                isActive: false,
-                activeColor: AppColors.textPrimary,
-                onTap: () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Replies coming soon!'), duration: Duration(seconds: 1)),
-                  );
-                },
+                label: _localReplies.isNotEmpty ? '${_localReplies.length} reply' : 'Reply',
+                isActive: _localReplies.isNotEmpty,
+                activeColor: AppColors.voltCyan,
+                onTap: () => _showReplySheet(authorName, parsedContent),
               ),
             ],
           ),

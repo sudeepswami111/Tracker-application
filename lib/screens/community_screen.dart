@@ -3,8 +3,12 @@ import 'package:flutter/services.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_spacing.dart';
+import '../widgets/glass_card.dart';
+import '../widgets/dashboard_community_section.dart' show DashboardCommunitySection;
+import '../widgets/reply_bottom_sheet.dart';
 import '../widgets/create_post_sheet.dart';
 import '../widgets/community_search_delegate.dart';
+import 'dart:ui';
 import '../services/community_service.dart';
 import '../services/challenge_service.dart';
 import 'package:intl/intl.dart';
@@ -417,8 +421,29 @@ class _PremiumFeedCardState extends State<_PremiumFeedCard> with SingleTickerPro
   late final Animation<double> _boostAnim;
   late int _boostCount;
   bool _boosted = false;
+  List<String> _localReplies = [];
 
   final List<Color> _accents = [AppColors.voltCyan, AppColors.pulseRed, AppColors.irisViolet, AppColors.solarAmber];
+
+  void _showReplySheet(String authorName, String originalText) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => ReplyBottomSheet(
+        authorName: authorName,
+        originalText: originalText,
+        onReplySent: (String reply) {
+          setState(() {
+            _localReplies.add(reply);
+          });
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Reply sent')),
+          );
+        },
+      ),
+    );
+  }
 
   @override
   void initState() {
@@ -567,6 +592,36 @@ class _PremiumFeedCardState extends State<_PremiumFeedCard> with SingleTickerPro
                   Divider(color: widget.theme.colorScheme.outline.withValues(alpha: 0.1), height: 1),
                   const SizedBox(height: 16),
                   
+                  // Local Replies Preview
+                  if (_localReplies.isNotEmpty) ...[
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: widget.isDark ? Colors.white.withValues(alpha: 0.05) : Colors.black.withValues(alpha: 0.03),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('Replies', style: widget.theme.textTheme.labelMedium?.copyWith(color: AppColors.textSecondary, fontWeight: FontWeight.bold)),
+                          const SizedBox(height: 8),
+                          ..._localReplies.map((reply) => Padding(
+                            padding: const EdgeInsets.only(bottom: 6.0),
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text('You: ', style: widget.theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.bold, color: AppColors.voltCyan)),
+                                Expanded(child: Text(reply, style: widget.theme.textTheme.bodyMedium)),
+                              ],
+                            ),
+                          )),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                  ],
+
                   // 4. Reactions
                   Row(
                     children: [
@@ -624,19 +679,34 @@ class _PremiumFeedCardState extends State<_PremiumFeedCard> with SingleTickerPro
                         ),
                       ),
                       const SizedBox(width: 12),
-                      // Comment Button
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(20),
-                          border: Border.all(color: widget.isDark ? Colors.white12 : Colors.black12),
-                        ),
-                        child: Row(
-                          children: [
-                            const Icon(LucideIcons.messageCircle, size: 18, color: AppColors.textSecondary),
-                            const SizedBox(width: 6),
-                            Text('12', style: TextStyle(color: widget.theme.colorScheme.onSurface, fontWeight: FontWeight.w600)),
-                          ],
+                      // Reply Button
+                      GestureDetector(
+                        onTap: () {
+                          final authorName = (widget.post['author']?['full_name'] as String?) ?? 'Anonymous';
+                          final originalText = widget.post['content'] ?? '';
+                          _showReplySheet(authorName, originalText);
+                        },
+                        behavior: HitTestBehavior.opaque,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                          decoration: BoxDecoration(
+                            color: _localReplies.isNotEmpty ? AppColors.voltCyan.withValues(alpha: 0.1) : Colors.transparent,
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(color: _localReplies.isNotEmpty ? AppColors.voltCyan.withValues(alpha: 0.3) : (widget.isDark ? Colors.white12 : Colors.black12)),
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(LucideIcons.messageCircle, size: 18, color: _localReplies.isNotEmpty ? AppColors.voltCyan : AppColors.textSecondary),
+                              const SizedBox(width: 6),
+                              Text(
+                                _localReplies.isNotEmpty ? '${_localReplies.length} reply' : 'Reply', 
+                                style: TextStyle(
+                                  color: _localReplies.isNotEmpty ? AppColors.voltCyan : widget.theme.colorScheme.onSurface, 
+                                  fontWeight: FontWeight.w600
+                                )
+                              ),
+                            ],
+                          ),
                         ),
                       ),
                       const Spacer(),
