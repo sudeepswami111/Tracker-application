@@ -104,6 +104,7 @@ class _SmartCalendarSheetState extends State<SmartCalendarSheet> {
                       firstDay: DateTime.utc(2023, 1, 1),
                       lastDay: DateTime.utc(2030, 12, 31),
                       focusedDay: _focusedDay,
+                      availableGestures: AvailableGestures.horizontalSwipe,
                       selectedDayPredicate: (day) => isSameDay(_selectedDay, day),
                       onDaySelected: (selectedDay, focusedDay) {
                         setState(() {
