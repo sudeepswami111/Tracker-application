@@ -129,19 +129,46 @@ class WeatherFitnessService {
     String runReason = 'Conditions are favorable.';
     String alternativeActivity = 'Run, Cycle, or Outdoor Walk';
 
+    // 1. Base suggestions on specific weather condition
+    if (weather.weatherCode == 0 || weather.weatherCode == 1) {
+      runReason = 'Clear skies! Perfect weather for a workout.';
+    } else if (weather.weatherCode == 2) {
+      runReason = 'Nice partly cloudy weather. Great for outdoor activities.';
+    } else if (weather.weatherCode == 3) {
+      runReason = 'Overcast, but good for a run (keeps the sun off!).';
+    } else if (weather.weatherCode == 45 || weather.weatherCode == 48) {
+      runReason = 'Foggy conditions. Wear high-visibility gear.';
+      alternativeActivity = 'Treadmill or Gym';
+    } else if (weather.weatherCode == 51 || weather.weatherCode == 53 || weather.weatherCode == 55) {
+      runReason = 'Light drizzle. A light rain jacket is recommended.';
+    } else if (weather.weatherCode == 61 || weather.weatherCode == 63 || weather.weatherCode == 65) {
+      runReason = 'It is raining. Watch your step on slippery surfaces.';
+      alternativeActivity = 'Indoor Cycling or Gym';
+    } else if (weather.weatherCode >= 71 && weather.weatherCode <= 77) {
+      runReason = 'Snowy conditions! Dress warmly in layers and watch for ice.';
+      alternativeActivity = 'Winter Sports or Indoor Cardio';
+    } else if (weather.weatherCode >= 80 && weather.weatherCode <= 82) {
+      runReason = 'Rain showers around. You might get wet!';
+    }
+
+    // 2. Override based on severe risks (Score < 50)
     if (score < 50) {
       runRecommendation = 'Not ideal now.';
-      if (aqiRisk == RiskLevel.extreme || aqiRisk == RiskLevel.high) {
-        runReason = 'Air quality is very poor.';
+      if (weather.weatherCode == 95 || weather.weatherCode == 96 || weather.weatherCode == 99) {
+        runReason = 'Thunderstorm risk. Please stay indoors!';
+      } else if (aqiRisk == RiskLevel.extreme || aqiRisk == RiskLevel.high) {
+        runReason = 'Air quality is very poor (AQI ${weather.aqi}).';
       } else if (heatRisk == RiskLevel.extreme || heatRisk == RiskLevel.high) {
-        runReason = 'Heat index is dangerously high.';
-      } else if (weather.weatherCode == 95 || weather.weatherCode == 96 || weather.weatherCode == 99) {
-        runReason = 'Thunderstorm risk.';
+        runReason = 'Heat index is dangerously high (${weather.currentApparentTemp.toStringAsFixed(1)}°).';
+      } else if (windRisk == RiskLevel.extreme) {
+        runReason = 'Extremely high winds. Dangerous for outdoor activities.';
       } else {
-        runReason = 'Multiple high weather risks.';
+        runReason = 'Multiple high weather risks detected.';
       }
       alternativeActivity = 'Indoor Strength, Yoga, or Treadmill';
-    } else if (score < 75) {
+    } 
+    // 3. Override based on moderate risks (Score < 75)
+    else if (score < 75) {
       runRecommendation = 'Proceed with caution.';
       if (heatRisk == RiskLevel.moderate) {
         runReason = 'It is getting warm, stay hydrated.';
@@ -150,11 +177,14 @@ class WeatherFitnessService {
         runReason = 'UV is moderate/high, wear sunscreen.';
         alternativeActivity = 'Shaded Run or Evening Walk';
       } else if (rainRisk == RiskLevel.high || rainRisk == RiskLevel.moderate) {
-        runReason = 'Rain is likely, be careful.';
+        // Keep the rain suggestion if we already set one above, otherwise use generic
+        if (!runReason.contains('rain')) {
+          runReason = 'Rain is likely, be careful.';
+        }
         alternativeActivity = 'Indoor Cycling or Gym';
-      } else {
-        runReason = 'Weather is okay, but not perfect.';
-        alternativeActivity = 'Brisk Walk or Short Run';
+      } else if (windRisk == RiskLevel.high) {
+        runReason = 'It is quite windy outside.';
+        alternativeActivity = 'Gym or Protected Area Run';
       }
     }
 
