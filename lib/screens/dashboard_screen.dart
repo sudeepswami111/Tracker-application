@@ -81,8 +81,8 @@ class DashboardScreen extends StatelessWidget {
                       steps: stepTracker.steps,
                       stepGoal: app.stepsGoal,
                       activeMinutes: stepTracker.activeMinutes,
-                      heartRate: watchProvider.pulse,
-                      sleepDuration: watchProvider.sleepHours,
+                      heartRate: watchProvider.pulse ?? 0,
+                      sleepDuration: watchProvider.sleepHours ?? 0.0,
                       showHealthMetrics: watchProvider.isConnected,
                     );
                   },

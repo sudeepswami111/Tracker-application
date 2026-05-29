@@ -787,7 +787,7 @@ class _ProfileScreenState extends State<ProfileScreen>
                           return _buildDeviceRow(
                             watch.deviceName.isNotEmpty ? watch.deviceName : 'Smartwatch',
                             LucideIcons.watch,
-                            watch.batteryLevel,
+                            watch.batteryLevel ?? 0,
                             true,
                             isDark,
                           );

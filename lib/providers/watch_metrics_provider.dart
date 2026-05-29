@@ -1,4 +1,4 @@
-﻿import 'dart:async';
+import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../services/watch_connection_manager.dart';
@@ -21,6 +21,9 @@ class WatchMetricsProvider extends ChangeNotifier {
   bool _isStreaming = false;
   bool get isStreaming => _isStreaming;
 
+  bool _isFetching = false;
+  bool get isFetching => _isFetching;
+
   String _deviceName = '';
   String get deviceName => _deviceName;
 
@@ -29,36 +32,36 @@ class WatchMetricsProvider extends ChangeNotifier {
   List<DiscoveredDevice> get discoveredDevices => _discoveredDevices;
 
   // ── Health Metrics ──
-  int _pulse = 0;
-  int get pulse => _pulse;
+  int? _pulse;
+  int? get pulse => _pulse;
 
-  int _restingHeartRate = 0;
-  int get restingHeartRate => _restingHeartRate;
+  int? _restingHeartRate;
+  int? get restingHeartRate => _restingHeartRate;
 
-  int _maxHeartRate = 0;
-  int get maxHeartRate => _maxHeartRate;
+  int? _maxHeartRate;
+  int? get maxHeartRate => _maxHeartRate;
 
-  int _wellnessScore = 0;
-  int get wellnessScore => _wellnessScore;
+  int? _wellnessScore;
+  int? get wellnessScore => _wellnessScore;
 
-  double _spO2 = 0.0;
-  double get spO2 => _spO2;
+  double? _spO2;
+  double? get spO2 => _spO2;
 
-  double _temperature = 98.6;
-  double get temperature => _temperature;
+  double? _temperature;
+  double? get temperature => _temperature;
 
-  int _systolic = 120;
-  int get systolic => _systolic;
+  int? _systolic;
+  int? get systolic => _systolic;
 
-  int _diastolic = 80;
-  int get diastolic => _diastolic;
+  int? _diastolic;
+  int? get diastolic => _diastolic;
 
-  double _sleepHours = 0.0;
-  double get sleepHours => _sleepHours;
+  double? _sleepHours;
+  double? get sleepHours => _sleepHours;
 
   // ── Battery & Sync ──
-  int _batteryLevel = 85;
-  int get batteryLevel => _batteryLevel;
+  int? _batteryLevel;
+  int? get batteryLevel => _batteryLevel;
 
   DateTime? _lastSynced;
   DateTime? get lastSynced => _lastSynced;
@@ -133,16 +136,16 @@ class WatchMetricsProvider extends ChangeNotifier {
     final prefs = await SharedPreferences.getInstance();
     _isConnected = prefs.getBool('watch_connected') ?? false;
     _deviceName = prefs.getString('watch_device_name') ?? '';
-    _pulse = prefs.getInt('watch_pulse') ?? 0;
-    _restingHeartRate = prefs.getInt('watch_rhr') ?? 0;
-    _maxHeartRate = prefs.getInt('watch_mhr') ?? 0;
-    _wellnessScore = prefs.getInt('watch_wellness') ?? 0;
-    _spO2 = prefs.getDouble('watch_spo2') ?? 0.0;
-    _temperature = prefs.getDouble('watch_temperature') ?? 98.6;
-    _systolic = prefs.getInt('watch_systolic') ?? 120;
-    _diastolic = prefs.getInt('watch_diastolic') ?? 80;
-    _sleepHours = prefs.getDouble('watch_sleep') ?? 0.0;
-    _batteryLevel = prefs.getInt('watch_battery') ?? 85;
+    _pulse = prefs.getInt('watch_pulse');
+    _restingHeartRate = prefs.getInt('watch_rhr');
+    _maxHeartRate = prefs.getInt('watch_mhr');
+    _wellnessScore = prefs.getInt('watch_wellness');
+    _spO2 = prefs.getDouble('watch_spo2');
+    _temperature = prefs.getDouble('watch_temperature');
+    _systolic = prefs.getInt('watch_systolic');
+    _diastolic = prefs.getInt('watch_diastolic');
+    _sleepHours = prefs.getDouble('watch_sleep');
+    _batteryLevel = prefs.getInt('watch_battery');
 
     final lastSyncMs = prefs.getInt('watch_last_sync');
     if (lastSyncMs != null) {
@@ -156,16 +159,16 @@ class WatchMetricsProvider extends ChangeNotifier {
     final prefs = await SharedPreferences.getInstance();
     prefs.setBool('watch_connected', _isConnected);
     prefs.setString('watch_device_name', _deviceName);
-    prefs.setInt('watch_pulse', _pulse);
-    prefs.setInt('watch_rhr', _restingHeartRate);
-    prefs.setInt('watch_mhr', _maxHeartRate);
-    prefs.setInt('watch_wellness', _wellnessScore);
-    prefs.setDouble('watch_spo2', _spO2);
-    prefs.setDouble('watch_temperature', _temperature);
-    prefs.setInt('watch_systolic', _systolic);
-    prefs.setInt('watch_diastolic', _diastolic);
-    prefs.setDouble('watch_sleep', _sleepHours);
-    prefs.setInt('watch_battery', _batteryLevel);
+    if (_pulse != null) prefs.setInt('watch_pulse', _pulse!);
+    if (_restingHeartRate != null) prefs.setInt('watch_rhr', _restingHeartRate!);
+    if (_maxHeartRate != null) prefs.setInt('watch_mhr', _maxHeartRate!);
+    if (_wellnessScore != null) prefs.setInt('watch_wellness', _wellnessScore!);
+    if (_spO2 != null) prefs.setDouble('watch_spo2', _spO2!);
+    if (_temperature != null) prefs.setDouble('watch_temperature', _temperature!);
+    if (_systolic != null) prefs.setInt('watch_systolic', _systolic!);
+    if (_diastolic != null) prefs.setInt('watch_diastolic', _diastolic!);
+    if (_sleepHours != null) prefs.setDouble('watch_sleep', _sleepHours!);
+    if (_batteryLevel != null) prefs.setInt('watch_battery', _batteryLevel!);
     if (_lastSynced != null) {
       prefs.setInt('watch_last_sync', _lastSynced!.millisecondsSinceEpoch);
     }
@@ -220,18 +223,21 @@ class WatchMetricsProvider extends ChangeNotifier {
         _deviceName = device.name;
 
         // Fetch initial health data from Health Connect
+        _isFetching = true;
+        notifyListeners();
         final data = await _manager.fetchHealthData();
-        _pulse = data['heartRate'] ?? 0;
-        _restingHeartRate = data['restingHeartRate'] ?? 0;
-        _maxHeartRate = data['maxHeartRate'] ?? 0;
-        _wellnessScore = data['wellnessScore'] ?? 0;
-        _spO2 = (data['spO2'] ?? 0.0).toDouble();
-        _temperature = (data['temperature'] ?? 98.4).toDouble();
-        _systolic = data['systolic'] ?? 120;
-        _diastolic = data['diastolic'] ?? 80;
-        _sleepHours = (data['sleepHours'] ?? 0.0).toDouble();
+        _pulse = data['heartRate'];
+        _restingHeartRate = data['restingHeartRate'];
+        _maxHeartRate = data['maxHeartRate'];
+        _wellnessScore = data['wellnessScore'];
+        _spO2 = data['spO2'];
+        _temperature = data['temperature'];
+        _systolic = data['systolic'];
+        _diastolic = data['diastolic'];
+        _sleepHours = data['sleepHours'];
         _lastSynced = DateTime.now();
         _isStreaming = true;
+        _isFetching = false;
 
         _saveToStorage();
         _isConnecting = false;
@@ -272,18 +278,21 @@ class WatchMetricsProvider extends ChangeNotifier {
         _deviceName = "Health Connect Sync";
 
         // Fetch initial health data
+        _isFetching = true;
+        notifyListeners();
         final data = await _manager.fetchHealthData();
-        _pulse = data['heartRate'] ?? 0;
-        _restingHeartRate = data['restingHeartRate'] ?? 0;
-        _maxHeartRate = data['maxHeartRate'] ?? 0;
-        _wellnessScore = data['wellnessScore'] ?? 0;
-        _spO2 = (data['spO2'] ?? 0.0).toDouble();
-        _temperature = (data['temperature'] ?? 98.4).toDouble();
-        _systolic = data['systolic'] ?? 120;
-        _diastolic = data['diastolic'] ?? 80;
-        _sleepHours = (data['sleepHours'] ?? 0.0).toDouble();
+        _pulse = data['heartRate'];
+        _restingHeartRate = data['restingHeartRate'];
+        _maxHeartRate = data['maxHeartRate'];
+        _wellnessScore = data['wellnessScore'];
+        _spO2 = data['spO2'];
+        _temperature = data['temperature'];
+        _systolic = data['systolic'];
+        _diastolic = data['diastolic'];
+        _sleepHours = data['sleepHours'];
         _lastSynced = DateTime.now();
         _isStreaming = true; // Still true to show the dashboard properly
+        _isFetching = false;
 
         final totalRecords = data['totalRecords'] ?? 0;
         if (totalRecords == 0) {
@@ -303,6 +312,31 @@ class WatchMetricsProvider extends ChangeNotifier {
       debugPrint("[WatchProvider] Connect error: $e");
       _connectError = "Connection error. Please try again.";
       _isConnecting = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> refresh() async {
+    if (!_isConnected) return;
+    _isFetching = true;
+    notifyListeners();
+    try {
+      final data = await _manager.fetchHealthData();
+      _pulse = data['heartRate'];
+      _restingHeartRate = data['restingHeartRate'];
+      _maxHeartRate = data['maxHeartRate'];
+      _wellnessScore = data['wellnessScore'];
+      _spO2 = data['spO2'];
+      _temperature = data['temperature'];
+      _systolic = data['systolic'];
+      _diastolic = data['diastolic'];
+      _sleepHours = data['sleepHours'];
+      _lastSynced = DateTime.now();
+      _saveToStorage();
+    } catch (e) {
+      debugPrint("[WatchProvider] Refresh error: $e");
+    } finally {
+      _isFetching = false;
       notifyListeners();
     }
   }

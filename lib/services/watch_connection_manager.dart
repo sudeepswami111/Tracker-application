@@ -1,4 +1,4 @@
-﻿import 'dart:async';
+import 'dart:async';
 import 'dart:math';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
@@ -102,6 +102,8 @@ class WatchConnectionManager {
         HealthDataType.STEPS,
         HealthDataType.SLEEP_IN_BED,
         HealthDataType.SLEEP_ASLEEP,
+        HealthDataType.BLOOD_PRESSURE_SYSTOLIC,
+        HealthDataType.BLOOD_PRESSURE_DIASTOLIC,
       ];
       final permissions = types.map((e) => HealthDataAccess.READ).toList();
       await _health.requestAuthorization(types, permissions: permissions);
@@ -224,7 +226,6 @@ class WatchConnectionManager {
       _isBluetoothConnected = true;
       _saveConnectionState();
       _startHealthSyncTimer();
-      _startSimulatedRealTimeStream();
       debugPrint("[WatchManager] Connected to ${selected.name}!");
       return true;
     } catch (e) {
@@ -242,7 +243,6 @@ class WatchConnectionManager {
     _isBluetoothConnected = true;
     _saveConnectionState();
     _startHealthSyncTimer();
-    _startSimulatedRealTimeStream();
     return null;
   }
 
@@ -253,7 +253,6 @@ class WatchConnectionManager {
     _scanSubscription?.cancel();
     _connectionSubscription?.cancel();
     _stopHealthSyncTimer();
-    _stopSimulatedRealTimeStream();
     _isBluetoothConnected = false;
     _connectedDeviceName = null;
     _saveConnectionState();
@@ -293,8 +292,7 @@ class WatchConnectionManager {
     final data = await fetchHealthData();
 
     if (onPulseUpdate != null && data['heartRate'] != null) {
-      _baseBpm = data['heartRate'] as int;
-      onPulseUpdate!(_baseBpm);
+      onPulseUpdate!(data['heartRate'] as int);
     }
     if (onSpO2Update != null && data['spO2'] != null) {
       onSpO2Update!(data['spO2'] as double);
@@ -305,10 +303,10 @@ class WatchConnectionManager {
     if (onSleepUpdate != null && data['sleepHours'] != null) {
       onSleepUpdate!(data['sleepHours'] as double);
     }
-    if (onTemperatureUpdate != null) {
+    if (onTemperatureUpdate != null && data['temperature'] != null) {
       onTemperatureUpdate!(data['temperature'] as double);
     }
-    if (onBloodPressureUpdate != null) {
+    if (onBloodPressureUpdate != null && data['systolic'] != null && data['diastolic'] != null) {
       onBloodPressureUpdate!(
         data['systolic'] as int,
         data['diastolic'] as int,
@@ -328,31 +326,32 @@ class WatchConnectionManager {
   /// Health Connect reads data that Mi Fitness / Zepp Life app synced from the band.
   Future<Map<String, dynamic>> fetchHealthData() async {
     final now = DateTime.now();
-    final past = now.subtract(const Duration(days: 7)); // Look back 7 days for data
+    final todayStart = DateTime(now.year, now.month, now.day);
+    final yesterdayEvening = DateTime(now.year, now.month, now.day - 1, 18);
+    final pastWeek = now.subtract(const Duration(days: 7));
 
-    // Default values (shown if Health Connect has no data)
+    // Null by default
     Map<String, dynamic> data = {
-      'heartRate': 0,
-      'restingHeartRate': 0,
-      'maxHeartRate': 0,
-      'wellnessScore': 0,
-      'spO2': 0.0,
-      'sleepHours': 0.0,
-      'steps': 0,
-      'temperature': 98.4,
-      'systolic': 120,
-      'diastolic': 80,
+      'heartRate': null,
+      'restingHeartRate': null,
+      'maxHeartRate': null,
+      'wellnessScore': null,
+      'spO2': null,
+      'sleepHours': null,
+      'steps': null,
+      'temperature': null,
+      'systolic': null,
+      'diastolic': null,
+      'totalRecords': 0,
     };
 
     try {
-      // Read heart rate from Health Connect
+      // 1. Heart Rate (Latest today)
       List<HealthDataPoint> hrData = await _health.getHealthDataFromTypes(
         types: [HealthDataType.HEART_RATE],
-        startTime: past,
+        startTime: todayStart,
         endTime: now,
       );
-      debugPrint("[WatchManager] HR data points: ${hrData.length}");
-
       if (hrData.isNotEmpty) {
         final hrValues = hrData
             .map((d) {
@@ -363,28 +362,48 @@ class WatchConnectionManager {
             .toList();
         if (hrValues.isNotEmpty) {
           hrValues.sort();
-          data['heartRate'] = hrValues.last.toInt(); // Most recent
+          data['heartRate'] = hrValues.last.toInt(); 
           data['restingHeartRate'] = hrValues.first.toInt();
           data['maxHeartRate'] = hrValues.last.toInt();
         }
       }
 
-      // Read SpO2
+      // 2. SpO2 (Latest today)
       List<HealthDataPoint> spo2Data = await _health.getHealthDataFromTypes(
         types: [HealthDataType.BLOOD_OXYGEN],
-        startTime: past,
+        startTime: todayStart,
         endTime: now,
       );
-      debugPrint("[WatchManager] SpO2 data points: ${spo2Data.length}");
       if (spo2Data.isNotEmpty) {
+        spo2Data.sort((a, b) => a.dateFrom.compareTo(b.dateFrom));
         final v = spo2Data.last.value;
-        data['spO2'] = v is NumericHealthValue ? v.numericValue.toDouble() : 0.0;
+        data['spO2'] = v is NumericHealthValue ? v.numericValue.toDouble() : null;
       }
 
-      // Read steps
+      // 3. Blood Pressure (Latest last 7 days)
+      List<HealthDataPoint> bpSysData = await _health.getHealthDataFromTypes(
+        types: [HealthDataType.BLOOD_PRESSURE_SYSTOLIC],
+        startTime: pastWeek,
+        endTime: now,
+      );
+      List<HealthDataPoint> bpDiaData = await _health.getHealthDataFromTypes(
+        types: [HealthDataType.BLOOD_PRESSURE_DIASTOLIC],
+        startTime: pastWeek,
+        endTime: now,
+      );
+      if (bpSysData.isNotEmpty && bpDiaData.isNotEmpty) {
+        bpSysData.sort((a, b) => a.dateFrom.compareTo(b.dateFrom));
+        bpDiaData.sort((a, b) => a.dateFrom.compareTo(b.dateFrom));
+        final sysV = bpSysData.last.value;
+        final diaV = bpDiaData.last.value;
+        data['systolic'] = sysV is NumericHealthValue ? sysV.numericValue.toInt() : null;
+        data['diastolic'] = diaV is NumericHealthValue ? diaV.numericValue.toInt() : null;
+      }
+
+      // 4. Steps (Today)
       List<HealthDataPoint> stepsData = await _health.getHealthDataFromTypes(
         types: [HealthDataType.STEPS],
-        startTime: past,
+        startTime: todayStart,
         endTime: now,
       );
       int steps = 0;
@@ -392,59 +411,45 @@ class WatchConnectionManager {
         final v = pt.value;
         if (v is NumericHealthValue) steps += v.numericValue.toInt();
       }
-      data['steps'] = steps;
-      debugPrint("[WatchManager] Steps: $steps");
+      data['steps'] = steps > 0 ? steps : null;
 
-      // Read sleep
+      // 5. Sleep (Yesterday evening to now)
       List<HealthDataPoint> sleepData = await _health.getHealthDataFromTypes(
         types: [HealthDataType.SLEEP_ASLEEP],
-        startTime: past,
+        startTime: yesterdayEvening,
         endTime: now,
       );
       double sleepHours = 0;
       for (final pt in sleepData) {
         sleepHours += pt.dateTo.difference(pt.dateFrom).inMinutes / 60.0;
       }
-      data['sleepHours'] = sleepHours;
-      debugPrint("[WatchManager] Sleep: ${sleepHours}h");
+      data['sleepHours'] = sleepHours > 0 ? sleepHours : null;
 
-      // Compute wellness score
-      int hrScore = data['restingHeartRate'] > 0
-          ? (100 - ((data['restingHeartRate'] as int) - 60).abs()).clamp(0, 100)
-          : 0;
-      int stepScore = (steps / 100).clamp(0, 100).toInt();
-      int sleepScore = sleepHours > 0
-          ? ((sleepHours / 8.0) * 100).clamp(0, 100).toInt()
-          : 0;
-
-      int wellness = ((hrScore + stepScore + sleepScore) / 3).round();
-      data['wellnessScore'] = wellness > 0 ? wellness : 0;
-      data['totalRecords'] = hrData.length + spo2Data.length + stepsData.length + sleepData.length;
+      // Compute wellness score ONLY if enough data exists
+      int wellnessScore = 0;
+      int metricsCount = 0;
+      if (data['restingHeartRate'] != null) {
+        int hrScore = (100 - ((data['restingHeartRate'] as int) - 60).abs()).clamp(0, 100);
+        wellnessScore += hrScore;
+        metricsCount++;
+      }
+      if (data['steps'] != null) {
+        int stepScore = ((data['steps'] as int) / 100).clamp(0, 100).toInt();
+        wellnessScore += stepScore;
+        metricsCount++;
+      }
+      if (data['sleepHours'] != null) {
+        int sleepScore = (((data['sleepHours'] as double) / 8.0) * 100).clamp(0, 100).toInt();
+        wellnessScore += sleepScore;
+        metricsCount++;
+      }
+      
+      data['wellnessScore'] = metricsCount >= 2 ? (wellnessScore / metricsCount).round() : null;
+      data['totalRecords'] = hrData.length + spo2Data.length + bpSysData.length + stepsData.length + sleepData.length;
     } catch (e) {
       debugPrint("[WatchManager] Health Connect read error: $e");
     }
 
     return data;
-  }
-
-  // ── Real-time Simulation ────────────────────────────────────────────────
-  // Adds slight jitter to Health Connect base metrics to make the UI look "Live"
-
-  Timer? _simTimer;
-  final _rng = Random();
-  int _baseBpm = 0;
-
-  void _startSimulatedRealTimeStream() {
-    _simTimer?.cancel();
-    _simTimer = Timer.periodic(const Duration(seconds: 3), (timer) {
-      // Simulate real-time pulse jitter based on the last fetched heart rate
-      if (onPulseUpdate != null && _baseBpm > 0) {
-        onPulseUpdate!(_baseBpm + _rng.nextInt(6) - 3); // Jitter +/- 3
-      }
-    });
-  }
-
-  void _stopSimulatedRealTimeStream() {
-    _simTimer?.cancel();
   }
 }

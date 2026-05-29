@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import '../providers/watch_metrics_provider.dart';
@@ -228,19 +228,19 @@ class _WatchConnectBannerState extends State<WatchConnectBanner>
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               Icon(
-                                watchProvider.batteryLevel > 20
+                                (watchProvider.batteryLevel ?? 0) > 20
                                     ? LucideIcons.batteryFull
                                     : LucideIcons.batteryLow,
                                 size: 16,
-                                color: watchProvider.batteryLevel > 20
+                                color: (watchProvider.batteryLevel ?? 0) > 20
                                     ? AppColors.green
                                     : AppColors.coral,
                               ),
                               const SizedBox(width: 4),
                               Text(
-                                '${watchProvider.batteryLevel}%',
+                                watchProvider.batteryLevel != null ? '${watchProvider.batteryLevel}%' : '--%',
                                 style: TextStyle(
-                                  color: watchProvider.batteryLevel > 20
+                                  color: (watchProvider.batteryLevel ?? 0) > 20
                                       ? AppColors.green
                                       : AppColors.coral,
                                   fontSize: 12,

@@ -1,4 +1,4 @@
-﻿import 'dart:math' as math;
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
@@ -9,9 +9,9 @@ import 'glass_card.dart';
 // ── Health Score Dial ──
 class HealthScoreDial extends StatefulWidget {
   final int score;
-  final int heartScore;
-  final int sleepScore;
-  final int spo2Score;
+  final int? heartScore;
+  final int? sleepScore;
+  final int? spo2Score;
 
   const HealthScoreDial({
     super.key,
@@ -162,7 +162,7 @@ class _DialPainter extends CustomPainter {
 
 class _MiniMetricRing extends StatelessWidget {
   final String label;
-  final int value;
+  final int? value;
   final Color color;
 
   const _MiniMetricRing({required this.label, required this.value, required this.color});
@@ -181,14 +181,14 @@ class _MiniMetricRing extends StatelessWidget {
             alignment: Alignment.center,
             children: [
               CircularProgressIndicator(
-                value: value / 100,
+                value: value != null ? value! / 100 : 0.0,
                 backgroundColor: isDark ? Colors.white10 : Colors.black12,
-                color: color,
+                color: value != null ? color : Colors.grey.withValues(alpha: 0.5),
                 strokeWidth: 5,
                 strokeCap: StrokeCap.round,
               ),
               Text(
-                value.toString(),
+                value != null ? value.toString() : '--',
                 style: GoogleFonts.inter(
                   fontSize: 14,
                   fontWeight: FontWeight.w700,
@@ -210,10 +210,11 @@ class _MiniMetricRing extends StatelessWidget {
 
 // ── BLE Wearable Card ──
 class BleWearableCard extends StatefulWidget {
-  final int heartRate;
+  final int? heartRate;
   final bool isConnected;
+  final String? deviceName;
 
-  const BleWearableCard({super.key, required this.heartRate, required this.isConnected});
+  const BleWearableCard({super.key, required this.heartRate, required this.isConnected, this.deviceName});
 
   @override
   State<BleWearableCard> createState() => _BleWearableCardState();
@@ -256,8 +257,9 @@ class _BleWearableCardState extends State<BleWearableCard> with SingleTickerProv
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final zoneColor = _getZoneColor(widget.heartRate);
-    final zoneLabel = _getZoneLabel(widget.heartRate);
+    final int hr = widget.heartRate ?? 0;
+    final zoneColor = _getZoneColor(hr);
+    final zoneLabel = _getZoneLabel(hr);
 
     return GlassCard(
       child: Column(
@@ -270,7 +272,7 @@ class _BleWearableCardState extends State<BleWearableCard> with SingleTickerProv
                 children: [
                   Icon(LucideIcons.watch, size: 20, color: theme.colorScheme.onSurface),
                   const SizedBox(width: 8),
-                  Text('Smart Watch', style: theme.textTheme.titleMedium),
+                  Text(widget.deviceName?.isNotEmpty == true ? widget.deviceName! : 'Smart Watch', style: theme.textTheme.titleMedium),
                 ],
               ),
               Container(
@@ -297,14 +299,14 @@ class _BleWearableCardState extends State<BleWearableCard> with SingleTickerProv
                 animation: _pulseAnimation,
                 builder: (context, child) {
                   return Opacity(
-                    opacity: widget.isConnected && widget.heartRate > 0 ? _pulseAnimation.value : 1.0,
+                    opacity: widget.isConnected && hr > 0 ? _pulseAnimation.value : 1.0,
                     child: Row(
                       crossAxisAlignment: CrossAxisAlignment.end,
                       children: [
-                        Icon(LucideIcons.heartPulse, size: 40, color: zoneColor),
+                        Icon(LucideIcons.heartPulse, size: 40, color: hr > 0 ? zoneColor : Colors.grey),
                         const SizedBox(width: 8),
                         Text(
-                          widget.heartRate > 0 ? widget.heartRate.toString() : '--',
+                          hr > 0 ? hr.toString() : '--',
                           style: GoogleFonts.inter(
                             fontSize: 48,
                             fontWeight: FontWeight.w900,
@@ -620,7 +622,22 @@ class TrendChartCard extends StatelessWidget {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
     
-    if (dataPoints.isEmpty) return const SizedBox();
+    if (dataPoints.isEmpty) {
+      return GlassCard(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(title, style: theme.textTheme.titleMedium),
+            const SizedBox(height: 24),
+            Container(
+              height: 180,
+              alignment: Alignment.center,
+              child: Text("No trend data available", style: TextStyle(color: Colors.white54)),
+            ),
+          ],
+        ),
+      );
+    }
 
     final maxVal = dataPoints.reduce(math.max);
     final minVal = dataPoints.reduce(math.min);
@@ -701,6 +718,7 @@ class MetricGridCard extends StatelessWidget {
   final String value;
   final double progress;
   final bool isUpTrend;
+  final String? sourceLabel;
 
   const MetricGridCard({
     super.key,
@@ -708,6 +726,7 @@ class MetricGridCard extends StatelessWidget {
     required this.value,
     required this.progress,
     required this.isUpTrend,
+    this.sourceLabel,
   });
 
   @override
@@ -755,6 +774,16 @@ class MetricGridCard extends StatelessWidget {
               color: theme.colorScheme.onSurfaceVariant,
             ),
           ),
+          if (sourceLabel != null) ...[
+            const SizedBox(height: 8),
+            Text(
+              sourceLabel!,
+              style: theme.textTheme.labelSmall?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
+                fontSize: 10,
+              ),
+            ),
+          ],
         ],
       ),
     );
