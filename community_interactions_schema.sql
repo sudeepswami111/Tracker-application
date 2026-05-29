@@ -1,8 +1,12 @@
+-- Drop tables if they exist to cleanly recreate them with the correct schema
+DROP TABLE IF EXISTS public.community_replies CASCADE;
+DROP TABLE IF EXISTS public.community_reactions CASCADE;
+
 -- Table: community_replies
 CREATE TABLE IF NOT EXISTS public.community_replies (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   post_id uuid NOT NULL REFERENCES public.community_posts(id) ON DELETE CASCADE,
-  user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  user_id uuid NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
   reply_text text NOT NULL,
   created_at timestamptz DEFAULT now(),
   updated_at timestamptz DEFAULT now()
@@ -12,7 +16,7 @@ CREATE TABLE IF NOT EXISTS public.community_replies (
 CREATE TABLE IF NOT EXISTS public.community_reactions (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   post_id uuid NOT NULL REFERENCES public.community_posts(id) ON DELETE CASCADE,
-  user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  user_id uuid NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
   reaction_type text NOT NULL CHECK (reaction_type IN ('cheer', 'fire')),
   created_at timestamptz DEFAULT now(),
   UNIQUE(post_id, user_id, reaction_type)

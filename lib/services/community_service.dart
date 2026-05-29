@@ -49,7 +49,7 @@ class CommunityService {
     try {
       final response = await _client
           .from('community_replies')
-          .select('*, author:profiles!community_replies_user_id_fkey(full_name, avatar_url)')
+          .select('*, author:profiles(full_name, avatar_url)')
           .eq('post_id', postId)
           .order('created_at', ascending: true);
 
@@ -69,7 +69,7 @@ class CommunityService {
         'post_id': postId,
         'user_id': uid,
         'reply_text': replyText,
-      }).select('*, author:profiles!community_replies_user_id_fkey(full_name, avatar_url)').single();
+      }).select('*, author:profiles(full_name, avatar_url)').single();
 
       // Notify post author
       if (postAuthorId != null && uid != postAuthorId) {
