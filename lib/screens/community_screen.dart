@@ -15,7 +15,9 @@ import '../services/challenge_service.dart';
 import 'package:intl/intl.dart';
 import 'dm_chat_screen.dart';
 import '../widgets/profile_avatar.dart';
-
+import '../models/community_reply.dart';
+import '../models/community_reaction.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 // ====================================================
 // PREMIUM COMMUNITY FEED
 // Inspired by modern social fitness apps
@@ -420,11 +422,68 @@ class _PremiumFeedCard extends StatefulWidget {
 class _PremiumFeedCardState extends State<_PremiumFeedCard> with SingleTickerProviderStateMixin {
   late final AnimationController _boostCtrl;
   late final Animation<double> _boostAnim;
-  late int _boostCount;
-  bool _boosted = false;
-  List<String> _localReplies = [];
+  
+  ReactionSummary _reactionSummary = const ReactionSummary();
+  List<CommunityReply> _replies = [];
+  RealtimeChannel? _reactionChannel;
+  RealtimeChannel? _replyChannel;
 
   final List<Color> _accents = [AppColors.voltCyan, AppColors.pulseRed, AppColors.irisViolet, AppColors.solarAmber];
+
+  @override
+  void initState() {
+    super.initState();
+    _boostCtrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 600));
+    _boostAnim = Tween<double>(begin: 0.0, end: 1.0).animate(CurvedAnimation(parent: _boostCtrl, curve: Curves.easeOutCubic));
+    _loadReactions();
+    _loadReplies();
+    _setupRealtime();
+  }
+
+  Future<void> _loadReactions() async {
+    final summary = await CommunityService().fetchReactionSummary(widget.post['id']);
+    if (mounted) setState(() => _reactionSummary = summary);
+  }
+
+  Future<void> _loadReplies() async {
+    final replies = await CommunityService().fetchRepliesForPost(widget.post['id']);
+    if (mounted) setState(() => _replies = replies);
+  }
+
+  void _setupRealtime() {
+    final postId = widget.post['id'];
+    final client = Supabase.instance.client;
+
+    _reactionChannel = client
+      .channel('reactions_prem_$postId')
+      .onPostgresChanges(
+        event: PostgresChangeEvent.all,
+        schema: 'public',
+        table: 'community_reactions',
+        filter: PostgresChangeFilter(type: PostgresChangeFilterType.eq, column: 'post_id', value: postId),
+        callback: (payload) => _loadReactions(),
+      )
+      .subscribe();
+
+    _replyChannel = client
+      .channel('replies_prem_$postId')
+      .onPostgresChanges(
+        event: PostgresChangeEvent.all,
+        schema: 'public',
+        table: 'community_replies',
+        filter: PostgresChangeFilter(type: PostgresChangeFilterType.eq, column: 'post_id', value: postId),
+        callback: (payload) => _loadReplies(),
+      )
+      .subscribe();
+  }
+
+  @override
+  void dispose() {
+    _boostCtrl.dispose();
+    _reactionChannel?.unsubscribe();
+    _replyChannel?.unsubscribe();
+    super.dispose();
+  }
 
   void _showReplySheet(String authorName, String originalText) {
     showModalBottomSheet(
@@ -434,20 +493,28 @@ class _PremiumFeedCardState extends State<_PremiumFeedCard> with SingleTickerPro
       builder: (context) => ReplyBottomSheet(
         authorName: authorName,
         originalText: originalText,
-        onReplySent: (String reply) {
-          setState(() {
-            _localReplies.add(reply);
-          });
-          _saveReplies();
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Reply sent', style: TextStyle(color: Colors.white))),
-          );
+        onReplySent: (String reply) async {
+          final authorId = widget.post['user_id'];
+          final added = await CommunityService().addReply(widget.post['id'], reply, postAuthorId: authorId);
+          if (added != null && mounted) {
+            setState(() {
+              if (!_replies.any((r) => r.id == added.id)) {
+                _replies.add(added);
+              }
+            });
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Reply sent', style: TextStyle(color: Colors.white))),
+            );
+          }
         },
       ),
     );
   }
 
-  void _showReplyOptions(int index, String currentReply) {
+  void _showReplyOptions(CommunityReply reply) {
+    final uid = Supabase.instance.client.auth.currentUser?.id;
+    if (uid != reply.userId) return; // Only allow delete for own replies
+
     showModalBottomSheet(
       context: context,
       builder: (context) => SafeArea(
@@ -455,22 +522,14 @@ class _PremiumFeedCardState extends State<_PremiumFeedCard> with SingleTickerPro
           mainAxisSize: MainAxisSize.min,
           children: [
             ListTile(
-              leading: const Icon(LucideIcons.edit2),
-              title: const Text('Edit Reply'),
-              onTap: () {
-                Navigator.pop(context);
-                _editReply(index, currentReply);
-              },
-            ),
-            ListTile(
               leading: const Icon(LucideIcons.trash2, color: AppColors.pulseRed),
               title: const Text('Delete Reply', style: TextStyle(color: AppColors.pulseRed)),
-              onTap: () {
-                setState(() {
-                  _localReplies.removeAt(index);
-                });
-                _saveReplies();
+              onTap: () async {
                 Navigator.pop(context);
+                try {
+                  setState(() => _replies.removeWhere((r) => r.id == reply.id));
+                  await CommunityService().deleteReply(reply.id);
+                } catch (_) {}
               },
             ),
           ],
@@ -479,89 +538,54 @@ class _PremiumFeedCardState extends State<_PremiumFeedCard> with SingleTickerPro
     );
   }
 
-  void _editReply(int index, String currentReply) {
-    final controller = TextEditingController(text: currentReply);
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: widget.isDark ? const Color(0xFF1A1A1A) : Colors.white,
-        title: const Text('Edit Reply'),
-        content: TextField(
-          controller: controller,
-          autofocus: true,
-          maxLines: null,
-          decoration: InputDecoration(
-            hintText: 'Edit your reply...',
-            filled: true,
-            fillColor: widget.isDark ? Colors.white.withValues(alpha: 0.05) : Colors.black.withValues(alpha: 0.05),
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel', style: TextStyle(color: AppColors.textSecondary)),
-          ),
-          TextButton(
-            onPressed: () {
-              if (controller.text.trim().isNotEmpty) {
-                setState(() {
-                  _localReplies[index] = controller.text.trim();
-                });
-                _saveReplies();
-                Navigator.pop(context);
-              }
-            },
-            child: const Text('Save', style: TextStyle(color: AppColors.voltCyan, fontWeight: FontWeight.bold)),
-          ),
-        ],
-      ),
-    );
-  }
-
-  @override
-  void initState() {
-    super.initState();
-    _boostCount = widget.post['likes_count'] ?? 0;
-    _boostCtrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 600));
-    _boostAnim = Tween<double>(begin: 0.0, end: 1.0).animate(CurvedAnimation(parent: _boostCtrl, curve: Curves.easeOutCubic));
-    _loadReplies();
-  }
-
-  Future<void> _loadReplies() async {
-    final prefs = await SharedPreferences.getInstance();
-    final key = 'replies_${widget.post['id']}';
-    if (mounted) {
-      setState(() {
-        _localReplies = prefs.getStringList(key) ?? [];
-      });
+  Future<void> _toggleReaction(String type) async {
+    final wasCheered = _reactionSummary.hasCurrentUserCheered;
+    final wasFired = _reactionSummary.hasCurrentUserFired;
+    
+    // Play fire animation if it's fire and turning on
+    if (type == 'fire' && !wasFired) {
+      HapticFeedback.heavyImpact();
+      _boostCtrl.forward(from: 0);
+    } else {
+      HapticFeedback.selectionClick();
     }
-  }
-
-  Future<void> _saveReplies() async {
-    final prefs = await SharedPreferences.getInstance();
-    final key = 'replies_${widget.post['id']}';
-    await prefs.setStringList(key, _localReplies);
-  }
-
-  @override
-  void dispose() {
-    _boostCtrl.dispose();
-    super.dispose();
-  }
-
-  void _onBoost() {
-    if (_boosted) return;
-    HapticFeedback.heavyImpact();
+    
+    // Optimistic update
     setState(() {
-      _boosted = true;
-      _boostCount++;
+      if (type == 'cheer') {
+        _reactionSummary = _reactionSummary.copyWith(
+          hasCurrentUserCheered: !wasCheered,
+          cheerCount: _reactionSummary.cheerCount + (wasCheered ? -1 : 1),
+        );
+      } else {
+        _reactionSummary = _reactionSummary.copyWith(
+          hasCurrentUserFired: !wasFired,
+          fireCount: _reactionSummary.fireCount + (wasFired ? -1 : 1),
+        );
+      }
     });
-    CommunityService().likePost(
-      widget.post['id'],
-      postAuthorId: widget.post['user_id'] as String?,
-    );
-    _boostCtrl.forward(from: 0);
+
+    try {
+      final authorId = widget.post['user_id'];
+      await CommunityService().toggleReaction(widget.post['id'], type, postAuthorId: authorId);
+    } catch (e) {
+      // Rollback on error
+      if (mounted) {
+        setState(() {
+          if (type == 'cheer') {
+            _reactionSummary = _reactionSummary.copyWith(
+              hasCurrentUserCheered: wasCheered,
+              cheerCount: _reactionSummary.cheerCount + (wasCheered ? 1 : -1),
+            );
+          } else {
+            _reactionSummary = _reactionSummary.copyWith(
+              hasCurrentUserFired: wasFired,
+              fireCount: _reactionSummary.fireCount + (wasFired ? 1 : -1),
+            );
+          }
+        });
+      }
+    }
   }
 
   String _formatTime(String? isoDate) {
@@ -684,7 +708,7 @@ class _PremiumFeedCardState extends State<_PremiumFeedCard> with SingleTickerPro
                   const SizedBox(height: 16),
                   
                   // Local Replies Preview
-                  if (_localReplies.isNotEmpty) ...[
+                  if (_replies.isNotEmpty) ...[
                     Container(
                       width: double.infinity,
                       padding: const EdgeInsets.all(12),
@@ -697,23 +721,35 @@ class _PremiumFeedCardState extends State<_PremiumFeedCard> with SingleTickerPro
                         children: [
                           Text('Replies', style: widget.theme.textTheme.labelMedium?.copyWith(color: AppColors.textSecondary, fontWeight: FontWeight.bold)),
                           const SizedBox(height: 8),
-                          ..._localReplies.asMap().entries.map((entry) {
-                            final index = entry.key;
-                            final reply = entry.value;
+                          ..._replies.take(2).map((reply) {
+                            final isMe = reply.userId == Supabase.instance.client.auth.currentUser?.id;
+                            final displayName = isMe ? 'You' : (reply.userName ?? 'User');
                             return GestureDetector(
-                              onLongPress: () => _showReplyOptions(index, reply),
+                              onLongPress: () => _showReplyOptions(reply),
                               child: Padding(
                                 padding: const EdgeInsets.only(bottom: 6.0),
                                 child: Row(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    Text('You: ', style: widget.theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.bold, color: AppColors.voltCyan)),
-                                    Expanded(child: Text(reply, style: widget.theme.textTheme.bodyMedium)),
+                                    Text('$displayName: ', style: widget.theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.bold, color: isMe ? AppColors.voltCyan : AppColors.textPrimary)),
+                                    Expanded(child: Text(reply.replyText, style: widget.theme.textTheme.bodyMedium)),
                                   ],
                                 ),
                               ),
                             );
                           }),
+                          if (_replies.length > 2)
+                            Padding(
+                              padding: const EdgeInsets.only(top: 4.0),
+                              child: GestureDetector(
+                                onTap: () {
+                                  final authorName = (widget.post['author']?['full_name'] as String?) ?? 'Anonymous';
+                                  final originalText = widget.post['content'] ?? '';
+                                  _showReplySheet(authorName, originalText);
+                                },
+                                child: Text('View all ${_replies.length} replies', style: widget.theme.textTheme.bodySmall?.copyWith(color: AppColors.voltCyan, fontWeight: FontWeight.bold)),
+                              ),
+                            ),
                         ],
                       ),
                     ),
@@ -723,9 +759,42 @@ class _PremiumFeedCardState extends State<_PremiumFeedCard> with SingleTickerPro
                   // 4. Reactions
                   Row(
                     children: [
-                      // Boost Button (Animated)
+                      // Cheer Button
                       GestureDetector(
-                        onTap: _onBoost,
+                        onTap: () => _toggleReaction('cheer'),
+                        behavior: HitTestBehavior.opaque,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                          decoration: BoxDecoration(
+                            color: _reactionSummary.hasCurrentUserCheered ? AppColors.teal.withValues(alpha: 0.15) : Colors.transparent,
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(
+                              color: _reactionSummary.hasCurrentUserCheered ? AppColors.teal.withValues(alpha: 0.3) : widget.isDark ? Colors.white12 : Colors.black12,
+                            ),
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(
+                                LucideIcons.thumbsUp,
+                                size: 18,
+                                color: _reactionSummary.hasCurrentUserCheered ? AppColors.teal : AppColors.textSecondary,
+                              ),
+                              const SizedBox(width: 6),
+                              Text(
+                                '${_reactionSummary.cheerCount > 0 ? _reactionSummary.cheerCount : ""}',
+                                style: TextStyle(
+                                  color: _reactionSummary.hasCurrentUserCheered ? AppColors.teal : AppColors.textSecondary,
+                                  fontWeight: _reactionSummary.hasCurrentUserCheered ? FontWeight.bold : FontWeight.w600,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      // Boost Button (Animated) - Using Fire Reaction
+                      GestureDetector(
+                        onTap: () => _toggleReaction('fire'),
                         child: Stack(
                           alignment: Alignment.center,
                           clipBehavior: Clip.none,
@@ -749,25 +818,25 @@ class _PremiumFeedCardState extends State<_PremiumFeedCard> with SingleTickerPro
                             Container(
                               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                               decoration: BoxDecoration(
-                                color: _boosted ? AppColors.pulseRed.withValues(alpha: 0.15) : Colors.transparent,
+                                color: _reactionSummary.hasCurrentUserFired ? AppColors.pulseRed.withValues(alpha: 0.15) : Colors.transparent,
                                 borderRadius: BorderRadius.circular(20),
                                 border: Border.all(
-                                  color: _boosted ? AppColors.pulseRed.withValues(alpha: 0.3) : widget.isDark ? Colors.white12 : Colors.black12,
+                                  color: _reactionSummary.hasCurrentUserFired ? AppColors.pulseRed.withValues(alpha: 0.3) : widget.isDark ? Colors.white12 : Colors.black12,
                                 ),
                               ),
                               child: Row(
                                 children: [
                                   Icon(
-                                    _boosted ? Icons.local_fire_department : LucideIcons.flame,
+                                    _reactionSummary.hasCurrentUserFired ? Icons.local_fire_department : LucideIcons.flame,
                                     size: 18,
-                                    color: _boosted ? AppColors.pulseRed : AppColors.textSecondary,
+                                    color: _reactionSummary.hasCurrentUserFired ? AppColors.pulseRed : AppColors.textSecondary,
                                   ),
                                   const SizedBox(width: 6),
                                   Text(
-                                    '$_boostCount',
+                                    '${_reactionSummary.fireCount > 0 ? _reactionSummary.fireCount : ""}',
                                     style: TextStyle(
-                                      color: _boosted ? AppColors.pulseRed : AppColors.textSecondary,
-                                      fontWeight: _boosted ? FontWeight.bold : FontWeight.w600,
+                                      color: _reactionSummary.hasCurrentUserFired ? AppColors.pulseRed : AppColors.textSecondary,
+                                      fontWeight: _reactionSummary.hasCurrentUserFired ? FontWeight.bold : FontWeight.w600,
                                     ),
                                   ),
                                 ],
@@ -788,18 +857,18 @@ class _PremiumFeedCardState extends State<_PremiumFeedCard> with SingleTickerPro
                         child: Container(
                           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                           decoration: BoxDecoration(
-                            color: _localReplies.isNotEmpty ? AppColors.voltCyan.withValues(alpha: 0.1) : Colors.transparent,
+                            color: _replies.isNotEmpty ? AppColors.voltCyan.withValues(alpha: 0.1) : Colors.transparent,
                             borderRadius: BorderRadius.circular(20),
-                            border: Border.all(color: _localReplies.isNotEmpty ? AppColors.voltCyan.withValues(alpha: 0.3) : (widget.isDark ? Colors.white12 : Colors.black12)),
+                            border: Border.all(color: _replies.isNotEmpty ? AppColors.voltCyan.withValues(alpha: 0.3) : (widget.isDark ? Colors.white12 : Colors.black12)),
                           ),
                           child: Row(
                             children: [
-                              Icon(LucideIcons.messageCircle, size: 18, color: _localReplies.isNotEmpty ? AppColors.voltCyan : AppColors.textSecondary),
+                              Icon(LucideIcons.messageCircle, size: 18, color: _replies.isNotEmpty ? AppColors.voltCyan : AppColors.textSecondary),
                               const SizedBox(width: 6),
                               Text(
-                                _localReplies.isNotEmpty ? '${_localReplies.length} reply' : 'Reply', 
+                                _replies.isNotEmpty ? '${_replies.length}' : 'Reply', 
                                 style: TextStyle(
-                                  color: _localReplies.isNotEmpty ? AppColors.voltCyan : widget.theme.colorScheme.onSurface, 
+                                  color: _replies.isNotEmpty ? AppColors.voltCyan : widget.theme.colorScheme.onSurface, 
                                   fontWeight: FontWeight.w600
                                 )
                               ),

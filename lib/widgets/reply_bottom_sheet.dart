@@ -5,7 +5,7 @@ import '../theme/app_colors.dart';
 class ReplyBottomSheet extends StatefulWidget {
   final String authorName;
   final String originalText;
-  final Function(String) onReplySent;
+  final Future<void> Function(String) onReplySent;
 
   const ReplyBottomSheet({
     super.key,
@@ -29,17 +29,24 @@ class _ReplyBottomSheetState extends State<ReplyBottomSheet> {
     'Beast mode ⚡',
   ];
 
+  bool _isSending = false;
+
   @override
   void dispose() {
     _controller.dispose();
     super.dispose();
   }
 
-  void _sendReply() {
-    final text = _controller.text.trim();
-    if (text.isNotEmpty) {
-      widget.onReplySent(text);
-      Navigator.pop(context);
+  Future<void> _sendReply([String? predefined]) async {
+    final text = predefined ?? _controller.text.trim();
+    if (text.isNotEmpty && !_isSending) {
+      setState(() => _isSending = true);
+      try {
+        await widget.onReplySent(text);
+        if (mounted) Navigator.pop(context);
+      } finally {
+        if (mounted) setState(() => _isSending = false);
+      }
     }
   }
 
@@ -138,10 +145,7 @@ class _ReplyBottomSheetState extends State<ReplyBottomSheet> {
                           borderRadius: BorderRadius.circular(20),
                           side: const BorderSide(color: Colors.transparent),
                         ),
-                        onPressed: () {
-                          _controller.text = reply;
-                          _controller.selection = TextSelection.fromPosition(TextPosition(offset: reply.length));
-                        },
+                        onPressed: _isSending ? null : () => _sendReply(reply),
                       ),
                     );
                   }).toList(),
@@ -153,14 +157,16 @@ class _ReplyBottomSheetState extends State<ReplyBottomSheet> {
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
-                  onPressed: _sendReply,
+                  onPressed: _isSending ? null : () => _sendReply(),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.voltCyan,
                     foregroundColor: Colors.black,
                     padding: const EdgeInsets.symmetric(vertical: 16),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                   ),
-                  child: const Text('Send Reply', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                  child: _isSending 
+                      ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(color: Colors.black, strokeWidth: 2))
+                      : const Text('Send Reply', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
                 ),
               ),
             ],

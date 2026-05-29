@@ -8,8 +8,9 @@ import '../providers/app_provider.dart';
 import '../services/community_service.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_spacing.dart';
+import '../models/community_reply.dart';
+import '../models/community_reaction.dart';
 import 'profile_avatar.dart';
-import 'reply_bottom_sheet.dart';
 
 class DashboardCommunitySection extends StatelessWidget {
   const DashboardCommunitySection({super.key});
@@ -216,32 +217,61 @@ class _CommunityFeedCard extends StatefulWidget {
 }
 
 class _CommunityFeedCardState extends State<_CommunityFeedCard> {
-  bool _cheered = false;
-  bool _fired = false;
-  int _cheerCount = 0;
-  int _fireCount = 0;
-  List<String> _localReplies = [];
+  ReactionSummary _reactionSummary = const ReactionSummary();
+  List<CommunityReply> _replies = [];
+  RealtimeChannel? _reactionChannel;
+  RealtimeChannel? _replyChannel;
 
   @override
   void initState() {
     super.initState();
-    _cheerCount = widget.post['likes_count'] ?? 0;
-    _fireCount = widget.post['fire_count'] ?? 0;
+    _loadReactions();
     _loadReplies();
+    _setupRealtime();
+  }
+
+  Future<void> _loadReactions() async {
+    final summary = await CommunityService().fetchReactionSummary(widget.post['id']);
+    if (mounted) setState(() => _reactionSummary = summary);
   }
 
   Future<void> _loadReplies() async {
-    final prefs = await SharedPreferences.getInstance();
-    final key = 'replies_${widget.post['id']}';
-    setState(() {
-      _localReplies = prefs.getStringList(key) ?? [];
-    });
+    final replies = await CommunityService().fetchRepliesForPost(widget.post['id']);
+    if (mounted) setState(() => _replies = replies);
   }
 
-  Future<void> _saveReplies() async {
-    final prefs = await SharedPreferences.getInstance();
-    final key = 'replies_${widget.post['id']}';
-    await prefs.setStringList(key, _localReplies);
+  void _setupRealtime() {
+    final postId = widget.post['id'];
+    final client = Supabase.instance.client;
+
+    _reactionChannel = client
+      .channel('reactions_dash_$postId')
+      .onPostgresChanges(
+        event: PostgresChangeEvent.all,
+        schema: 'public',
+        table: 'community_reactions',
+        filter: PostgresChangeFilter(type: PostgresChangeFilterType.eq, column: 'post_id', value: postId),
+        callback: (payload) => _loadReactions(),
+      )
+      .subscribe();
+
+    _replyChannel = client
+      .channel('replies_dash_$postId')
+      .onPostgresChanges(
+        event: PostgresChangeEvent.all,
+        schema: 'public',
+        table: 'community_replies',
+        filter: PostgresChangeFilter(type: PostgresChangeFilterType.eq, column: 'post_id', value: postId),
+        callback: (payload) => _loadReplies(),
+      )
+      .subscribe();
+  }
+
+  @override
+  void dispose() {
+    _reactionChannel?.unsubscribe();
+    _replyChannel?.unsubscribe();
+    super.dispose();
   }
 
   void _showReplySheet(String authorName, String originalText) {
@@ -252,20 +282,28 @@ class _CommunityFeedCardState extends State<_CommunityFeedCard> {
       builder: (context) => ReplyBottomSheet(
         authorName: authorName,
         originalText: originalText,
-        onReplySent: (String reply) {
-          setState(() {
-            _localReplies.add(reply);
-          });
-          _saveReplies();
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Reply sent', style: TextStyle(color: Colors.white))),
-          );
+        onReplySent: (String reply) async {
+          final authorId = widget.post['user_id'];
+          final added = await CommunityService().addReply(widget.post['id'], reply, postAuthorId: authorId);
+          if (added != null && mounted) {
+            setState(() {
+              if (!_replies.any((r) => r.id == added.id)) {
+                _replies.add(added);
+              }
+            });
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Reply sent', style: TextStyle(color: Colors.white))),
+            );
+          }
         },
       ),
     );
   }
 
-  void _showReplyOptions(int index, String currentReply) {
+  void _showReplyOptions(CommunityReply reply) {
+    final uid = Supabase.instance.client.auth.currentUser?.id;
+    if (uid != reply.userId) return; // Only allow delete for own replies
+
     showModalBottomSheet(
       context: context,
       builder: (context) => SafeArea(
@@ -273,22 +311,14 @@ class _CommunityFeedCardState extends State<_CommunityFeedCard> {
           mainAxisSize: MainAxisSize.min,
           children: [
             ListTile(
-              leading: const Icon(LucideIcons.edit2),
-              title: const Text('Edit Reply'),
-              onTap: () {
-                Navigator.pop(context);
-                _editReply(index, currentReply);
-              },
-            ),
-            ListTile(
               leading: const Icon(LucideIcons.trash2, color: AppColors.pulseRed),
               title: const Text('Delete Reply', style: TextStyle(color: AppColors.pulseRed)),
-              onTap: () {
-                setState(() {
-                  _localReplies.removeAt(index);
-                });
-                _saveReplies();
+              onTap: () async {
                 Navigator.pop(context);
+                try {
+                  setState(() => _replies.removeWhere((r) => r.id == reply.id));
+                  await CommunityService().deleteReply(reply.id);
+                } catch (_) {}
               },
             ),
           ],
@@ -297,73 +327,45 @@ class _CommunityFeedCardState extends State<_CommunityFeedCard> {
     );
   }
 
-  void _editReply(int index, String currentReply) {
-    final controller = TextEditingController(text: currentReply);
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: Theme.of(context).brightness == Brightness.dark ? const Color(0xFF1A1A1A) : Colors.white,
-        title: const Text('Edit Reply'),
-        content: TextField(
-          controller: controller,
-          autofocus: true,
-          maxLines: null,
-          decoration: InputDecoration(
-            hintText: 'Edit your reply...',
-            filled: true,
-            fillColor: Theme.of(context).brightness == Brightness.dark ? Colors.white.withValues(alpha: 0.05) : Colors.black.withValues(alpha: 0.05),
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel', style: TextStyle(color: AppColors.textSecondary)),
-          ),
-          TextButton(
-            onPressed: () {
-              if (controller.text.trim().isNotEmpty) {
-                setState(() {
-                  _localReplies[index] = controller.text.trim();
-                });
-                _saveReplies();
-                Navigator.pop(context);
-              }
-            },
-            child: const Text('Save', style: TextStyle(color: AppColors.voltCyan, fontWeight: FontWeight.bold)),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _toggleReaction(String type) {
+  Future<void> _toggleReaction(String type) async {
+    final wasCheered = _reactionSummary.hasCurrentUserCheered;
+    final wasFired = _reactionSummary.hasCurrentUserFired;
+    
+    // Optimistic update
     setState(() {
       if (type == 'cheer') {
-        _cheered = !_cheered;
-        _cheerCount += _cheered ? 1 : -1;
-      }
-      if (type == 'fire') {
-        _fired = !_fired;
-        _fireCount += _fired ? 1 : -1;
+        _reactionSummary = _reactionSummary.copyWith(
+          hasCurrentUserCheered: !wasCheered,
+          cheerCount: _reactionSummary.cheerCount + (wasCheered ? -1 : 1),
+        );
+      } else {
+        _reactionSummary = _reactionSummary.copyWith(
+          hasCurrentUserFired: !wasFired,
+          fireCount: _reactionSummary.fireCount + (wasFired ? -1 : 1),
+        );
       }
     });
 
-    final isActive = type == 'cheer' ? _cheered : _fired;
-    if (isActive) {
-      ScaffoldMessenger.of(context).clearSnackBars();
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            type == 'cheer' ? 'You cheered this activity! 👏' : 'You gave fire to this activity! 🔥',
-            style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
-          ),
-          backgroundColor: AppColors.surfaceElevated,
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-          duration: const Duration(seconds: 2),
-        ),
-      );
+    try {
+      final authorId = widget.post['user_id'];
+      await CommunityService().toggleReaction(widget.post['id'], type, postAuthorId: authorId);
+    } catch (e) {
+      // Rollback on error
+      if (mounted) {
+        setState(() {
+          if (type == 'cheer') {
+            _reactionSummary = _reactionSummary.copyWith(
+              hasCurrentUserCheered: wasCheered,
+              cheerCount: _reactionSummary.cheerCount + (wasCheered ? 1 : -1),
+            );
+          } else {
+            _reactionSummary = _reactionSummary.copyWith(
+              hasCurrentUserFired: wasFired,
+              fireCount: _reactionSummary.fireCount + (wasFired ? 1 : -1),
+            );
+          }
+        });
+      }
     }
   }
 
@@ -468,7 +470,7 @@ class _CommunityFeedCardState extends State<_CommunityFeedCard> {
           const SizedBox(height: 12),
           
           // Local Replies Preview
-          if (_localReplies.isNotEmpty) ...[
+          if (_replies.isNotEmpty) ...[
             Container(
               width: double.infinity,
               padding: const EdgeInsets.all(12),
@@ -481,23 +483,31 @@ class _CommunityFeedCardState extends State<_CommunityFeedCard> {
                 children: [
                   Text('Replies', style: theme.textTheme.labelMedium?.copyWith(color: AppColors.textSecondary, fontWeight: FontWeight.bold)),
                   const SizedBox(height: 8),
-                  ..._localReplies.asMap().entries.map((entry) {
-                    final index = entry.key;
-                    final reply = entry.value;
+                  ..._replies.take(2).map((reply) {
+                    final isMe = reply.userId == Supabase.instance.client.auth.currentUser?.id;
+                    final displayName = isMe ? 'You' : (reply.userName ?? 'User');
                     return GestureDetector(
-                      onLongPress: () => _showReplyOptions(index, reply),
+                      onLongPress: () => _showReplyOptions(reply),
                       child: Padding(
                         padding: const EdgeInsets.only(bottom: 6.0),
                         child: Row(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text('You: ', style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.bold, color: AppColors.voltCyan)),
-                            Expanded(child: Text(reply, style: theme.textTheme.bodyMedium)),
+                            Text('$displayName: ', style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.bold, color: isMe ? AppColors.voltCyan : AppColors.textPrimary)),
+                            Expanded(child: Text(reply.replyText, style: theme.textTheme.bodyMedium)),
                           ],
                         ),
                       ),
                     );
                   }),
+                  if (_replies.length > 2)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 4.0),
+                      child: GestureDetector(
+                        onTap: () => _showReplySheet(authorName, parsedContent),
+                        child: Text('View all ${_replies.length} replies', style: theme.textTheme.bodySmall?.copyWith(color: AppColors.voltCyan, fontWeight: FontWeight.bold)),
+                      ),
+                    ),
                 ],
               ),
             ),
@@ -509,24 +519,24 @@ class _CommunityFeedCardState extends State<_CommunityFeedCard> {
             children: [
               _ReactionButton(
                 icon: LucideIcons.thumbsUp,
-                label: _cheerCount > 0 ? '$_cheerCount Cheer' : 'Cheer',
-                isActive: _cheered,
+                label: _reactionSummary.cheerCount > 0 ? '${_reactionSummary.cheerCount} Cheer' : 'Cheer',
+                isActive: _reactionSummary.hasCurrentUserCheered,
                 activeColor: AppColors.teal,
                 onTap: () => _toggleReaction('cheer'),
               ),
               const SizedBox(width: 16),
               _ReactionButton(
                 icon: LucideIcons.flame,
-                label: _fireCount > 0 ? '$_fireCount Fire' : 'Fire',
-                isActive: _fired,
+                label: _reactionSummary.fireCount > 0 ? '${_reactionSummary.fireCount} Fire' : 'Fire',
+                isActive: _reactionSummary.hasCurrentUserFired,
                 activeColor: AppColors.solarAmber,
                 onTap: () => _toggleReaction('fire'),
               ),
               const Spacer(),
               _ReactionButton(
                 icon: LucideIcons.messageSquare,
-                label: _localReplies.isNotEmpty ? '${_localReplies.length} reply' : 'Reply',
-                isActive: _localReplies.isNotEmpty,
+                label: _replies.isNotEmpty ? '${_replies.length} reply' : 'Reply',
+                isActive: _replies.isNotEmpty,
                 activeColor: AppColors.voltCyan,
                 onTap: () => _showReplySheet(authorName, parsedContent),
               ),
