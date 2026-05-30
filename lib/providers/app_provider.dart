@@ -519,7 +519,7 @@ class AppProvider extends ChangeNotifier with WidgetsBindingObserver {
       generateWeeklyChallenges();
       prefs.setString('lastChallengesGenerated', today);
     }
-    notifyListeners();
+    Future.microtask(() => notifyListeners());
   }
 
   // ──── 2.2 Midnight Detection ────
@@ -571,7 +571,7 @@ class AppProvider extends ChangeNotifier with WidgetsBindingObserver {
     // Stamp today so we don't reset again until tomorrow
     prefs.setString(PrefsKeys.lastSavedDate, today);
     _saveData();
-    notifyListeners();
+    Future.microtask(() => notifyListeners());
   }
 
   void _saveData() {
