@@ -808,30 +808,54 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
           SingleChildScrollView(
             scrollDirection: Axis.horizontal,
             child: Row(
-              children: ['Fastest', 'Shortest', 'Scenic', 'Low Traffic'].asMap().entries.map((entry) {
-                final idx = entry.key;
-                final t = entry.value;
+              children: [
+                {'label': 'Fastest', 'available': true},
+                {'label': 'Shortest', 'available': false, 'msg': 'Shortest routing requires advanced provider.'},
+                {'label': 'Scenic', 'available': false, 'msg': 'Scenic routes coming soon.'},
+                {'label': 'Low Traffic', 'available': false, 'msg': 'Low traffic routes coming soon.'},
+              ].map((typeMap) {
+                final t = typeMap['label'] as String;
+                final isAvailable = typeMap['available'] as bool;
                 final isActive = _routePreference == t;
                 return Padding(
                   padding: const EdgeInsets.only(right: 8),
-                  child: ChoiceChip(
-                    label: Text(t, style: const TextStyle(fontSize: 11)),
-                    selected: isActive,
-                    onSelected: (val) => setState(() {
-                      _routePreference = t;
-                      if (_alternativeRoutes.isNotEmpty) {
-                        _selectedRouteIndex = idx % _alternativeRoutes.length;
-                        _mockPreRunRoute = _alternativeRoutes[_selectedRouteIndex];
-                        // Distance and time for alternatives aren't provided by the basic routeRes, so we just calculate mock variation
-                        _routeDistance = _routeDistance * (1.0 + (idx * 0.05));
-                        _routeDuration = (_routeDuration * (1.0 + (idx * 0.05))).round();
-                        _calculateReadiness();
+                  child: GestureDetector(
+                    onTap: () {
+                      if (!isAvailable) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text(typeMap['msg'] as String)),
+                        );
+                        return;
                       }
-                    }),
-                    selectedColor: AppColors.pulseRed.withValues(alpha: 0.2),
-                    backgroundColor: (isDark ? Colors.white : Colors.black).withValues(alpha: 0.05),
-                    side: isActive ? const BorderSide(color: AppColors.pulseRed) : BorderSide.none,
-                    visualDensity: VisualDensity.compact,
+                      setState(() {
+                        _routePreference = t;
+                      });
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: isActive ? AppColors.pulseRed.withValues(alpha: 0.2) : (isDark ? Colors.white : Colors.black).withValues(alpha: 0.05),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: isActive ? AppColors.pulseRed : (isDark ? Colors.white : Colors.black).withValues(alpha: 0.1)),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          if (!isAvailable) ...[
+                            Icon(Icons.lock_outline, size: 12, color: (isDark ? Colors.white : Colors.black).withValues(alpha: 0.5)),
+                            const SizedBox(width: 4),
+                          ],
+                          Text(
+                            t,
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: !isAvailable ? (isDark ? Colors.white : Colors.black).withValues(alpha: 0.5) : (isActive ? AppColors.pulseRed : (isDark ? Colors.white : Colors.black)),
+                              fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
                 );
               }).toList(),
