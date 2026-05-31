@@ -1,4 +1,4 @@
-﻿import 'dart:convert';
+import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:latlong2/latlong.dart';
 import '../models/route_result.dart';
@@ -11,10 +11,18 @@ class RouteService {
   }
 
   Future<RouteResult> getRoute(LatLng start, LatLng destination) async {
-    final url = 'http://router.project-osrm.org/route/v1/foot/${start.longitude},${start.latitude};${destination.longitude},${destination.latitude}?geometries=geojson&overview=full&alternatives=true';
+    // Use HTTPS for OSRM to avoid Android cleartext HTTP blocking
+    final url = 'https://router.project-osrm.org/route/v1/foot/${start.longitude},${start.latitude};${destination.longitude},${destination.latitude}?geometries=geojson&overview=full&alternatives=true';
     
     try {
-      final res = await http.get(Uri.parse(url));
+      final res = await http.get(Uri.parse(url)).timeout(
+        const Duration(seconds: 15),
+        onTimeout: () => throw RouteException(
+          technicalMessage: 'OSRM request timed out after 15s',
+          userMessage: 'Route calculation timed out. Check your connection.',
+          retryable: true,
+        ),
+      );
 
       if (res.statusCode != 200) {
         throw RouteException(
@@ -35,6 +43,15 @@ class RouteService {
       }
 
       final data = jsonDecode(res.body);
+      
+      if (data['code'] != 'Ok') {
+        throw RouteException(
+          technicalMessage: 'OSRM code: ${data['code']}',
+          userMessage: 'Could not find a walkable route between these locations.',
+          retryable: false,
+        );
+      }
+
       final routesData = data['routes'] as List?;
       
       if (routesData == null || routesData.isEmpty) {
@@ -46,32 +63,31 @@ class RouteService {
       }
 
       List<List<LatLng>> alternatives = [];
-      double distanceKm = 0;
-      double durationMinutes = 0;
+      List<double> distances = [];
+      List<double> durations = [];
 
       for (int i = 0; i < routesData.length; i++) {
         final route = routesData[i];
         final geometry = route['geometry']['coordinates'] as List;
         List<LatLng> polyline = geometry.map((c) => LatLng((c[1] as num).toDouble(), (c[0] as num).toDouble())).toList();
         alternatives.add(polyline);
-
-        if (i == 0) {
-          distanceKm = ((route['distance'] as num) / 1000.0);
-          durationMinutes = ((route['duration'] as num) / 60.0);
-        }
+        distances.add((route['distance'] as num) / 1000.0);
+        durations.add((route['duration'] as num) / 60.0);
       }
 
       return RouteResult(
         alternatives: alternatives,
-        distanceKm: distanceKm,
-        durationMinutes: durationMinutes,
+        distances: distances,
+        durations: durations,
+        distanceKm: distances[0],
+        durationMinutes: durations[0],
       );
 
     } catch (e) {
       if (e is RouteException) rethrow;
       throw RouteException(
         technicalMessage: e.toString(),
-        userMessage: 'Failed to calculate route. Please try again.',
+        userMessage: 'Failed to calculate route. Please check your connection.',
         retryable: true,
       );
     }

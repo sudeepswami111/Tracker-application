@@ -103,11 +103,11 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
   // Map layer selection
   int _selectedMapLayer = 0;
   bool? _mapIsDark;
+  RouteResult? _lastRouteResult; // Store full result for alternative selection
   final List<Map<String, String>> _mapLayers = [
-    {'name': 'Standard', 'dark': 'https://a.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}@2x.png', 'light': 'https://tile.openstreetmap.org/{z}/{x}/{y}.png'},
-    {'name': 'Humanitarian', 'dark': 'https://a.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}@2x.png', 'light': 'https://a.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png'},
-    {'name': 'Cycling', 'dark': 'https://a.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}@2x.png', 'light': 'https://tile.thunderforest.com/cycle/{z}/{x}/{y}.png?apikey=6170aad10dfd42a38d4d8c709a536f38'},
-    {'name': 'Transport', 'dark': 'https://a.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}@2x.png', 'light': 'https://tile.thunderforest.com/transport/{z}/{x}/{y}.png?apikey=6170aad10dfd42a38d4d8c709a536f38'},
+    {'name': 'Standard', 'dark': 'https://a.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}@2x.png', 'light': 'https://a.basemaps.cartocdn.com/light_all/{z}/{x}/{y}@2x.png'},
+    {'name': 'Streets', 'dark': 'https://a.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}@2x.png', 'light': 'https://tile.openstreetmap.org/{z}/{x}/{y}.png'},
+    {'name': 'Voyager', 'dark': 'https://a.basemaps.cartocdn.com/rastertiles/dark_all/{z}/{x}/{y}@2x.png', 'light': 'https://a.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}@2x.png'},
     {'name': 'Topo', 'dark': 'https://a.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}@2x.png', 'light': 'https://tile.opentopomap.org/{z}/{x}/{y}.png'},
   ];
 
@@ -152,13 +152,14 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
 
       if (routeRes.alternatives.isNotEmpty) {
         setState(() {
+          _lastRouteResult = routeRes;
           _alternativeRoutes = routeRes.alternatives;
           _selectedRouteIndex = 0;
           _mockPreRunRoute = routeRes.alternatives[0];
 
           _routeDistance = routeRes.distanceKm;
           _routeDuration = routeRes.durationMinutes.round();
-          _routeElevation = (routeRes.distanceKm * 12); // Mock elevation as standard
+          _routeElevation = 0; // OSRM doesn't provide elevation
 
           _targetRightLabel = 'Distance';
           _targetRightValue = '${_routeDistance.toStringAsFixed(2)} km';
@@ -166,17 +167,8 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
           _targetLeftValue = '$_routeDuration min';
         });
         _calculateReadiness();
-        
-        try {
-          final bounds = LatLngBounds.fromPoints(_mockPreRunRoute);
-          _mapCtrl.fitCamera(CameraFit.bounds(
-            bounds: bounds,
-            padding: const EdgeInsets.all(50.0),
-          ));
-          debugPrint('Route plotted. Distance: $_routeDistance km, Points: ${_mockPreRunRoute.length}');
-        } catch (e) {
-          debugPrint('Failed to fit camera to route bounds: $e');
-        }
+        _fitMapToRoute();
+        debugPrint('Route plotted. Distance: $_routeDistance km, Duration: $_routeDuration min, Points: ${_mockPreRunRoute.length}, Alternatives: ${_alternativeRoutes.length}');
       }
     } catch (e) {
       if (mounted) {
@@ -274,18 +266,54 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
     });
   }
 
+  void _fitMapToRoute() {
+    if (_mockPreRunRoute.length < 2) return;
+    try {
+      final bounds = LatLngBounds.fromPoints(_mockPreRunRoute);
+      _mapCtrl.fitCamera(CameraFit.bounds(
+        bounds: bounds,
+        padding: const EdgeInsets.all(60.0),
+      ));
+    } catch (e) {
+      debugPrint('Failed to fit camera to route bounds: $e');
+    }
+  }
+
+  void _selectAlternativeRoute(int index) {
+    if (index < 0 || index >= _alternativeRoutes.length) return;
+    final result = _lastRouteResult;
+    setState(() {
+      _selectedRouteIndex = index;
+      _mockPreRunRoute = _alternativeRoutes[index];
+      if (result != null && index < result.distances.length) {
+        _routeDistance = result.distances[index];
+        _routeDuration = result.durations[index].round();
+      }
+      _targetRightValue = '${_routeDistance.toStringAsFixed(2)} km';
+      _targetLeftValue = '$_routeDuration min';
+    });
+    _calculateReadiness();
+    _fitMapToRoute();
+  }
+
   Future<void> _fillCurrentLocation() async {
     if (_curPos != null) {
       try {
         final placemarks = await placemarkFromCoordinates(_curPos!.latitude, _curPos!.longitude);
         if (placemarks.isNotEmpty) {
+          final p = placemarks.first;
+          final name = [p.locality, p.administrativeArea, p.country]
+              .where((s) => s != null && s.isNotEmpty)
+              .join(', ');
           setState(() {
-            _startLocCtrl.text = '${placemarks.first.locality}, ${placemarks.first.country}';
+            _startLocCtrl.text = name.isNotEmpty ? name : '${_curPos!.latitude.toStringAsFixed(4)}, ${_curPos!.longitude.toStringAsFixed(4)}';
+            _startRoutePos = _curPos;
           });
         }
       } catch (_) {
         setState(() {
-          _startLocCtrl.text = '${_curPos!.latitude}, ${_curPos!.longitude}';
+          _startLocCtrl.text = '${_curPos!.latitude.toStringAsFixed(4)}, ${_curPos!.longitude.toStringAsFixed(4)}';
+          _startRoutePos = _curPos;
         });
       }
     } else {
@@ -578,7 +606,8 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
     super.dispose();
   }
 
-  Widget _buildMapWidget(String mapUrl, bool isDark, bool isRunningPhase) {
+  Widget _buildMapWidget(String mapUrl, bool isDark, bool showPreRunRoute) {
+    final isActiveRun = _state == RunState.running || _state == RunState.paused;
     return FlutterMap(
       key: _mapKey,
       mapController: _mapCtrl,
@@ -599,14 +628,28 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
           userAgentPackageName: 'com.sudeep.lifepulse',
           maxZoom: 19,
         ),
+
+        // Alternative routes (dimmed gray)
+        if (showPreRunRoute && _alternativeRoutes.length > 1)
+          PolylineLayer(polylines: [
+            for (int i = 0; i < _alternativeRoutes.length; i++)
+              if (i != _selectedRouteIndex)
+                Polyline(
+                  points: _alternativeRoutes[i],
+                  strokeWidth: 3,
+                  color: (isDark ? Colors.white : Colors.black).withValues(alpha: 0.15),
+                ),
+          ]),
         
-        // Pre-run Route Suggestion (Cyan)
-        if (!isRunningPhase)
+        // Pre-run Route (Cyan)
+        if (showPreRunRoute && _mockPreRunRoute.isNotEmpty)
           PolylineLayer(polylines: [
             Polyline(
               points: _mockPreRunRoute,
-              strokeWidth: 4,
+              strokeWidth: 5,
               color: AppColors.voltCyan,
+              borderStrokeWidth: 1,
+              borderColor: AppColors.voltCyan.withValues(alpha: 0.3),
             ),
           ]),
 
@@ -622,21 +665,37 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
             )
           ]),
 
-        // User Location Marker
+        // Markers
         MarkerLayer(markers: [
-          if (_startRoutePos != null && !isRunningPhase)
+          if (_startRoutePos != null && showPreRunRoute)
             Marker(
               point: _startRoutePos!,
-              width: 32,
-              height: 32,
-              child: const Icon(LucideIcons.mapPin, color: AppColors.voltCyan, size: 32),
+              width: 36,
+              height: 36,
+              child: Container(
+                decoration: BoxDecoration(
+                  color: AppColors.voltCyan,
+                  shape: BoxShape.circle,
+                  border: Border.all(color: Colors.white, width: 2),
+                  boxShadow: [BoxShadow(color: AppColors.voltCyan.withValues(alpha: 0.4), blurRadius: 8)],
+                ),
+                child: const Icon(Icons.play_arrow, color: Colors.white, size: 18),
+              ),
             ),
-          if (_endRoutePos != null && !isRunningPhase)
+          if (_endRoutePos != null && showPreRunRoute)
             Marker(
               point: _endRoutePos!,
-              width: 32,
-              height: 32,
-              child: const Icon(LucideIcons.flag, color: AppColors.pulseRed, size: 32),
+              width: 36,
+              height: 36,
+              child: Container(
+                decoration: BoxDecoration(
+                  color: AppColors.pulseRed,
+                  shape: BoxShape.circle,
+                  border: Border.all(color: Colors.white, width: 2),
+                  boxShadow: [BoxShadow(color: AppColors.pulseRed.withValues(alpha: 0.4), blurRadius: 8)],
+                ),
+                child: const Icon(LucideIcons.flag, color: Colors.white, size: 16),
+              ),
             ),
           if (_curPos != null)
             Marker(
@@ -808,57 +867,68 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
           SingleChildScrollView(
             scrollDirection: Axis.horizontal,
             child: Row(
-              children: [
-                {'label': 'Fastest', 'available': true},
-                {'label': 'Shortest', 'available': false, 'msg': 'Shortest routing requires advanced provider.'},
-                {'label': 'Scenic', 'available': false, 'msg': 'Scenic routes coming soon.'},
-                {'label': 'Low Traffic', 'available': false, 'msg': 'Low traffic routes coming soon.'},
-              ].map((typeMap) {
-                final t = typeMap['label'] as String;
-                final isAvailable = typeMap['available'] as bool;
-                final isActive = _routePreference == t;
-                return Padding(
-                  padding: const EdgeInsets.only(right: 8),
-                  child: GestureDetector(
-                    onTap: () {
-                      if (!isAvailable) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text(typeMap['msg'] as String)),
-                        );
-                        return;
-                      }
-                      setState(() {
-                        _routePreference = t;
-                      });
-                    },
-                    child: Container(
+              children: _alternativeRoutes.length > 1
+                ? _alternativeRoutes.asMap().entries.map((entry) {
+                    final i = entry.key;
+                    final isActive = _selectedRouteIndex == i;
+                    final result = _lastRouteResult;
+                    final dist = result != null && i < result.distances.length ? result.distances[i] : 0.0;
+                    final dur = result != null && i < result.durations.length ? result.durations[i] : 0.0;
+                    final label = i == 0 ? 'Route ${i + 1} (Fastest)' : 'Route ${i + 1}';
+                    return Padding(
+                      padding: const EdgeInsets.only(right: 8),
+                      child: GestureDetector(
+                        onTap: () => _selectAlternativeRoute(i),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                          decoration: BoxDecoration(
+                            color: isActive ? AppColors.voltCyan.withValues(alpha: 0.2) : (isDark ? Colors.white : Colors.black).withValues(alpha: 0.05),
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(color: isActive ? AppColors.voltCyan : (isDark ? Colors.white : Colors.black).withValues(alpha: 0.1)),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              if (isActive)
+                                const Icon(Icons.check_circle, size: 14, color: AppColors.voltCyan),
+                              if (isActive) const SizedBox(width: 4),
+                              Text(
+                                '$label · ${dist.toStringAsFixed(1)} km · ${dur.round()} min',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: isActive ? AppColors.voltCyan : (isDark ? Colors.white : Colors.black),
+                                  fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    );
+                  }).toList()
+                : [
+                    Container(
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                       decoration: BoxDecoration(
-                        color: isActive ? AppColors.pulseRed.withValues(alpha: 0.2) : (isDark ? Colors.white : Colors.black).withValues(alpha: 0.05),
+                        color: AppColors.voltCyan.withValues(alpha: 0.15),
                         borderRadius: BorderRadius.circular(16),
-                        border: Border.all(color: isActive ? AppColors.pulseRed : (isDark ? Colors.white : Colors.black).withValues(alpha: 0.1)),
+                        border: Border.all(color: AppColors.voltCyan.withValues(alpha: 0.3)),
                       ),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          if (!isAvailable) ...[
-                            Icon(Icons.lock_outline, size: 12, color: (isDark ? Colors.white : Colors.black).withValues(alpha: 0.5)),
-                            const SizedBox(width: 4),
-                          ],
+                          const Icon(Icons.check_circle, size: 14, color: AppColors.voltCyan),
+                          const SizedBox(width: 4),
                           Text(
-                            t,
-                            style: TextStyle(
-                              fontSize: 11,
-                              color: !isAvailable ? (isDark ? Colors.white : Colors.black).withValues(alpha: 0.5) : (isActive ? AppColors.pulseRed : (isDark ? Colors.white : Colors.black)),
-                              fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
-                            ),
+                            _alternativeRoutes.isNotEmpty
+                                ? 'Fastest route · ${_routeDistance.toStringAsFixed(1)} km · $_routeDuration min'
+                                : 'Fastest route',
+                            style: const TextStyle(fontSize: 11, color: AppColors.voltCyan, fontWeight: FontWeight.bold),
                           ),
                         ],
                       ),
                     ),
-                  ),
-                );
-              }).toList(),
+                  ],
             ),
           ),
           const SizedBox(height: 12),
@@ -951,7 +1021,7 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
                           borderRadius: BorderRadius.circular(32),
                           child: Stack(
                             children: [
-                              _buildMapWidget(mapUrl, isDark, false),
+                              _buildMapWidget(mapUrl, isDark, true),
                               
                               // Pre-run Map Controls (overlaying the inline map card)
                               Positioned(
@@ -1008,7 +1078,7 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
           // ── 2. RUNNING VIEW (Full-Screen Map) ──
           if (isRunningPhase || _isFullScreenMap) ...[
             Positioned.fill(
-              child: _buildMapWidget(mapUrl, isDark, true),
+              child: _buildMapWidget(mapUrl, isDark, !isRunningPhase && _isFullScreenMap),
             ),
             
             // Map controls for full-screen mode (Top Right)
@@ -1443,7 +1513,7 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
             children: [
               _infoPill('Distance', '${_routeDistance.toStringAsFixed(1)} km', isDark),
               _infoPill('Est. Time', '$_routeDuration min', isDark),
-              _infoPill('Elevation', '${_routeElevation.toStringAsFixed(0)} m', isDark),
+              _infoPill('Elevation', _routeElevation > 0 ? '${_routeElevation.toStringAsFixed(0)} m' : '-- m', isDark),
             ],
           ),
         ],
@@ -1475,7 +1545,7 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
                 itemBuilder: (context, i) {
                   final isActive = _selectedMapLayer == i;
                   final layer = _mapLayers[i];
-                  final icons = [Icons.map, Icons.volunteer_activism, Icons.pedal_bike, Icons.directions_bus, Icons.terrain];
+                  final icons = [Icons.map, Icons.terrain, Icons.explore, Icons.layers];
                   return GestureDetector(
                     onTap: () {
                       setState(() => _selectedMapLayer = i);
