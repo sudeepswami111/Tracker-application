@@ -85,6 +85,12 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
 
   String _selectedRunType = 'Outdoor Run';
   String _selectedSportCategory = 'Cardio';
+  String _routePreference = 'Fastest';
+  int _routeReadinessScore = 0;
+  String _routeAdvice = '';
+  double _routeDistance = 0.0;
+  double _routeElevation = 0.0;
+  int _routeDuration = 0;
   bool _audioPrompts = true;
   bool _isFullScreenMap = false;
 
@@ -117,6 +123,9 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
       _mockPreRunRoute.clear();
       _startRoutePos = null;
       _endRoutePos = null;
+      _routeDistance = 0.0;
+      _routeDuration = 0;
+      _routeReadinessScore = 0;
     });
 
     try {
@@ -143,11 +152,16 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
           _selectedRouteIndex = 0;
           _mockPreRunRoute = routeRes.alternatives[0];
 
+          _routeDistance = routeRes.distanceKm;
+          _routeDuration = routeRes.durationMinutes.round();
+          _routeElevation = (routeRes.distanceKm * 12); // Mock elevation as standard
+
           _targetRightLabel = 'Distance';
-          _targetRightValue = '${routeRes.distanceKm.toStringAsFixed(2)} km';
+          _targetRightValue = '${_routeDistance.toStringAsFixed(2)} km';
           _targetLeftLabel = 'Est. Time';
-          _targetLeftValue = '${routeRes.durationMinutes.round()} min';
+          _targetLeftValue = '$_routeDuration min';
         });
+        _calculateReadiness();
       }
     } catch (e) {
       if (mounted) {
@@ -176,6 +190,88 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
       _isFullScreenMap = !_isFullScreenMap;
     });
     widget.onFullscreenChanged?.call(_isFullScreenMap || _state != RunState.planning);
+  }
+
+  void _swapLocations() {
+    setState(() {
+      final tempText = _startLocCtrl.text;
+      _startLocCtrl.text = _destLocCtrl.text;
+      _destLocCtrl.text = tempText;
+
+      if (_startRoutePos != null || _endRoutePos != null) {
+        final tempPos = _startRoutePos;
+        _startRoutePos = _endRoutePos;
+        _endRoutePos = tempPos;
+        
+        // Clear route since start/end swapped
+        _mockPreRunRoute.clear();
+        _alternativeRoutes.clear();
+        _routeDistance = 0.0;
+        _routeDuration = 0;
+        _routeReadinessScore = 0;
+      }
+    });
+  }
+
+  void _calculateReadiness() {
+    int score = 100;
+    String advice = "Great conditions for a run!";
+
+    if (_routeDistance > 20) {
+      score -= 20;
+      advice = "Long route: hydrate and pace yourself.";
+    } else if (_routeDistance > 10) {
+      score -= 10;
+      advice = "Moderate distance: keep a steady pace.";
+    } else if (_routeDistance < 3) {
+      advice = "Good route for a short quick run.";
+    }
+
+    if (mounted) {
+      final weatherProvider = context.read<WeatherProvider>();
+      final weather = weatherProvider.weather;
+      if (weather != null) {
+        if (weather.currentTemp > 30) {
+          score -= 25;
+          advice = "Hot weather: carry water and avoid direct sun.";
+        } else if (weather.currentTemp < 5) {
+          score -= 15;
+          advice = "Cold weather: dress in layers.";
+        } else if (weather.condition.toLowerCase().contains('rain')) {
+          score -= 20;
+          advice = "Rainy conditions: watch your step.";
+        }
+      }
+    }
+    
+    final hour = DateTime.now().hour;
+    if (hour > 19 || hour < 5) {
+      advice = "Night run: wear reflective gear and stick to lit paths.";
+    }
+
+    setState(() {
+      _routeReadinessScore = score.clamp(0, 100);
+      _routeAdvice = advice;
+    });
+  }
+
+  Future<void> _fillCurrentLocation() async {
+    if (_curPos != null) {
+      try {
+        final placemarks = await placemarkFromCoordinates(_curPos!.latitude, _curPos!.longitude);
+        if (placemarks.isNotEmpty) {
+          _startLocCtrl.text = '${placemarks.first.locality}, ${placemarks.first.country}';
+        }
+      } catch (_) {
+        _startLocCtrl.text = '${_curPos!.latitude}, ${_curPos!.longitude}';
+      }
+    } else {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Location not available yet. Make sure GPS is enabled.')),
+        );
+      }
+    }
   }
 
   void _resetLocation() {
@@ -560,12 +656,66 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
     );
   }
 
-  Widget _buildRoutePlannerUI(bool isDark) {
+  Widget _routeInput({
+    required TextEditingController ctrl,
+    required String hint,
+    required IconData icon,
+    required Color iconColor,
+    required bool isDark,
+    required bool isTop,
+  }) {
     return Container(
-      padding: const EdgeInsets.all(16),
+      height: 44,
       decoration: BoxDecoration(
         color: (isDark ? Colors.white : Colors.black).withValues(alpha: 0.05),
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.only(
+          topLeft: Radius.circular(isTop ? 12 : 4),
+          topRight: Radius.circular(isTop ? 12 : 4),
+          bottomLeft: Radius.circular(isTop ? 4 : 12),
+          bottomRight: Radius.circular(isTop ? 4 : 12),
+        ),
+      ),
+      child: TextField(
+        controller: ctrl,
+        maxLines: 1,
+        style: TextStyle(color: isDark ? Colors.white : Colors.black, fontSize: 13),
+        onChanged: (v) => setState(() {}),
+        decoration: InputDecoration(
+          hintText: hint,
+          hintStyle: TextStyle(fontSize: 13, color: (isDark ? Colors.white : Colors.black).withValues(alpha: 0.5)),
+          prefixIcon: Icon(icon, color: iconColor, size: 16),
+          suffixIcon: ctrl.text.isNotEmpty
+              ? IconButton(
+                  icon: const Icon(Icons.clear, size: 16),
+                  onPressed: () => setState(() {
+                    ctrl.clear();
+                    if (isTop) _startRoutePos = null;
+                    else _endRoutePos = null;
+                  }),
+                )
+              : (isTop ? IconButton(
+                  icon: const Icon(Icons.my_location, size: 16),
+                  onPressed: _fillCurrentLocation,
+                ) : null),
+          contentPadding: const EdgeInsets.symmetric(vertical: 14),
+          border: InputBorder.none,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildRoutePlannerUI(bool isDark) {
+    bool canSearch = _startLocCtrl.text.isNotEmpty && _destLocCtrl.text.isNotEmpty;
+    String statusText = "No route selected";
+    if (_isLoadingRoute) statusText = "Finding route...";
+    else if (_alternativeRoutes.isNotEmpty) statusText = "Route ready";
+    else if (_routeError != null) statusText = "Route unavailable";
+
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: (isDark ? Colors.white : Colors.black).withValues(alpha: 0.05),
+        borderRadius: BorderRadius.circular(16),
         border: Border.all(color: (isDark ? Colors.white : Colors.black).withValues(alpha: 0.1)),
       ),
       child: Column(
@@ -578,101 +728,91 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
               const SizedBox(width: 8),
               Text('Plan Your Route', style: TextStyle(color: isDark ? Colors.white : Colors.black, fontWeight: FontWeight.bold, fontSize: 15)),
               const Spacer(),
-              if (_alternativeRoutes.isNotEmpty)
-                TextButton.icon(
-                  onPressed: () {
-                    setState(() {
-                      _alternativeRoutes.clear();
-                      _mockPreRunRoute.clear();
-                      _startRoutePos = null;
-                      _endRoutePos = null;
-                      _startLocCtrl.clear();
-                      _destLocCtrl.clear();
-                      _routeError = null;
-                    });
-                  },
-                  icon: const Icon(Icons.clear, size: 14, color: AppColors.pulseRed),
-                  label: const Text('Clear', style: TextStyle(fontSize: 12, color: AppColors.pulseRed)),
-                  style: TextButton.styleFrom(padding: EdgeInsets.zero, minimumSize: const Size(50, 30)),
-                ),
+              Text(statusText, style: TextStyle(color: (isDark ? Colors.white : Colors.black).withValues(alpha: 0.5), fontSize: 11)),
             ],
           ),
           const SizedBox(height: 12),
-          Row(
+          Stack(
+            alignment: Alignment.centerRight,
             children: [
-              Expanded(
-                child: Column(
-                  children: [
-                    SizedBox(
-                      height: 40,
-                      child: TextField(
-                        controller: _startLocCtrl,
-                        decoration: InputDecoration(
-                          hintText: 'Start (e.g. Central Park)',
-                          hintStyle: TextStyle(fontSize: 13, color: (isDark ? Colors.white : Colors.black).withValues(alpha: 0.5)),
-                          prefixIcon: const Icon(LucideIcons.mapPin, color: AppColors.voltCyan, size: 16),
-                          suffixIcon: IconButton(
-                            icon: const Icon(Icons.my_location, size: 16),
-                            onPressed: () async {
-                              if (_curPos != null) {
-                                try {
-                                  final placemarks = await placemarkFromCoordinates(_curPos!.latitude, _curPos!.longitude);
-                                  if (placemarks.isNotEmpty) {
-                                    _startLocCtrl.text = '${placemarks.first.locality}, ${placemarks.first.country}';
-                                  }
-                                } catch (_) {
-                                  _startLocCtrl.text = '${_curPos!.latitude}, ${_curPos!.longitude}';
-                                }
-                              }
-                            },
-                          ),
-                          filled: true,
-                          fillColor: (isDark ? Colors.white : Colors.black).withValues(alpha: 0.05),
-                          contentPadding: EdgeInsets.zero,
-                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),
-                        ),
-                        style: TextStyle(color: isDark ? Colors.white : Colors.black, fontSize: 13),
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    SizedBox(
-                      height: 40,
-                      child: TextField(
-                        controller: _destLocCtrl,
-                        decoration: InputDecoration(
-                          hintText: 'Destination (e.g. Times Square)',
-                          hintStyle: TextStyle(fontSize: 13, color: (isDark ? Colors.white : Colors.black).withValues(alpha: 0.5)),
-                          prefixIcon: const Icon(LucideIcons.flag, color: AppColors.pulseRed, size: 16),
-                          filled: true,
-                          fillColor: (isDark ? Colors.white : Colors.black).withValues(alpha: 0.05),
-                          contentPadding: EdgeInsets.zero,
-                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),
-                        ),
-                        style: TextStyle(color: isDark ? Colors.white : Colors.black, fontSize: 13),
-                      ),
-                    ),
-                  ],
-                ),
+              Column(
+                children: [
+                  _routeInput(
+                    ctrl: _startLocCtrl,
+                    hint: 'Start location',
+                    icon: LucideIcons.mapPin,
+                    iconColor: AppColors.voltCyan,
+                    isDark: isDark,
+                    isTop: true,
+                  ),
+                  const SizedBox(height: 2),
+                  _routeInput(
+                    ctrl: _destLocCtrl,
+                    hint: 'Destination',
+                    icon: LucideIcons.flag,
+                    iconColor: AppColors.pulseRed,
+                    isDark: isDark,
+                    isTop: false,
+                  ),
+                ],
               ),
-              const SizedBox(width: 12),
-              Container(
-                decoration: BoxDecoration(
-                  color: isDark ? const Color(0xFF2C2C2E) : Colors.white,
-                  shape: BoxShape.circle,
-                  boxShadow: [
-                    BoxShadow(color: Colors.black.withValues(alpha: 0.1), blurRadius: 4),
-                  ]
-                ),
-                child: IconButton(
-                  icon: Icon(Icons.swap_vert, size: 20, color: isDark ? Colors.white : Colors.black),
-                  onPressed: () {
-                    final temp = _startLocCtrl.text;
-                    _startLocCtrl.text = _destLocCtrl.text;
-                    _destLocCtrl.text = temp;
-                  },
+              Positioned(
+                right: 16,
+                child: GestureDetector(
+                  onTap: _swapLocations,
+                  child: Container(
+                    padding: const EdgeInsets.all(6),
+                    decoration: BoxDecoration(
+                      color: isDark ? const Color(0xFF2C2C2E) : Colors.white,
+                      shape: BoxShape.circle,
+                      boxShadow: [
+                        BoxShadow(color: Colors.black.withValues(alpha: 0.2), blurRadius: 4),
+                      ],
+                      border: Border.all(color: (isDark ? Colors.white : Colors.black).withValues(alpha: 0.1)),
+                    ),
+                    child: Icon(Icons.swap_vert, size: 18, color: isDark ? Colors.white : Colors.black),
+                  ),
                 ),
               ),
             ],
+          ),
+          const SizedBox(height: 12),
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: ['Home', 'Work', 'Nearby Park', 'Last Route'].map((s) => Padding(
+                padding: const EdgeInsets.only(right: 8),
+                child: ActionChip(
+                  label: Text(s, style: const TextStyle(fontSize: 11)),
+                  onPressed: () => setState(() => _destLocCtrl.text = s),
+                  backgroundColor: (isDark ? Colors.white : Colors.black).withValues(alpha: 0.05),
+                  side: BorderSide.none,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  visualDensity: VisualDensity.compact,
+                ),
+              )).toList(),
+            ),
+          ),
+          const SizedBox(height: 12),
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: ['Fastest', 'Shortest', 'Scenic', 'Low Traffic'].map((t) {
+                final isActive = _routePreference == t;
+                return Padding(
+                  padding: const EdgeInsets.only(right: 8),
+                  child: ChoiceChip(
+                    label: Text(t, style: const TextStyle(fontSize: 11)),
+                    selected: isActive,
+                    onSelected: (val) => setState(() => _routePreference = t),
+                    selectedColor: AppColors.pulseRed.withValues(alpha: 0.2),
+                    backgroundColor: (isDark ? Colors.white : Colors.black).withValues(alpha: 0.05),
+                    side: isActive ? const BorderSide(color: AppColors.pulseRed) : BorderSide.none,
+                    visualDensity: VisualDensity.compact,
+                  ),
+                );
+              }).toList(),
+            ),
           ),
           const SizedBox(height: 12),
           if (_routeError != null) ...[
@@ -699,10 +839,12 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
             width: double.infinity,
             height: 48,
             child: ElevatedButton(
-              onPressed: _isLoadingRoute ? null : _findRoute,
+              onPressed: canSearch && !_isLoadingRoute ? _findRoute : null,
               style: ElevatedButton.styleFrom(
                 backgroundColor: _routeError != null && _isRetryableError ? AppColors.solarAmber : AppColors.voltCyan,
                 foregroundColor: Colors.black,
+                disabledBackgroundColor: (isDark ? Colors.white : Colors.black).withValues(alpha: 0.1),
+                disabledForegroundColor: (isDark ? Colors.white : Colors.black).withValues(alpha: 0.3),
                 elevation: 0,
                 padding: EdgeInsets.zero,
                 alignment: Alignment.center,
@@ -710,33 +852,9 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
               ),
               child: _isLoadingRoute
                   ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.black, strokeWidth: 2.5))
-                  : Text(_routeError != null && _isRetryableError ? 'Retry Search' : 'Find Routes', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                  : Text(_alternativeRoutes.isNotEmpty ? 'Route Ready' : (_routeError != null && _isRetryableError ? 'Try Again' : 'Find Routes'), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
             ),
           ),
-          if (_alternativeRoutes.length > 1) ...[
-            const SizedBox(height: 12),
-            Text('Alternative Routes', style: TextStyle(color: (isDark ? Colors.white : Colors.black).withValues(alpha: 0.7), fontSize: 11, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 6),
-            Wrap(
-              spacing: 6,
-              children: List.generate(_alternativeRoutes.length, (index) {
-                final isSelected = _selectedRouteIndex == index;
-                return ChoiceChip(
-                  label: Text('Route ${index + 1}', style: const TextStyle(fontSize: 11)),
-                  selected: isSelected,
-                  padding: EdgeInsets.zero,
-                  selectedColor: AppColors.voltCyan.withValues(alpha: 0.2),
-                  labelStyle: TextStyle(color: isSelected ? AppColors.voltCyan : (isDark ? Colors.white : Colors.black)),
-                  onSelected: (val) {
-                    setState(() {
-                      _selectedRouteIndex = index;
-                      _mockPreRunRoute = _alternativeRoutes[index];
-                    });
-                  },
-                );
-              }),
-            ),
-          ]
         ],
       ),
     );
@@ -1062,15 +1180,25 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Route info pill row
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-            children: [
-              _infoPill('Distance', '5.2 km', isDark),
-              _infoPill('Est. Time', '28:40', isDark),
-              _infoPill('Elevation', '42 m', isDark),
-            ],
-          ),
+          // Route Summary & Readiness
+          if (_mockPreRunRoute.isNotEmpty)
+            _buildRouteSummaryCard(isDark)
+          else
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: AppColors.voltCyan.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: AppColors.voltCyan.withValues(alpha: 0.3)),
+              ),
+              child: const Row(
+                children: [
+                  Icon(LucideIcons.info, color: AppColors.voltCyan),
+                  SizedBox(width: 12),
+                  Expanded(child: Text("Find a route to calculate readiness", style: TextStyle(color: AppColors.voltCyan, fontWeight: FontWeight.w600))),
+                ],
+              ),
+            ),
           const SizedBox(height: AppSpacing.xl),
 
           // Category selector
@@ -1211,8 +1339,12 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
                 elevation: 0,
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppSpacing.pillRadius)),
               ),
-              child: const Text('START RUN', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, letterSpacing: 1.2)),
+              child: Text(_mockPreRunRoute.isNotEmpty ? 'START PLANNED RUN' : 'START FREE RUN', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800, letterSpacing: 1.2)),
             ),
+          ),
+          const SizedBox(height: 12),
+          Center(
+            child: Text("Safety check: share route with family/friends before starting.", style: TextStyle(color: (isDark ? Colors.white : Colors.black).withValues(alpha: 0.4), fontSize: 11)),
           ),
           const SizedBox(height: 32),
           
@@ -1222,6 +1354,51 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
           const FitnessScreen(),
           
           const SizedBox(height: 100), // Padding for bottom nav
+        ],
+      ),
+    );
+  }
+
+  Widget _buildRouteSummaryCard(bool isDark) {
+    Color scoreColor = AppColors.pulseRed;
+    if (_routeReadinessScore >= 80) scoreColor = Colors.green;
+    else if (_routeReadinessScore >= 50) scoreColor = AppColors.solarAmber;
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: (isDark ? Colors.white : Colors.black).withValues(alpha: 0.05),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: (isDark ? Colors.white : Colors.black).withValues(alpha: 0.1)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text('Route Readiness', style: TextStyle(color: isDark ? Colors.white : Colors.black, fontWeight: FontWeight.bold, fontSize: 16)),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: scoreColor.withValues(alpha: 0.2),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text('$_routeReadinessScore/100', style: TextStyle(color: scoreColor, fontWeight: FontWeight.w900, fontSize: 14)),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Text(_routeAdvice, style: TextStyle(color: (isDark ? Colors.white : Colors.black).withValues(alpha: 0.7), fontSize: 13)),
+          const SizedBox(height: 16),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            children: [
+              _infoPill('Distance', '${_routeDistance.toStringAsFixed(1)} km', isDark),
+              _infoPill('Est. Time', '$_routeDuration min', isDark),
+              _infoPill('Elevation', '${_routeElevation.toStringAsFixed(0)} m', isDark),
+            ],
+          ),
         ],
       ),
     );
