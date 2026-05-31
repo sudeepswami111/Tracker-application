@@ -808,25 +808,6 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
           SingleChildScrollView(
             scrollDirection: Axis.horizontal,
             child: Row(
-              children: ['Central Park', 'Times Square', 'Brooklyn Bridge', 'Downtown'].map((s) => Padding(
-                padding: const EdgeInsets.only(right: 8),
-                child: ActionChip(
-                  label: Text(s, style: const TextStyle(fontSize: 11)),
-                  onPressed: () => setState(() {
-                    _destLocCtrl.text = s;
-                  }),
-                  backgroundColor: (isDark ? Colors.white : Colors.black).withValues(alpha: 0.05),
-                  side: BorderSide.none,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  visualDensity: VisualDensity.compact,
-                ),
-              )).toList(),
-            ),
-          ),
-          const SizedBox(height: 12),
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: Row(
               children: ['Fastest', 'Shortest', 'Scenic', 'Low Traffic'].asMap().entries.map((entry) {
                 final idx = entry.key;
                 final t = entry.value;
