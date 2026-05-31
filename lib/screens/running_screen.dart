@@ -138,11 +138,15 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
         _endRoutePos = destRes.coordinates;
       });
 
+      debugPrint('Geocoded Start: ${startRes.coordinates.latitude}, ${startRes.coordinates.longitude}');
+      debugPrint('Geocoded Destination: ${destRes.coordinates.latitude}, ${destRes.coordinates.longitude}');
+
+      // Initially center between the two points while waiting for route
       final center = LatLng(
         (startRes.coordinates.latitude + destRes.coordinates.latitude) / 2,
         (startRes.coordinates.longitude + destRes.coordinates.longitude) / 2,
       );
-      _mapCtrl.move(center, 13);
+      _mapCtrl.move(center, 12);
 
       final routeRes = await _routeService.getRoute(startRes.coordinates, destRes.coordinates);
 
@@ -162,6 +166,17 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
           _targetLeftValue = '$_routeDuration min';
         });
         _calculateReadiness();
+        
+        try {
+          final bounds = LatLngBounds.fromPoints(_mockPreRunRoute);
+          _mapCtrl.fitCamera(CameraFit.bounds(
+            bounds: bounds,
+            padding: const EdgeInsets.all(50.0),
+          ));
+          debugPrint('Route plotted. Distance: $_routeDistance km, Points: ${_mockPreRunRoute.length}');
+        } catch (e) {
+          debugPrint('Failed to fit camera to route bounds: $e');
+        }
       }
     } catch (e) {
       if (mounted) {
@@ -211,6 +226,10 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
         _routeReadinessScore = 0;
       }
     });
+
+    if (_startLocCtrl.text.isNotEmpty && _destLocCtrl.text.isNotEmpty) {
+      _findRoute();
+    }
   }
 
   void _calculateReadiness() {
@@ -283,6 +302,11 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
       _mapCtrl.move(_curPos!, 16);
       setState(() => _follow = true);
     } else {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Locating you... Ensure GPS is enabled.')),
+        );
+      }
       _initLocation();
     }
   }
