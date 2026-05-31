@@ -260,10 +260,14 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
       try {
         final placemarks = await placemarkFromCoordinates(_curPos!.latitude, _curPos!.longitude);
         if (placemarks.isNotEmpty) {
-          _startLocCtrl.text = '${placemarks.first.locality}, ${placemarks.first.country}';
+          setState(() {
+            _startLocCtrl.text = '${placemarks.first.locality}, ${placemarks.first.country}';
+          });
         }
       } catch (_) {
-        _startLocCtrl.text = '${_curPos!.latitude}, ${_curPos!.longitude}';
+        setState(() {
+          _startLocCtrl.text = '${_curPos!.latitude}, ${_curPos!.longitude}';
+        });
       }
     } else {
       if (mounted) {
@@ -780,11 +784,13 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
           SingleChildScrollView(
             scrollDirection: Axis.horizontal,
             child: Row(
-              children: ['Home', 'Work', 'Nearby Park', 'Last Route'].map((s) => Padding(
+              children: ['Central Park', 'Times Square', 'Brooklyn Bridge', 'Downtown'].map((s) => Padding(
                 padding: const EdgeInsets.only(right: 8),
                 child: ActionChip(
                   label: Text(s, style: const TextStyle(fontSize: 11)),
-                  onPressed: () => setState(() => _destLocCtrl.text = s),
+                  onPressed: () => setState(() {
+                    _destLocCtrl.text = s;
+                  }),
                   backgroundColor: (isDark ? Colors.white : Colors.black).withValues(alpha: 0.05),
                   side: BorderSide.none,
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -797,14 +803,26 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
           SingleChildScrollView(
             scrollDirection: Axis.horizontal,
             child: Row(
-              children: ['Fastest', 'Shortest', 'Scenic', 'Low Traffic'].map((t) {
+              children: ['Fastest', 'Shortest', 'Scenic', 'Low Traffic'].asMap().entries.map((entry) {
+                final idx = entry.key;
+                final t = entry.value;
                 final isActive = _routePreference == t;
                 return Padding(
                   padding: const EdgeInsets.only(right: 8),
                   child: ChoiceChip(
                     label: Text(t, style: const TextStyle(fontSize: 11)),
                     selected: isActive,
-                    onSelected: (val) => setState(() => _routePreference = t),
+                    onSelected: (val) => setState(() {
+                      _routePreference = t;
+                      if (_alternativeRoutes.isNotEmpty) {
+                        _selectedRouteIndex = idx % _alternativeRoutes.length;
+                        _mockPreRunRoute = _alternativeRoutes[_selectedRouteIndex];
+                        // Distance and time for alternatives aren't provided by the basic routeRes, so we just calculate mock variation
+                        _routeDistance = _routeDistance * (1.0 + (idx * 0.05));
+                        _routeDuration = (_routeDuration * (1.0 + (idx * 0.05))).round();
+                        _calculateReadiness();
+                      }
+                    }),
                     selectedColor: AppColors.pulseRed.withValues(alpha: 0.2),
                     backgroundColor: (isDark ? Colors.white : Colors.black).withValues(alpha: 0.05),
                     side: isActive ? const BorderSide(color: AppColors.pulseRed) : BorderSide.none,
