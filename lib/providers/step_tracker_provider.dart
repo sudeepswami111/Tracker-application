@@ -138,13 +138,19 @@ class StepTrackerProvider extends ChangeNotifier with WidgetsBindingObserver {
         print('[StepTracker] Reset complete. steps=$_steps, baseline=$_initialStepsForDay');
       }
 
-      notifyListeners();
+      _safeNotifyListeners();
     }
+  }
+
+  void _safeNotifyListeners() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      notifyListeners();
+    });
   }
 
   Future<void> _initPlatformState() async {
     _isLoading = true;
-    notifyListeners();
+    _safeNotifyListeners();
 
     try {
       // 1. Request Permission
@@ -248,7 +254,7 @@ class StepTrackerProvider extends ChangeNotifier with WidgetsBindingObserver {
     }
 
     _isLoading = false;
-    notifyListeners();
+    _safeNotifyListeners();
   }
 
   void onStepCount(StepCount event) async {
@@ -316,7 +322,7 @@ class StepTrackerProvider extends ChangeNotifier with WidgetsBindingObserver {
       if (kDebugMode) print('[StepTracker] Streak recorded via steps: $_steps');
     }
 
-    notifyListeners();
+    _safeNotifyListeners();
 
     if (kDebugMode) {
       print('[StepTracker] Steps: $_steps (event=${event.steps}, baseline=$_initialStepsForDay)');
@@ -325,20 +331,20 @@ class StepTrackerProvider extends ChangeNotifier with WidgetsBindingObserver {
 
   void onPedestrianStatusChanged(PedestrianStatus event) {
     _status = event.status;
-    notifyListeners();
+    _safeNotifyListeners();
   }
 
   void onPedestrianStatusError(Object error) {
     if (kDebugMode) print('Pedestrian Status Error: $error');
     _status = 'unknown';
-    notifyListeners();
+    _safeNotifyListeners();
   }
 
   void onStepCountError(Object error) {
     if (kDebugMode) print('Step Count Error: $error');
     _isAvailable = false;
     _error = "Step tracking not supported on this device";
-    notifyListeners();
+    _safeNotifyListeners();
   }
 
   @override
