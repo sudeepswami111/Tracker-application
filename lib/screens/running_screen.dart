@@ -8,6 +8,7 @@ import '../services/route_service.dart';
 import '../services/exceptions.dart';
 import '../models/geocoding_result.dart';
 import '../models/route_result.dart';
+import '../models/route_option.dart';
 
 import 'dart:ui';
 import 'package:flutter/material.dart';
@@ -85,7 +86,9 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
 
   String _selectedRunType = 'Outdoor Run';
   String _selectedSportCategory = 'Cardio';
-  String _routePreference = 'Fastest';
+  RoutePreference _routePreference = RoutePreference.fastest;
+  int _fastestRouteIndex = 0;
+  int _shortestRouteIndex = 0;
   int _routeReadinessScore = 0;
   String _routeAdvice = '';
   double _routeDistance = 0.0;
@@ -151,14 +154,32 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
       final routeRes = await _routeService.getRoute(startRes.coordinates, destRes.coordinates);
 
       if (routeRes.alternatives.isNotEmpty) {
+        // Classify alternatives: find fastest (lowest duration) and shortest (lowest distance)
+        int fastestIdx = 0;
+        int shortestIdx = 0;
+        for (int i = 1; i < routeRes.alternatives.length; i++) {
+          if (routeRes.durations[i] < routeRes.durations[fastestIdx]) fastestIdx = i;
+          if (routeRes.distances[i] < routeRes.distances[shortestIdx]) shortestIdx = i;
+        }
+
+        // Pick the route based on user's selected preference
+        int selectedIdx = 0;
+        if (_routePreference == RoutePreference.shortest) {
+          selectedIdx = shortestIdx;
+        } else {
+          selectedIdx = fastestIdx;
+        }
+
         setState(() {
           _lastRouteResult = routeRes;
           _alternativeRoutes = routeRes.alternatives;
-          _selectedRouteIndex = 0;
-          _mockPreRunRoute = routeRes.alternatives[0];
+          _fastestRouteIndex = fastestIdx;
+          _shortestRouteIndex = shortestIdx;
+          _selectedRouteIndex = selectedIdx;
+          _mockPreRunRoute = routeRes.alternatives[selectedIdx];
 
-          _routeDistance = routeRes.distanceKm;
-          _routeDuration = routeRes.durationMinutes.round();
+          _routeDistance = routeRes.distances[selectedIdx];
+          _routeDuration = routeRes.durations[selectedIdx].round();
           _routeElevation = 0; // OSRM doesn't provide elevation
 
           _targetRightLabel = 'Distance';
@@ -168,7 +189,7 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
         });
         _calculateReadiness();
         _fitMapToRoute();
-        debugPrint('Route plotted. Distance: $_routeDistance km, Duration: $_routeDuration min, Points: ${_mockPreRunRoute.length}, Alternatives: ${_alternativeRoutes.length}');
+        debugPrint('Route plotted. Fastest idx=$fastestIdx, Shortest idx=$shortestIdx, Selected=$selectedIdx, Alternatives: ${_alternativeRoutes.length}');
       }
     } catch (e) {
       if (mounted) {
@@ -294,6 +315,29 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
     });
     _calculateReadiness();
     _fitMapToRoute();
+  }
+
+  void _onRoutePreferenceSelected(RouteOption option) {
+    if (!option.isSupported) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(option.disabledMessage),
+          behavior: SnackBarBehavior.floating,
+          duration: const Duration(seconds: 2),
+        ),
+      );
+      return;
+    }
+    setState(() => _routePreference = option.preference);
+
+    // If we have routes loaded, switch to the right one
+    if (_lastRouteResult != null && _alternativeRoutes.isNotEmpty) {
+      if (option.preference == RoutePreference.shortest) {
+        _selectAlternativeRoute(_shortestRouteIndex);
+      } else {
+        _selectAlternativeRoute(_fastestRouteIndex);
+      }
+    }
   }
 
   Future<void> _fillCurrentLocation() async {
@@ -864,73 +908,104 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
             ],
           ),
           const SizedBox(height: 12),
+          // Route preference chips
           SingleChildScrollView(
             scrollDirection: Axis.horizontal,
             child: Row(
-              children: _alternativeRoutes.length > 1
-                ? _alternativeRoutes.asMap().entries.map((entry) {
-                    final i = entry.key;
-                    final isActive = _selectedRouteIndex == i;
-                    final result = _lastRouteResult;
-                    final dist = result != null && i < result.distances.length ? result.distances[i] : 0.0;
-                    final dur = result != null && i < result.durations.length ? result.durations[i] : 0.0;
-                    final label = i == 0 ? 'Route ${i + 1} (Fastest)' : 'Route ${i + 1}';
-                    return Padding(
-                      padding: const EdgeInsets.only(right: 8),
-                      child: GestureDetector(
-                        onTap: () => _selectAlternativeRoute(i),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                          decoration: BoxDecoration(
-                            color: isActive ? AppColors.voltCyan.withValues(alpha: 0.2) : (isDark ? Colors.white : Colors.black).withValues(alpha: 0.05),
-                            borderRadius: BorderRadius.circular(16),
-                            border: Border.all(color: isActive ? AppColors.voltCyan : (isDark ? Colors.white : Colors.black).withValues(alpha: 0.1)),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              if (isActive)
-                                const Icon(Icons.check_circle, size: 14, color: AppColors.voltCyan),
-                              if (isActive) const SizedBox(width: 4),
-                              Text(
-                                '$label · ${dist.toStringAsFixed(1)} km · ${dur.round()} min',
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  color: isActive ? AppColors.voltCyan : (isDark ? Colors.white : Colors.black),
-                                  fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    );
-                  }).toList()
-                : [
-                    Container(
+              children: kRouteOptions.map((option) {
+                final isActive = _routePreference == option.preference;
+                final isSupported = option.isSupported;
+                final textColor = isDark ? Colors.white : Colors.black;
+                return Padding(
+                  padding: const EdgeInsets.only(right: 8),
+                  child: GestureDetector(
+                    onTap: () => _onRoutePreferenceSelected(option),
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 200),
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                       decoration: BoxDecoration(
-                        color: AppColors.voltCyan.withValues(alpha: 0.15),
+                        color: isActive
+                            ? AppColors.voltCyan.withValues(alpha: 0.2)
+                            : textColor.withValues(alpha: isSupported ? 0.05 : 0.03),
                         borderRadius: BorderRadius.circular(16),
-                        border: Border.all(color: AppColors.voltCyan.withValues(alpha: 0.3)),
+                        border: Border.all(
+                          color: isActive
+                              ? AppColors.voltCyan
+                              : textColor.withValues(alpha: isSupported ? 0.1 : 0.06),
+                        ),
                       ),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          const Icon(Icons.check_circle, size: 14, color: AppColors.voltCyan),
-                          const SizedBox(width: 4),
-                          Text(
-                            _alternativeRoutes.isNotEmpty
-                                ? 'Fastest route · ${_routeDistance.toStringAsFixed(1)} km · $_routeDuration min'
-                                : 'Fastest route',
-                            style: const TextStyle(fontSize: 11, color: AppColors.voltCyan, fontWeight: FontWeight.bold),
+                          Icon(
+                            option.icon,
+                            size: 14,
+                            color: isActive
+                                ? AppColors.voltCyan
+                                : textColor.withValues(alpha: isSupported ? 0.7 : 0.3),
+                          ),
+                          const SizedBox(width: 6),
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                option.label,
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: isActive ? FontWeight.bold : FontWeight.w500,
+                                  color: isActive
+                                      ? AppColors.voltCyan
+                                      : textColor.withValues(alpha: isSupported ? 1.0 : 0.4),
+                                ),
+                              ),
+                              if (!isSupported)
+                                Text(
+                                  'Soon',
+                                  style: TextStyle(
+                                    fontSize: 8,
+                                    fontWeight: FontWeight.w600,
+                                    color: AppColors.solarAmber.withValues(alpha: 0.7),
+                                  ),
+                                ),
+                            ],
                           ),
                         ],
                       ),
                     ),
-                  ],
+                  ),
+                );
+              }).toList(),
             ),
           ),
+          // Alternative route comparison (if multiple real routes exist)
+          if (_alternativeRoutes.length > 1 && _lastRouteResult != null) ...[
+            const SizedBox(height: 10),
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: [
+                  _routeComparisonChip(
+                    'Fastest',
+                    _lastRouteResult!.distances[_fastestRouteIndex],
+                    _lastRouteResult!.durations[_fastestRouteIndex],
+                    _routePreference == RoutePreference.fastest,
+                    isDark,
+                    () => _onRoutePreferenceSelected(kRouteOptions[0]),
+                  ),
+                  const SizedBox(width: 8),
+                  _routeComparisonChip(
+                    'Shortest',
+                    _lastRouteResult!.distances[_shortestRouteIndex],
+                    _lastRouteResult!.durations[_shortestRouteIndex],
+                    _routePreference == RoutePreference.shortest,
+                    isDark,
+                    () => _onRoutePreferenceSelected(kRouteOptions[1]),
+                  ),
+                ],
+              ),
+            ),
+          ],
           const SizedBox(height: 12),
           if (_routeError != null) ...[
             Container(
@@ -1621,6 +1696,61 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
           Text(value, style: TextStyle(color: textColor, fontWeight: FontWeight.w700, fontSize: 14)),
           Text(label, style: TextStyle(color: textColor.withValues(alpha: 0.54), fontSize: 10)),
         ],
+      ),
+    );
+  }
+
+  Widget _routeComparisonChip(String label, double distKm, double durMin, bool isActive, bool isDark, VoidCallback onTap) {
+    final textColor = isDark ? Colors.white : Colors.black;
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        decoration: BoxDecoration(
+          color: isActive ? AppColors.voltCyan.withValues(alpha: 0.15) : textColor.withValues(alpha: 0.04),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+            color: isActive ? AppColors.voltCyan.withValues(alpha: 0.5) : textColor.withValues(alpha: 0.1),
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (isActive)
+              Container(
+                width: 8,
+                height: 8,
+                margin: const EdgeInsets.only(right: 8),
+                decoration: const BoxDecoration(
+                  color: AppColors.voltCyan,
+                  shape: BoxShape.circle,
+                ),
+              ),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                    color: isActive ? AppColors.voltCyan : textColor,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  '${distKm.toStringAsFixed(1)} km · ${durMin.round()} min',
+                  style: TextStyle(
+                    fontSize: 10,
+                    color: isActive ? AppColors.voltCyan.withValues(alpha: 0.8) : textColor.withValues(alpha: 0.5),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }
