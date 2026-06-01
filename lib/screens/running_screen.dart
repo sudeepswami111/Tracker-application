@@ -422,33 +422,68 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
   }
 
   Future<void> _initLocation() async {
+    bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+    if (!serviceEnabled) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Please enable location services.')),
+        );
+      }
+      return;
+    }
+
     var perm = await Geolocator.checkPermission();
-    if (perm == LocationPermission.denied) perm = await Geolocator.requestPermission();
-    if (perm == LocationPermission.deniedForever) return;
+    if (perm == LocationPermission.denied) {
+      perm = await Geolocator.requestPermission();
+      if (perm == LocationPermission.denied) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Location permission denied.')),
+          );
+        }
+        return;
+      }
+    }
+    if (perm == LocationPermission.deniedForever) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('Location permanently denied. Please enable in settings.'),
+            action: SnackBarAction(label: 'Settings', onPressed: () => Geolocator.openAppSettings()),
+          ),
+        );
+      }
+      return;
+    }
+
     try {
       final p = await Geolocator.getCurrentPosition(locationSettings: const LocationSettings(accuracy: LocationAccuracy.bestForNavigation));
-      setState(() => _curPos = LatLng(p.latitude, p.longitude));
-      _mapCtrl.move(_curPos!, _zoom);
-    } catch (_) {}
+      if (mounted) {
+        setState(() => _curPos = LatLng(p.latitude, p.longitude));
+        _mapCtrl.move(_curPos!, _zoom);
+      }
+    } catch (e) {
+      debugPrint('Error getting initial location: $e');
+    }
 
     // Use platform-specific settings for continuous updates
     late LocationSettings locSettings;
     if (Platform.isAndroid) {
       locSettings = AndroidSettings(
         accuracy: LocationAccuracy.bestForNavigation,
-        distanceFilter: 0,
+        distanceFilter: 3, // At least 3 meters
         intervalDuration: const Duration(seconds: 1),
         forceLocationManager: false,
         foregroundNotificationConfig: const ForegroundNotificationConfig(
           notificationTitle: 'LifePulse Running',
-          notificationText: 'Tracking your run in the background',
+          notificationText: 'Tracking your run',
           enableWakeLock: true,
         ),
       );
     } else if (Platform.isIOS) {
       locSettings = AppleSettings(
         accuracy: LocationAccuracy.bestForNavigation,
-        distanceFilter: 0,
+        distanceFilter: 3,
         activityType: ActivityType.fitness,
         pauseLocationUpdatesAutomatically: false,
         allowBackgroundLocationUpdates: true,
@@ -457,7 +492,7 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
     } else {
       locSettings = const LocationSettings(
         accuracy: LocationAccuracy.bestForNavigation,
-        distanceFilter: 0,
+        distanceFilter: 3,
       );
     }
 
@@ -467,46 +502,42 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
   }
 
   void _onPos(Position p) {
+    if (!mounted) return;
+    
+    // Ignore highly inaccurate points
+    if (p.accuracy > 30) return;
+
     final pt = LatLng(p.latitude, p.longitude);
     final speedKmh = p.speed * 3.6; // m/s to km/h
+    
     setState(() {
       _curPos = pt;
       _lastSpeed = speedKmh;
     });
-    if (_follow && _curPos != null) _mapCtrl.move(_curPos!, _zoom);
+    
+    if (_follow && _curPos != null) {
+      _mapCtrl.move(_curPos!, _zoom);
+    }
+
     if (_state == RunState.running) {
-      // Only add point if it's far enough from last point (avoid GPS jitter)
+      // Accumulate route points and distance
       if (_gpsRoute.isEmpty) {
         _gpsRoute.add(pt);
       } else {
         final lastPt = _gpsRoute.last;
         final distFromLast = const Distance().as(LengthUnit.Meter, lastPt, pt);
-        if (distFromLast >= 2) { // At least 2 meters to avoid jitter
-          _gpsRoute.add(pt);
+        
+        // Filter out tiny jitters (<2m) and impossible jumps (>100m in a second)
+        if (distFromLast >= 2 && distFromLast < 100) {
+          setState(() {
+            _gpsRoute.add(pt);
+            _distKm += (distFromLast / 1000.0);
+            _calories = (_distKm * 65).round();
+            _estimatedBpm = _estimateHeartRate(_lastSpeed);
+          });
         }
       }
-      _updateRunStats();
     }
-  }
-
-  void _updateRunStats() {
-    double d = 0;
-    for (int i = 1; i < _gpsRoute.length; i++) {
-      d += const Distance().as(LengthUnit.Kilometer, _gpsRoute[i - 1], _gpsRoute[i]);
-    }
-    setState(() {
-      _distKm = d;
-      // Pace from GPS speed (instantaneous)
-      if (_lastSpeed > 1.0) {
-        _paceMin = 60.0 / _lastSpeed; // min/km
-      } else if (_distKm > 0.005 && _durSecs > 0) {
-        // Fallback: pace from elapsed time / distance
-        _paceMin = (_durSecs / 60.0) / _distKm;
-      }
-      _calories = (_distKm * 65).round();
-      // Estimate heart rate from speed
-      _estimatedBpm = _estimateHeartRate(_lastSpeed);
-    });
   }
 
   int _estimateHeartRate(double speedKmh) {
@@ -559,20 +590,15 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
     });
     if (_curPos != null) _mapCtrl.move(_curPos!, 18); // Zoom in and center
     _timer = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (!mounted) return;
       setState(() {
         _durSecs = _elapsed().inSeconds;
-        // Recalculate distance from route every second
-        double d = 0;
-        for (int i = 1; i < _gpsRoute.length; i++) {
-          d += const Distance().as(LengthUnit.Kilometer, _gpsRoute[i - 1], _gpsRoute[i]);
-        }
-        _distKm = d;
-        // Calculate pace from distance and time as fallback
-        if (_distKm > 0.005 && _durSecs > 0 && _lastSpeed < 1.0) {
+        // Calculate average pace from accumulated distance and time
+        if (_distKm > 0.005 && _durSecs > 0) {
           _paceMin = (_durSecs / 60.0) / _distKm;
+        } else {
+          _paceMin = 0;
         }
-        _calories = (_distKm * 65).round();
-        _estimatedBpm = _estimateHeartRate(_lastSpeed);
       });
     });
   }
@@ -697,15 +723,15 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
             ),
           ]),
 
-        // Active Live Route (Pulse Red)
+        // Active Live Route (Cyan for better visibility)
         if (_gpsRoute.length >= 2)
           PolylineLayer(polylines: [
             Polyline(
               points: List.from(_gpsRoute),
               strokeWidth: 6,
-              color: AppColors.pulseRed,
+              color: AppColors.voltCyan, // Changed from red to cyan as requested
               borderStrokeWidth: 2,
-              borderColor: Colors.white.withValues(alpha: 0.4),
+              borderColor: Colors.black.withValues(alpha: 0.3),
             )
           ]),
 
