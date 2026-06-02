@@ -424,11 +424,7 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
   Future<void> _initLocation() async {
     bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
     if (!serviceEnabled) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Please enable location services.')),
-        );
-      }
+      debugPrint('Location services are disabled.');
       return;
     }
 
@@ -436,23 +432,12 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
     if (perm == LocationPermission.denied) {
       perm = await Geolocator.requestPermission();
       if (perm == LocationPermission.denied) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Location permission denied.')),
-          );
-        }
+        debugPrint('Location permission denied.');
         return;
       }
     }
     if (perm == LocationPermission.deniedForever) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Text('Location permanently denied. Please enable in settings.'),
-            action: SnackBarAction(label: 'Settings', onPressed: () => Geolocator.openAppSettings()),
-          ),
-        );
-      }
+      debugPrint('Location permission permanently denied.');
       return;
     }
 
