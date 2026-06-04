@@ -334,15 +334,17 @@ class AppProvider extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   void _showStreakResetSnackbar() {
-    final context = navigatorKey.currentContext;
-    if (context != null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Oops! You missed a day. Your streak has been reset.'),
-          backgroundColor: Colors.redAccent,
-        ),
-      );
-    }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final context = navigatorKey.currentContext;
+      if (context != null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Oops! You missed a day. Your streak has been reset.'),
+            backgroundColor: Colors.redAccent,
+          ),
+        );
+      }
+    });
   }
 
   // ──── Navigation ────
