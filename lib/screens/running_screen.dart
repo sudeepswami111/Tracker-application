@@ -499,8 +499,11 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
   void _onPos(Position p) {
     if (!mounted) return;
     
-    // Ignore highly inaccurate points
-    if (p.accuracy > 30) return;
+    // Ignore highly inaccurate points (relaxing to 80m to allow tracking in urban/pocket scenarios)
+    if (p.accuracy > 80) {
+      debugPrint('LifePulse GPS: Point ignored due to poor accuracy (${p.accuracy.toStringAsFixed(1)}m, threshold 80m)');
+      return;
+    }
 
     final pt = LatLng(p.latitude, p.longitude);
     final speedKmh = p.speed * 3.6; // m/s to km/h
@@ -518,19 +521,25 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
     if (_state == RunState.running) {
       // Accumulate route points and distance
       if (_gpsRoute.isEmpty) {
-        _gpsRoute.add(pt);
+        setState(() {
+          _gpsRoute.add(pt);
+        });
+        debugPrint('LifePulse GPS: Path started. First point added: $pt');
       } else {
         final lastPt = _gpsRoute.last;
         final distFromLast = const Distance().as(LengthUnit.Meter, lastPt, pt);
         
-        // Filter out tiny jitters (<2m) and impossible jumps (>100m in a second)
-        if (distFromLast >= 2 && distFromLast < 100) {
+        // Filter out tiny jitters (<1.5m) and impossible jumps (>100m in a second)
+        if (distFromLast >= 1.5 && distFromLast < 100) {
           setState(() {
             _gpsRoute.add(pt);
             _distKm += (distFromLast / 1000.0);
             _calories = (_distKm * 65).round();
             _estimatedBpm = _estimateHeartRate(_lastSpeed);
           });
+          debugPrint('LifePulse GPS: Point added: $pt. Distance from last: ${distFromLast.toStringAsFixed(1)}m. Total points: ${_gpsRoute.length}. Total distance: ${_distKm.toStringAsFixed(3)} km');
+        } else {
+          debugPrint('LifePulse GPS: Point ignored. Distance from last: ${distFromLast.toStringAsFixed(1)}m (must be >= 1.5m and < 100m)');
         }
       }
     }
