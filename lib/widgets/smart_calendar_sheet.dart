@@ -141,24 +141,24 @@ class _SmartCalendarSheetState extends State<SmartCalendarSheet> {
                       ),
                     ),
                   ),
-                  const SizedBox(height: 16),
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton(
-                      onPressed: _isSaving ? null : _saveNote,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.voltCyan,
-                        foregroundColor: Colors.black,
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                      ),
-                      child: _isSaving 
-                        ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.black))
-                        : const Text('Save Note', style: TextStyle(fontWeight: FontWeight.bold)),
-                    ),
-                  ),
                 ],
               ),
+            ),
+          ),
+          const SizedBox(height: 16),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              onPressed: _isSaving ? null : _saveNote,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.voltCyan,
+                foregroundColor: Colors.black,
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+              child: _isSaving 
+                ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.black))
+                : const Text('Save Note', style: TextStyle(fontWeight: FontWeight.bold)),
             ),
           ),
         ],
