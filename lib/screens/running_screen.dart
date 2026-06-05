@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math';
 import 'dart:io';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
@@ -97,6 +98,18 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
   bool _audioPrompts = true;
   bool _isFullScreenMap = false;
 
+  // Custom target variables (editable)
+  double _customTargetPaceMin = 5.5; // default 5:30 /km
+  double _customTargetDistanceKm = 5.0;
+  int _customTargetDurationMin = 30;
+  int _customTargetCalories = 350;
+
+  double _mapRotation = 0.0;
+  double _heading = 0.0;
+  bool _isDrawerCollapsed = false;
+  String _selectedMusicPlaylist = 'LifePulse Cardio Boost';
+
+
   // Pre-run target inputs
   String _targetLeftLabel = 'Target Pace';
   String _targetLeftValue = '5:30 /km';
@@ -182,10 +195,7 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
           _routeDuration = routeRes.durations[selectedIdx].round();
           _routeElevation = 0; // OSRM doesn't provide elevation
 
-          _targetRightLabel = 'Distance';
-          _targetRightValue = '${_routeDistance.toStringAsFixed(2)} km';
-          _targetLeftLabel = 'Est. Time';
-          _targetLeftValue = '$_routeDuration min';
+          _updateTargetUI();
         });
         _calculateReadiness();
         _fitMapToRoute();
@@ -310,8 +320,7 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
         _routeDistance = result.distances[index];
         _routeDuration = result.durations[index].round();
       }
-      _targetRightValue = '${_routeDistance.toStringAsFixed(2)} km';
-      _targetLeftValue = '$_routeDuration min';
+      _updateTargetUI();
     });
     _calculateReadiness();
     _fitMapToRoute();
@@ -388,6 +397,7 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
     super.initState();
     _pulseCtrl = AnimationController(vsync: this, duration: const Duration(seconds: 1))..repeat(reverse: true);
     _pulseAnim = Tween<double>(begin: 0.85, end: 1.15).animate(CurvedAnimation(parent: _pulseCtrl, curve: Curves.easeInOut));
+    _updateTargetUI();
     _initLocation();
   }
 
@@ -498,6 +508,7 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
     setState(() {
       _curPos = pt;
       _lastSpeed = speedKmh;
+      _heading = p.heading;
     });
     
     if (_follow && _curPos != null) {
@@ -672,9 +683,15 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
         interactionOptions: const InteractionOptions(
           flags: InteractiveFlag.all,
         ),
-        onPositionChanged: (cam, gesture) {
+        onPositionChanged: (pos, gesture) {
           if (gesture && _follow) setState(() => _follow = false);
-          _zoom = cam.zoom ?? _zoom;
+          _zoom = pos.zoom ?? _zoom;
+          final rot = _mapCtrl.camera.rotation;
+          if (rot != _mapRotation) {
+            setState(() {
+              _mapRotation = rot;
+            });
+          }
         },
       ),
       children: [
@@ -696,27 +713,37 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
                 ),
           ]),
         
-        // Pre-run Route (Cyan)
+        // Pre-run Route (Cyan Glow)
         if (showPreRunRoute && _mockPreRunRoute.isNotEmpty)
           PolylineLayer(polylines: [
             Polyline(
               points: _mockPreRunRoute,
-              strokeWidth: 5,
+              strokeWidth: 9,
+              color: AppColors.voltCyan.withValues(alpha: 0.25),
+            ),
+            Polyline(
+              points: _mockPreRunRoute,
+              strokeWidth: 4,
               color: AppColors.voltCyan,
-              borderStrokeWidth: 1,
-              borderColor: AppColors.voltCyan.withValues(alpha: 0.3),
+              borderStrokeWidth: 1.5,
+              borderColor: Colors.white.withValues(alpha: 0.8),
             ),
           ]),
 
-        // Active Live Route (Cyan for better visibility)
+        // Active Live Route (Cyan Glow)
         if (_gpsRoute.length >= 2)
           PolylineLayer(polylines: [
             Polyline(
               points: List.from(_gpsRoute),
-              strokeWidth: 6,
-              color: AppColors.voltCyan, // Changed from red to cyan as requested
+              strokeWidth: 10,
+              color: AppColors.voltCyan.withValues(alpha: 0.25),
+            ),
+            Polyline(
+              points: List.from(_gpsRoute),
+              strokeWidth: 5,
+              color: AppColors.voltCyan,
               borderStrokeWidth: 2,
-              borderColor: Colors.black.withValues(alpha: 0.3),
+              borderColor: Colors.white.withValues(alpha: 0.9),
             )
           ]),
 
@@ -725,31 +752,35 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
           if (_startRoutePos != null && showPreRunRoute)
             Marker(
               point: _startRoutePos!,
-              width: 36,
-              height: 36,
+              width: 44,
+              height: 44,
               child: Container(
                 decoration: BoxDecoration(
-                  color: AppColors.voltCyan,
+                  color: Colors.green.shade600,
                   shape: BoxShape.circle,
-                  border: Border.all(color: Colors.white, width: 2),
-                  boxShadow: [BoxShadow(color: AppColors.voltCyan.withValues(alpha: 0.4), blurRadius: 8)],
+                  border: Border.all(color: Colors.white, width: 2.5),
+                  boxShadow: [
+                    BoxShadow(color: Colors.green.withValues(alpha: 0.5), blurRadius: 10, spreadRadius: 2)
+                  ],
                 ),
-                child: const Icon(Icons.play_arrow, color: Colors.white, size: 18),
+                child: const Icon(Icons.play_arrow, color: Colors.white, size: 22),
               ),
             ),
           if (_endRoutePos != null && showPreRunRoute)
             Marker(
               point: _endRoutePos!,
-              width: 36,
-              height: 36,
+              width: 44,
+              height: 44,
               child: Container(
                 decoration: BoxDecoration(
                   color: AppColors.pulseRed,
                   shape: BoxShape.circle,
-                  border: Border.all(color: Colors.white, width: 2),
-                  boxShadow: [BoxShadow(color: AppColors.pulseRed.withValues(alpha: 0.4), blurRadius: 8)],
+                  border: Border.all(color: Colors.white, width: 2.5),
+                  boxShadow: [
+                    BoxShadow(color: AppColors.pulseRed.withValues(alpha: 0.5), blurRadius: 10, spreadRadius: 2)
+                  ],
                 ),
-                child: const Icon(LucideIcons.flag, color: Colors.white, size: 16),
+                child: const Icon(LucideIcons.flag, color: Colors.white, size: 18),
               ),
             ),
           if (_curPos != null)
@@ -789,6 +820,24 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
                         ],
                       ),
                     ),
+                    if (_lastSpeed > 1 && _heading != 0)
+                      Transform.rotate(
+                        angle: _heading * pi / 180,
+                        child: Align(
+                          alignment: Alignment.topCenter,
+                          child: Container(
+                            width: 8,
+                            height: 8,
+                            decoration: const BoxDecoration(
+                              color: Colors.white,
+                              shape: BoxShape.circle,
+                              boxShadow: [
+                                BoxShadow(color: Colors.black26, blurRadius: 2)
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
                   ],
                 ),
               ),
@@ -1113,24 +1162,10 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
                               Positioned(
                                 top: 16,
                                 right: 16,
-                                child: Column(
-                                  children: [
-                                    _mapControlBtn(
-                                      icon: _isFullScreenMap ? Icons.fullscreen_exit : Icons.fullscreen,
-                                      onTap: _toggleFullScreen,
-                                    ),
-                                    const SizedBox(height: 12),
-                                    _mapControlBtn(
-                                      icon: Icons.my_location,
-                                      onTap: _resetLocation,
-                                      color: _follow ? AppColors.voltCyan : null,
-                                    ),
-                                    const SizedBox(height: 12),
-                                    _mapControlBtn(
-                                      icon: Icons.layers,
-                                      onTap: () => _showLayerPicker(context),
-                                    ),
-                                  ],
+                                child: _buildRightMapControls(
+                                  isFullScreen: false,
+                                  isRunning: false,
+                                  isDark: isDark,
                                 ),
                               ),
                               
@@ -1172,24 +1207,10 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
               Positioned(
                 top: MediaQuery.of(context).padding.top > 20 ? MediaQuery.of(context).padding.top + 16 : 40,
                 right: 16,
-                child: Column(
-                  children: [
-                    _mapControlBtn(
-                      icon: Icons.fullscreen_exit,
-                      onTap: _toggleFullScreen,
-                    ),
-                    const SizedBox(height: 12),
-                    _mapControlBtn(
-                      icon: Icons.my_location,
-                      onTap: _resetLocation,
-                      color: _follow ? AppColors.voltCyan : null,
-                    ),
-                    const SizedBox(height: 12),
-                    _mapControlBtn(
-                      icon: Icons.layers,
-                      onTap: () => _showLayerPicker(context),
-                    ),
-                  ],
+                child: _buildRightMapControls(
+                  isFullScreen: true,
+                  isRunning: false,
+                  isDark: isDark,
                 ),
               ),
 
@@ -1206,6 +1227,17 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
                     });
                   },
                 ),
+              ),
+
+            // Floating drawer in fullscreen planning mode
+            if (!isRunningPhase && _isFullScreenMap)
+              Positioned(
+                left: 16,
+                right: 16,
+                bottom: MediaQuery.of(context).padding.bottom > 20
+                    ? MediaQuery.of(context).padding.bottom + 16
+                    : 24,
+                child: _buildFullscreenDrawer(isDark, theme),
               ),
           ],
 
@@ -1262,19 +1294,10 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
               Positioned(
                 bottom: size.height * 0.4 + 60, // 60px above the metric panel (above elevation strip)
                 right: 16,
-                child: Column(
-                  children: [
-                    _mapControlBtn(
-                      icon: Icons.my_location,
-                      onTap: _resetLocation,
-                      color: _follow ? AppColors.voltCyan : null,
-                    ),
-                    const SizedBox(height: 12),
-                    _mapControlBtn(
-                      icon: Icons.layers,
-                      onTap: () => _showLayerPicker(context),
-                    ),
-                  ],
+                child: _buildRightMapControls(
+                  isFullScreen: true,
+                  isRunning: true,
+                  isDark: isDark,
                 ),
               ),
 
@@ -1423,9 +1446,19 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
                     margin: const EdgeInsets.only(right: 8),
                     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                     decoration: BoxDecoration(
-                      color: isActive ? AppColors.voltCyan.withValues(alpha: 0.2) : Colors.transparent,
+                      color: isActive ? AppColors.voltCyan.withValues(alpha: 0.15) : (isDark ? Colors.white10 : Colors.black12).withValues(alpha: 0.05),
                       borderRadius: BorderRadius.circular(20),
-                      border: Border.all(color: isActive ? AppColors.voltCyan : (isDark ? Colors.white : Colors.black).withValues(alpha: 0.1)),
+                      border: Border.all(
+                        color: isActive ? AppColors.voltCyan : (isDark ? Colors.white : Colors.black).withValues(alpha: 0.1),
+                        width: isActive ? 1.5 : 1,
+                      ),
+                      boxShadow: isActive ? [
+                        BoxShadow(
+                          color: AppColors.voltCyan.withValues(alpha: 0.25),
+                          blurRadius: 6,
+                          spreadRadius: 1,
+                        )
+                      ] : null,
                     ),
                     child: Text(cat, style: TextStyle(color: isActive ? AppColors.voltCyan : (isDark ? Colors.white : Colors.black).withValues(alpha: 0.7), fontWeight: FontWeight.bold, fontSize: 13)),
                   ),
@@ -1448,9 +1481,19 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
           // Target pace / distance input row
           Row(
             children: [
-              Expanded(child: _ghostInput(_targetLeftLabel, _targetLeftValue, isDark)),
+              Expanded(
+                child: GestureDetector(
+                  onTap: () => _onTargetCardTapped(_targetLeftLabel),
+                  child: _ghostInput(_targetLeftLabel, _targetLeftValue, isDark),
+                ),
+              ),
               const SizedBox(width: 16),
-              Expanded(child: _ghostInput(_targetRightLabel, _targetRightValue, isDark)),
+              Expanded(
+                child: GestureDetector(
+                  onTap: () => _onTargetCardTapped(_targetRightLabel),
+                  child: _ghostInput(_targetRightLabel, _targetRightValue, isDark),
+                ),
+              ),
             ],
           ),
           const SizedBox(height: AppSpacing.xl),
@@ -1466,22 +1509,40 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
                 itemCount: context.watch<WeatherProvider>().weather!.hourly.length,
                 itemBuilder: (context, index) {
                   final h = context.watch<WeatherProvider>().weather!.hourly[index];
+                  final isRainy = h.condition.toLowerCase().contains('rain');
+                  final cardGradient = LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: isRainy
+                        ? [
+                            Colors.blueGrey.withValues(alpha: 0.15),
+                            Colors.blueGrey.withValues(alpha: 0.03),
+                          ]
+                        : [
+                            Colors.orange.withValues(alpha: 0.12),
+                            Colors.orange.withValues(alpha: 0.02),
+                          ],
+                  );
+                  final borderColor = isRainy
+                      ? Colors.blueGrey.withValues(alpha: 0.25)
+                      : Colors.orange.withValues(alpha: 0.2);
+
                   return Container(
                     margin: const EdgeInsets.only(right: 12),
-                    padding: const EdgeInsets.all(12),
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                     decoration: BoxDecoration(
-                      color: (isDark ? Colors.white : Colors.black).withValues(alpha: 0.05),
+                      gradient: cardGradient,
                       borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: (isDark ? Colors.white : Colors.black).withValues(alpha: 0.1)),
+                      border: Border.all(color: borderColor),
                     ),
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Text(DateFormat('HH:mm').format(h.time), style: TextStyle(color: (isDark ? Colors.white : Colors.black).withValues(alpha: 0.7), fontSize: 12)),
-                        const SizedBox(height: 4),
-                        Icon(h.condition.toLowerCase().contains('rain') ? LucideIcons.cloudRain : LucideIcons.sun, size: 20, color: AppColors.solarAmber),
-                        const SizedBox(height: 4),
-                        Text('${h.temp.round()}°', style: TextStyle(color: isDark ? Colors.white : Colors.black, fontWeight: FontWeight.bold)),
+                        Text(DateFormat('HH:mm').format(h.time), style: TextStyle(color: (isDark ? Colors.white : Colors.black).withValues(alpha: 0.7), fontSize: 11)),
+                        const SizedBox(height: 6),
+                        Icon(isRainy ? LucideIcons.cloudRain : LucideIcons.sun, size: 20, color: isRainy ? AppColors.voltCyan : AppColors.solarAmber),
+                        const SizedBox(height: 6),
+                        Text('${h.temp.round()}°', style: TextStyle(color: isDark ? Colors.white : Colors.black, fontWeight: FontWeight.bold, fontSize: 13)),
                       ],
                     ),
                   );
@@ -1501,23 +1562,33 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
             ),
             child: Row(
               children: [
-                Container(
-                  width: 32,
-                  height: 32,
-                  decoration: const BoxDecoration(
-                    color: AppColors.irisViolet,
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(LucideIcons.music, size: 16, color: Colors.white),
-                ),
-                const SizedBox(width: 12),
                 Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text('Running Mix 2026', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 14)),
-                      Text('Audio Prompts', style: TextStyle(color: Colors.white.withValues(alpha: 0.5), fontSize: 12)),
-                    ],
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTap: _showMusicSelector,
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 32,
+                          height: 32,
+                          decoration: const BoxDecoration(
+                            color: AppColors.irisViolet,
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(LucideIcons.music, size: 16, color: Colors.white),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(_selectedMusicPlaylist, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 14)),
+                              Text('Audio Prompts', style: TextStyle(color: Colors.white.withValues(alpha: 0.5), fontSize: 12)),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
                 Switch(
@@ -1666,7 +1737,7 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
     );
   }
 
-  Widget _mapControlBtn({required IconData icon, required VoidCallback onTap, Color? color}) {
+  Widget _mapControlBtn({required IconData icon, required VoidCallback onTap, Color? color, Widget? iconWidget}) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return GestureDetector(
       onTap: onTap,
@@ -1680,13 +1751,654 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
             decoration: BoxDecoration(
               color: (isDark ? Colors.black : Colors.white).withValues(alpha: 0.6),
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: (isDark ? Colors.white : Colors.black).withValues(alpha: 0.1)),
+              border: Border.all(color: (isDark ? AppColors.voltCyan.withValues(alpha: 0.3) : Colors.black.withValues(alpha: 0.15))),
               boxShadow: [
                 BoxShadow(color: Colors.black.withValues(alpha: 0.1), blurRadius: 4, offset: const Offset(0, 2))
               ],
             ),
-            child: Icon(icon, color: color ?? (isDark ? Colors.white : Colors.black), size: 24),
+            child: Center(
+              child: iconWidget ?? Icon(icon, color: color ?? (isDark ? Colors.white : Colors.black), size: 24),
+            ),
           ),
+        ),
+      ),
+    );
+  }
+
+  String _formatPaceFromDouble(double paceMinutes) {
+    final minutes = paceMinutes.floor();
+    final seconds = ((paceMinutes - minutes) * 60).round();
+    return '$minutes:${seconds.toString().padLeft(2, '0')} /km';
+  }
+
+  void _updateTargetUI() {
+    if (_mockPreRunRoute.isNotEmpty) {
+      _targetRightLabel = 'Distance';
+      _targetRightValue = '${_routeDistance.toStringAsFixed(2)} km';
+      final estTimeMin = (_routeDistance * _customTargetPaceMin).round();
+      _targetLeftLabel = 'Est. Time';
+      _targetLeftValue = '$estTimeMin min';
+    } else {
+      _targetLeftLabel = 'Target Pace';
+      _targetLeftValue = _formatPaceFromDouble(_customTargetPaceMin);
+      _targetRightLabel = 'Distance';
+      _targetRightValue = '${_customTargetDistanceKm.toStringAsFixed(1)} km';
+    }
+  }
+
+  void _onTargetCardTapped(String label) {
+    final cleanLabel = label.toLowerCase();
+    if (cleanLabel.contains('pace') || cleanLabel.contains('est. time')) {
+      _showPaceTargetPicker();
+    } else if (cleanLabel.contains('distance')) {
+      _showDistanceTargetPicker();
+    } else if (cleanLabel.contains('duration')) {
+      _showDurationTargetPicker();
+    } else if (cleanLabel.contains('burn') || cleanLabel.contains('kcal')) {
+      _showCaloriesTargetPicker();
+    }
+  }
+
+  Widget _buildPickerHeader({
+    required String title,
+    required bool isDark,
+    required VoidCallback onCancel,
+    required VoidCallback onDone,
+  }) {
+    final textColor = isDark ? Colors.white : Colors.black;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        border: Border(bottom: BorderSide(color: textColor.withValues(alpha: 0.1), width: 1)),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          TextButton(
+            onPressed: onCancel,
+            child: Text('Cancel', style: TextStyle(color: textColor.withValues(alpha: 0.5), fontSize: 14)),
+          ),
+          Text(title, style: TextStyle(color: textColor, fontWeight: FontWeight.bold, fontSize: 16)),
+          TextButton(
+            onPressed: onDone,
+            child: const Text('Done', style: TextStyle(color: AppColors.voltCyan, fontWeight: FontWeight.bold, fontSize: 14)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showPaceTargetPicker() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    int selectedMin = _customTargetPaceMin.floor().clamp(3, 12);
+    int selectedSec = (((_customTargetPaceMin - selectedMin) * 60) / 5).round().clamp(0, 11) * 5;
+    
+    final minScrollCtrl = FixedExtentScrollController(initialItem: selectedMin - 3);
+    final secScrollCtrl = FixedExtentScrollController(initialItem: selectedSec ~/ 5);
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (context, setSheetState) {
+            return Container(
+              height: 320,
+              decoration: BoxDecoration(
+                color: isDark ? const Color(0xFF1C1C1E) : Colors.white,
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+                border: Border.all(color: (isDark ? Colors.white : Colors.black).withValues(alpha: 0.1)),
+              ),
+              child: Column(
+                children: [
+                  _buildPickerHeader(
+                    title: 'Set Target Pace',
+                    isDark: isDark,
+                    onCancel: () => Navigator.pop(ctx),
+                    onDone: () {
+                      setState(() {
+                        _customTargetPaceMin = minScrollCtrl.selectedItem + 3 + (secScrollCtrl.selectedItem * 5) / 60.0;
+                        _updateTargetUI();
+                      });
+                      Navigator.pop(ctx);
+                    },
+                  ),
+                  Expanded(
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        SizedBox(
+                          width: 80,
+                          child: ListWheelScrollView.useDelegate(
+                            controller: minScrollCtrl,
+                            itemExtent: 44,
+                            physics: const FixedExtentScrollPhysics(),
+                            perspective: 0.005,
+                            onSelectedItemChanged: (idx) {
+                              setSheetState(() {
+                                selectedMin = idx + 3;
+                              });
+                            },
+                            childDelegate: ListWheelChildBuilderDelegate(
+                              builder: (context, index) {
+                                final val = index + 3;
+                                if (val < 3 || val > 12) return null;
+                                final isSelected = val == selectedMin;
+                                return Center(
+                                  child: Text(
+                                    '$val',
+                                    style: TextStyle(
+                                      color: isSelected ? AppColors.voltCyan : (isDark ? Colors.white60 : Colors.black54),
+                                      fontSize: 22,
+                                      fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                                    ),
+                                  ),
+                                );
+                              },
+                              childCount: 10,
+                            ),
+                          ),
+                        ),
+                        Text(':', style: TextStyle(color: isDark ? Colors.white : Colors.black, fontSize: 22, fontWeight: FontWeight.bold)),
+                        SizedBox(
+                          width: 80,
+                          child: ListWheelScrollView.useDelegate(
+                            controller: secScrollCtrl,
+                            itemExtent: 44,
+                            physics: const FixedExtentScrollPhysics(),
+                            perspective: 0.005,
+                            onSelectedItemChanged: (idx) {
+                              setSheetState(() {
+                                selectedSec = idx * 5;
+                              });
+                            },
+                            childDelegate: ListWheelChildBuilderDelegate(
+                              builder: (context, index) {
+                                final val = index * 5;
+                                if (val < 0 || val > 55) return null;
+                                final isSelected = val == selectedSec;
+                                return Center(
+                                  child: Text(
+                                    val.toString().padLeft(2, '0'),
+                                    style: TextStyle(
+                                      color: isSelected ? AppColors.voltCyan : (isDark ? Colors.white60 : Colors.black54),
+                                      fontSize: 22,
+                                      fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                                    ),
+                                  ),
+                                );
+                              },
+                              childCount: 12,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Text('/km', style: TextStyle(color: (isDark ? Colors.white : Colors.black).withValues(alpha: 0.5), fontSize: 16)),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            );
+          }
+        );
+      },
+    );
+  }
+
+  void _showDistanceTargetPicker() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final List<double> distances = List.generate(59, (i) => 1.0 + i * 0.5);
+    int selectedIdx = distances.indexOf(_customTargetDistanceKm);
+    if (selectedIdx == -1) selectedIdx = 8;
+    
+    final scrollCtrl = FixedExtentScrollController(initialItem: selectedIdx);
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (context, setSheetState) {
+            return Container(
+              height: 320,
+              decoration: BoxDecoration(
+                color: isDark ? const Color(0xFF1C1C1E) : Colors.white,
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+                border: Border.all(color: (isDark ? Colors.white : Colors.black).withValues(alpha: 0.1)),
+              ),
+              child: Column(
+                children: [
+                  _buildPickerHeader(
+                    title: 'Set Target Distance',
+                    isDark: isDark,
+                    onCancel: () => Navigator.pop(ctx),
+                    onDone: () {
+                      setState(() {
+                        _customTargetDistanceKm = distances[scrollCtrl.selectedItem];
+                        _updateTargetUI();
+                      });
+                      Navigator.pop(ctx);
+                    },
+                  ),
+                  Expanded(
+                    child: ListWheelScrollView.useDelegate(
+                      controller: scrollCtrl,
+                      itemExtent: 44,
+                      physics: const FixedExtentScrollPhysics(),
+                      perspective: 0.005,
+                      onSelectedItemChanged: (idx) {
+                        setSheetState(() {
+                          selectedIdx = idx;
+                        });
+                      },
+                      childDelegate: ListWheelChildBuilderDelegate(
+                        builder: (context, index) {
+                          if (index < 0 || index >= distances.length) return null;
+                          final val = distances[index];
+                          final isSelected = index == selectedIdx;
+                          return Center(
+                            child: Text(
+                              '${val.toStringAsFixed(1)} km',
+                              style: TextStyle(
+                                color: isSelected ? AppColors.voltCyan : (isDark ? Colors.white60 : Colors.black54),
+                                fontSize: 22,
+                                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                              ),
+                            ),
+                          );
+                        },
+                        childCount: distances.length,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          }
+        );
+      },
+    );
+  }
+
+  void _showDurationTargetPicker() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final List<int> durations = List.generate(36, (i) => 5 + i * 5);
+    int selectedIdx = durations.indexOf(_customTargetDurationMin);
+    if (selectedIdx == -1) selectedIdx = 5;
+    
+    final scrollCtrl = FixedExtentScrollController(initialItem: selectedIdx);
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (context, setSheetState) {
+            return Container(
+              height: 320,
+              decoration: BoxDecoration(
+                color: isDark ? const Color(0xFF1C1C1E) : Colors.white,
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+                border: Border.all(color: (isDark ? Colors.white : Colors.black).withValues(alpha: 0.1)),
+              ),
+              child: Column(
+                children: [
+                  _buildPickerHeader(
+                    title: 'Set Target Duration',
+                    isDark: isDark,
+                    onCancel: () => Navigator.pop(ctx),
+                    onDone: () {
+                      setState(() {
+                        _customTargetDurationMin = durations[scrollCtrl.selectedItem];
+                        _targetLeftValue = '$_customTargetDurationMin min';
+                      });
+                      Navigator.pop(ctx);
+                    },
+                  ),
+                  Expanded(
+                    child: ListWheelScrollView.useDelegate(
+                      controller: scrollCtrl,
+                      itemExtent: 44,
+                      physics: const FixedExtentScrollPhysics(),
+                      perspective: 0.005,
+                      onSelectedItemChanged: (idx) {
+                        setSheetState(() {
+                          selectedIdx = idx;
+                        });
+                      },
+                      childDelegate: ListWheelChildBuilderDelegate(
+                        builder: (context, index) {
+                          if (index < 0 || index >= durations.length) return null;
+                          final val = durations[index];
+                          final isSelected = index == selectedIdx;
+                          return Center(
+                            child: Text(
+                              '$val min',
+                              style: TextStyle(
+                                color: isSelected ? AppColors.voltCyan : (isDark ? Colors.white60 : Colors.black54),
+                                fontSize: 22,
+                                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                              ),
+                            ),
+                          );
+                        },
+                        childCount: durations.length,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          }
+        );
+      },
+    );
+  }
+
+  void _showCaloriesTargetPicker() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final List<int> calories = List.generate(40, (i) => 50 + i * 50);
+    int selectedIdx = calories.indexOf(_customTargetCalories);
+    if (selectedIdx == -1) selectedIdx = 6;
+    
+    final scrollCtrl = FixedExtentScrollController(initialItem: selectedIdx);
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (context, setSheetState) {
+            return Container(
+              height: 320,
+              decoration: BoxDecoration(
+                color: isDark ? const Color(0xFF1C1C1E) : Colors.white,
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+                border: Border.all(color: (isDark ? Colors.white : Colors.black).withValues(alpha: 0.1)),
+              ),
+              child: Column(
+                children: [
+                  _buildPickerHeader(
+                    title: 'Set Target Burn',
+                    isDark: isDark,
+                    onCancel: () => Navigator.pop(ctx),
+                    onDone: () {
+                      setState(() {
+                        _customTargetCalories = calories[scrollCtrl.selectedItem];
+                        _targetRightValue = '$_customTargetCalories kcal';
+                      });
+                      Navigator.pop(ctx);
+                    },
+                  ),
+                  Expanded(
+                    child: ListWheelScrollView.useDelegate(
+                      controller: scrollCtrl,
+                      itemExtent: 44,
+                      physics: const FixedExtentScrollPhysics(),
+                      perspective: 0.005,
+                      onSelectedItemChanged: (idx) {
+                        setSheetState(() {
+                          selectedIdx = idx;
+                        });
+                      },
+                      childDelegate: ListWheelChildBuilderDelegate(
+                        builder: (context, index) {
+                          if (index < 0 || index >= calories.length) return null;
+                          final val = calories[index];
+                          final isSelected = index == selectedIdx;
+                          return Center(
+                            child: Text(
+                              '$val kcal',
+                              style: TextStyle(
+                                color: isSelected ? AppColors.voltCyan : (isDark ? Colors.white60 : Colors.black54),
+                                fontSize: 22,
+                                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                              ),
+                            ),
+                          );
+                        },
+                        childCount: calories.length,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          }
+        );
+      },
+    );
+  }
+
+  void _showMusicSelector() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final playlists = [
+      {'name': 'LifePulse Cardio Boost', 'genre': 'Upbeat Dance · 130 BPM', 'icon': LucideIcons.zap},
+      {'name': 'Sunset Trail Ride', 'genre': 'Chill Acoustic / Lo-Fi · 110 BPM', 'icon': LucideIcons.compass},
+      {'name': 'Hardcore Running Mix', 'genre': 'Rock / Metal · 150 BPM', 'icon': LucideIcons.flame},
+      {'name': 'Zen Recovery Walk', 'genre': 'Ambient / Meditation · 90 BPM', 'icon': LucideIcons.sprout},
+    ];
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: isDark ? const Color(0xFF1A1A2E) : Colors.white,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      builder: (ctx) => Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Select Running Mix', style: TextStyle(color: isDark ? Colors.white : Colors.black, fontSize: 20, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 4),
+            Text('Choose soundtrack for your workout', style: TextStyle(color: (isDark ? Colors.white : Colors.black).withValues(alpha: 0.5), fontSize: 13)),
+            const SizedBox(height: 20),
+            ...playlists.map((pl) {
+              final isSelected = _selectedMusicPlaylist == pl['name'];
+              return ListTile(
+                leading: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: isSelected ? AppColors.voltCyan.withValues(alpha: 0.15) : (isDark ? Colors.white10 : Colors.black54.withValues(alpha: 0.05)),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(pl['icon'] as IconData, color: isSelected ? AppColors.voltCyan : (isDark ? Colors.white : Colors.black)),
+                ),
+                title: Text(pl['name'] as String, style: TextStyle(color: isDark ? Colors.white : Colors.black, fontWeight: FontWeight.bold)),
+                subtitle: Text(pl['genre'] as String, style: TextStyle(color: (isDark ? Colors.white : Colors.black).withValues(alpha: 0.5), fontSize: 12)),
+                trailing: isSelected ? const Icon(Icons.check_circle, color: AppColors.voltCyan) : null,
+                onTap: () {
+                  setState(() => _selectedMusicPlaylist = pl['name'] as String);
+                  Navigator.pop(ctx);
+                },
+              );
+            }).toList(),
+            const SizedBox(height: 16),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildRightMapControls({
+    required bool isFullScreen,
+    required bool isRunning,
+    required bool isDark,
+  }) {
+    final showCompass = _mapRotation.abs() > 1.0;
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (!isRunning) ...[
+          _mapControlBtn(
+            icon: isFullScreen ? Icons.fullscreen_exit : Icons.fullscreen,
+            onTap: _toggleFullScreen,
+          ),
+          const SizedBox(height: 8),
+        ],
+        _mapControlBtn(
+          icon: Icons.add,
+          onTap: () {
+            final newZoom = (_zoom + 1).clamp(1.0, 19.0);
+            _mapCtrl.move(_mapCtrl.camera.center, newZoom);
+            setState(() => _zoom = newZoom);
+          },
+        ),
+        const SizedBox(height: 8),
+        _mapControlBtn(
+          icon: Icons.remove,
+          onTap: () {
+            final newZoom = (_zoom - 1).clamp(1.0, 19.0);
+            _mapCtrl.move(_mapCtrl.camera.center, newZoom);
+            setState(() => _zoom = newZoom);
+          },
+        ),
+        const SizedBox(height: 8),
+        if (showCompass) ...[
+          _mapControlBtn(
+            icon: Icons.explore,
+            iconWidget: Transform.rotate(
+              angle: -_mapRotation * pi / 180,
+              child: const Icon(LucideIcons.compass, color: AppColors.voltCyan, size: 24),
+            ),
+            onTap: () {
+              _mapCtrl.rotate(0.0);
+              setState(() => _mapRotation = 0.0);
+            },
+          ),
+          const SizedBox(height: 8),
+        ],
+        _mapControlBtn(
+          icon: Icons.my_location,
+          onTap: _resetLocation,
+          color: _follow ? AppColors.voltCyan : null,
+        ),
+        const SizedBox(height: 8),
+        _mapControlBtn(
+          icon: Icons.layers,
+          onTap: () => _showLayerPicker(context),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildFullscreenDrawer(bool isDark, ThemeData theme) {
+    return AnimatedSize(
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.easeInOut,
+      child: GlassCard(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Handle bar / Collapse button
+            GestureDetector(
+              onTap: () => setState(() => _isDrawerCollapsed = !_isDrawerCollapsed),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Container(
+                    width: 36,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: (isDark ? Colors.white : Colors.black).withValues(alpha: 0.2),
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 8),
+
+            if (_isDrawerCollapsed) ...[
+              // Collapsed state
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Expanded(
+                    child: Text(
+                      _mockPreRunRoute.isNotEmpty
+                          ? '${_routeDistance.toStringAsFixed(1)} km · $_routeDuration min (${_routePreference.name.toUpperCase()})'
+                          : 'No route planned',
+                      style: TextStyle(color: isDark ? Colors.white : Colors.black, fontWeight: FontWeight.bold, fontSize: 14),
+                    ),
+                  ),
+                  GestureDetector(
+                    onTap: () => setState(() => _isDrawerCollapsed = false),
+                    child: Text(
+                      _mockPreRunRoute.isNotEmpty ? 'Details' : 'Plan Route',
+                      style: const TextStyle(color: AppColors.voltCyan, fontWeight: FontWeight.bold, fontSize: 13),
+                    ),
+                  ),
+                ],
+              ),
+            ] else ...[
+              // Expanded state
+              if (_mockPreRunRoute.isEmpty) ...[
+                // Show Route Planner inputs
+                _buildRoutePlannerUI(isDark),
+              ] else ...[
+                // Show Route Summary & targets & Start button
+                Row(
+                  children: [
+                    const Icon(LucideIcons.checkCircle2, color: Colors.green, size: 18),
+                    const SizedBox(width: 8),
+                    Text('Route Ready', style: TextStyle(color: isDark ? Colors.white : Colors.black, fontWeight: FontWeight.bold, fontSize: 15)),
+                    const Spacer(),
+                    GestureDetector(
+                      onTap: () {
+                        setState(() {
+                          _mockPreRunRoute.clear();
+                          _alternativeRoutes.clear();
+                          _routeDistance = 0.0;
+                          _routeDuration = 0;
+                          _routeReadinessScore = 0;
+                          _updateTargetUI();
+                        });
+                      },
+                      child: const Text('Edit Locations', style: TextStyle(color: AppColors.voltCyan, fontWeight: FontWeight.w600, fontSize: 12)),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                _buildRouteSummaryCard(isDark),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(child: GestureDetector(
+                      onTap: () => _onTargetCardTapped(_targetLeftLabel),
+                      child: _ghostInput(_targetLeftLabel, _targetLeftValue, isDark),
+                    )),
+                    const SizedBox(width: 12),
+                    Expanded(child: GestureDetector(
+                      onTap: () => _onTargetCardTapped(_targetRightLabel),
+                      child: _ghostInput(_targetRightLabel, _targetRightValue, isDark),
+                    )),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                SizedBox(
+                  width: double.infinity,
+                  height: 48,
+                  child: ElevatedButton(
+                    onPressed: _startCountdown,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.pulseRed,
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                    child: const Text('START RUN', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                  ),
+                ),
+              ],
+            ],
+          ],
         ),
       ),
     );
@@ -1777,9 +2489,16 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
         margin: const EdgeInsets.only(right: 12),
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
         decoration: BoxDecoration(
-          color: isActive ? AppColors.pulseRed : Colors.transparent,
+          color: isActive ? AppColors.pulseRed : surfaceColor.withValues(alpha: 0.03),
           borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: isActive ? AppColors.pulseRed : surfaceColor.withValues(alpha: 0.2)),
+          border: Border.all(color: isActive ? AppColors.pulseRed : surfaceColor.withValues(alpha: 0.15)),
+          boxShadow: isActive ? [
+            BoxShadow(
+              color: AppColors.pulseRed.withValues(alpha: 0.3),
+              blurRadius: 8,
+              spreadRadius: 1,
+            )
+          ] : null,
         ),
         child: Row(
           children: [
@@ -1798,16 +2517,24 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
-        color: Colors.transparent,
+        color: surfaceColor.withValues(alpha: 0.03),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: surfaceColor.withValues(alpha: 0.2)),
+        border: Border.all(color: surfaceColor.withValues(alpha: 0.15)),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(label, style: TextStyle(color: textColor.withValues(alpha: 0.54), fontSize: 11)),
-          const SizedBox(height: 4),
-          Text(value, style: TextStyle(color: textColor, fontWeight: FontWeight.w700, fontSize: 16)),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(label, style: TextStyle(color: textColor.withValues(alpha: 0.54), fontSize: 11)),
+                const SizedBox(height: 4),
+                Text(value, style: TextStyle(color: textColor, fontWeight: FontWeight.w700, fontSize: 16)),
+              ],
+            ),
+          ),
+          Icon(Icons.edit, size: 14, color: textColor.withValues(alpha: 0.3)),
         ],
       ),
     );
