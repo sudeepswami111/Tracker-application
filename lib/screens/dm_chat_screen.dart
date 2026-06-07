@@ -245,7 +245,6 @@ class _DMListScreenState extends State<DMListScreen> {
 
   Widget _buildChatTile(ChatRoom chat, ThemeData theme, bool isDark) {
     final name    = chat.friend.displayName;
-    final initials = name.trim().split(' ').map((e) => e[0]).take(2).join().toUpperCase();
 
     return GestureDetector(
       onTap: () => Navigator.push(
@@ -368,7 +367,6 @@ class _SearchUserTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final name     = user.fullName.isNotEmpty ? user.fullName : user.username;
-    final initials = name.trim().split(' ').map((e) => e[0]).take(2).join().toUpperCase();
 
     return GestureDetector(
       onTap: onTap,

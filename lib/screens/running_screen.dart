@@ -1,13 +1,9 @@
 import 'dart:async';
-import 'dart:math';
 import 'dart:io';
-import 'dart:convert';
-import 'package:http/http.dart' as http;
 import 'package:geocoding/geocoding.dart';
 import '../services/geocoding_service.dart';
 import '../services/route_service.dart';
 import '../services/exceptions.dart';
-import '../models/geocoding_result.dart';
 import '../models/route_result.dart';
 import '../models/route_option.dart';
 
@@ -26,7 +22,6 @@ import '../widgets/glass_card.dart';
 import 'package:provider/provider.dart';
 import '../providers/app_provider.dart';
 import '../providers/weather_provider.dart';
-import '../providers/theme_provider.dart';
 import 'package:intl/intl.dart';
 import '../constants/activity_types.dart' hide ActivityType;
 import 'fitness_screen.dart';
@@ -569,7 +564,12 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
     // Hide bottom nav by triggering callback
     widget.onFullscreenChanged?.call(true);
 
-    Timer.periodic(const Duration(seconds: 1), (timer) {
+    _timer?.cancel();
+    _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (!mounted) {
+        timer.cancel();
+        return;
+      }
       if (_countdown > 1) {
         HapticFeedback.heavyImpact();
         setState(() => _countdown--);
@@ -624,7 +624,9 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
       _pauseStart = null;
     }
     setState(() => _state = RunState.running);
+    _timer?.cancel();
     _timer = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (!mounted) return;
       setState(() => _durSecs = _elapsed().inSeconds);
     });
   }
@@ -682,7 +684,6 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
   }
 
   Widget _buildMapWidget(String mapUrl, bool isDark, bool showPreRunRoute) {
-    final isActiveRun = _state == RunState.running || _state == RunState.paused;
     return FlutterMap(
       key: _mapKey,
       mapController: _mapCtrl,

@@ -1359,17 +1359,13 @@ class _UserTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final initials = user.fullName.trim().isEmpty
-        ? user.username.isNotEmpty
-              ? user.username[0].toUpperCase()
-              : '?'
-        : user.fullName
-              .trim()
-              .split(' ')
-              .map((e) => e[0])
-              .take(2)
-              .join()
-              .toUpperCase();
+    final name = user.fullName.isNotEmpty ? user.fullName : user.username;
+    final parts = name.trim().split(RegExp(r'\s+'));
+    final initials = parts.isEmpty || parts[0].isEmpty
+        ? '?'
+        : (parts.length > 1 && parts[1].isNotEmpty
+            ? '${parts[0][0]}${parts[1][0]}'
+            : parts[0][0]).toUpperCase();
 
     return ListTile(
       contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),

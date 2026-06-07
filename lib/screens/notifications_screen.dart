@@ -449,7 +449,6 @@ class _RequestsSection extends StatelessWidget {
               : follower?['username'] as String? ?? 'Someone';
           final username  = follower?['username'] as String? ?? '';
           final avatarUrl = follower?['avatar_url'] as String?;
-          final initials  = name.trim().split(' ').map((e) => e[0]).take(2).join().toUpperCase();
 
           return Padding(
             padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),

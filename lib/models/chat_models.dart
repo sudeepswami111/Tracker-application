@@ -1,4 +1,4 @@
-﻿// ── Chat & Message Models ─────────────────────────────────────────────────────
+// ── Chat & Message Models ─────────────────────────────────────────────────────
 
 class ChatRoom {
   final String chatId;
@@ -50,10 +50,12 @@ class ChatFriend {
 
   String get initials {
     final name = displayName.trim();
-    final parts = name.split(' ');
-    if (parts.length >= 2) return '${parts[0][0]}${parts[1][0]}'.toUpperCase();
-    if (name.isNotEmpty) return name[0].toUpperCase();
-    return '?';
+    if (name.isEmpty) return '?';
+    final parts = name.split(RegExp(r'\s+'));
+    if (parts.length >= 2 && parts[0].isNotEmpty && parts[1].isNotEmpty) {
+      return '${parts[0][0]}${parts[1][0]}'.toUpperCase();
+    }
+    return name[0].toUpperCase();
   }
 
   factory ChatFriend.fromJson(Map<String, dynamic> json) {

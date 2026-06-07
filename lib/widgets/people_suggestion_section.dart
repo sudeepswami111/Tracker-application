@@ -132,7 +132,6 @@ class _PeopleSuggestionSectionState extends State<PeopleSuggestionSection> {
             final name   = user.fullName.isNotEmpty
                 ? user.fullName
                 : user.username;
-            final initials = name.trim().split(' ').map((e) => e[0]).take(2).join().toUpperCase();
 
             return Container(
               width: 150,
