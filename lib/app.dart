@@ -159,7 +159,7 @@ class _AppShellState extends State<AppShell> {
               }
             },
             children: _screens.map((screen) => Padding(
-              padding: const EdgeInsets.only(bottom: 110.0), // Padding to prevent nav bar overlap
+              padding: EdgeInsets.only(bottom: _isMapFullscreen ? 0.0 : 110.0),
               child: screen,
             )).toList(),
           ),
