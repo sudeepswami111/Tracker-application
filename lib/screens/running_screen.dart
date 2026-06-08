@@ -524,8 +524,8 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
         final lastPt = _gpsRoute.last;
         final distFromLast = const Distance().as(LengthUnit.Meter, lastPt, pt);
         
-        // Filter out tiny jitters (<1.5m) and impossible jumps (>100m in a second)
-        if (distFromLast >= 1.5 && distFromLast < 100) {
+        // Filter out tiny jitters (<1.5m)
+        if (distFromLast >= 1.5) {
           setState(() {
             _gpsRoute.add(pt);
             _distKm += (distFromLast / 1000.0);
@@ -534,7 +534,7 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
           });
           debugPrint('LifePulse GPS: Point added: $pt. Distance from last: ${distFromLast.toStringAsFixed(1)}m. Total points: ${_gpsRoute.length}. Total distance: ${_distKm.toStringAsFixed(3)} km');
         } else {
-          debugPrint('LifePulse GPS: Point ignored. Distance from last: ${distFromLast.toStringAsFixed(1)}m (must be >= 1.5m and < 100m)');
+          debugPrint('LifePulse GPS: Point ignored. Distance from last: ${distFromLast.toStringAsFixed(1)}m (must be >= 1.5m)');
         }
       }
     }
@@ -2324,7 +2324,7 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
                   GestureDetector(
                     onTap: () => setState(() => _isDrawerCollapsed = false),
                     child: Text(
-                      _mockPreRunRoute.isNotEmpty ? 'Details' : 'Plan Route',
+                      _mockPreRunRoute.isNotEmpty ? 'Details' : 'Start Run',
                       style: const TextStyle(color: AppColors.voltCyan, fontWeight: FontWeight.bold, fontSize: 13),
                     ),
                   ),
@@ -2333,8 +2333,23 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
             ] else ...[
               // Expanded state
               if (_mockPreRunRoute.isEmpty) ...[
-                // Show Route Planner inputs
-                _buildRoutePlannerUI(isDark),
+                const SizedBox(height: 8),
+                const Text('Ready to run?', style: TextStyle(color: Colors.grey, fontSize: 14)),
+                const SizedBox(height: 16),
+                SizedBox(
+                  width: double.infinity,
+                  height: 48,
+                  child: ElevatedButton(
+                    onPressed: _startCountdown,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.voltCyan,
+                      foregroundColor: Colors.black,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                    child: const Text('START FREE RUN', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                  ),
+                ),
+
               ] else ...[
                 // Show Route Summary & targets & Start button
                 Row(
@@ -2657,19 +2672,24 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
             ),
             const SizedBox(height: 24),
             // Stats Grid
-            Expanded(
-              child: GridView.count(
-                crossAxisCount: 2,
-                crossAxisSpacing: 16,
-                mainAxisSpacing: 16,
-                childAspectRatio: 1.5,
-                children: [
-                  _statCard('Distance', '${_distKm.toStringAsFixed(2)} km', AppColors.voltCyan, isDark),
-                  _statCard('Duration', _fmtDur(_durSecs), isDark ? Colors.white : Colors.black, isDark),
-                  _statCard('Avg Pace', '${_fmtPace(_paceMin)} /km', AppColors.solarAmber, isDark),
-                  _statCard('Calories', '$_calories', AppColors.pulseRed, isDark),
-                ],
-              ),
+            Column(
+              children: [
+                Row(
+                  children: [
+                    Expanded(child: _statCard('Distance', '${_distKm.toStringAsFixed(2)} km', AppColors.voltCyan, isDark)),
+                    const SizedBox(width: 16),
+                    Expanded(child: _statCard('Duration', _fmtDur(_durSecs), isDark ? Colors.white : Colors.black, isDark)),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                Row(
+                  children: [
+                    Expanded(child: _statCard('Avg Pace', '${_fmtPace(_paceMin)} /km', AppColors.solarAmber, isDark)),
+                    const SizedBox(width: 16),
+                    Expanded(child: _statCard('Calories', '$_calories', AppColors.pulseRed, isDark)),
+                  ],
+                ),
+              ],
             ),
             // CTAs
             Row(
