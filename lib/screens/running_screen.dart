@@ -857,7 +857,7 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
     );
   }
 
-  Widget _routeInput({
+  Widget _buildCompactRouteInput({
     required TextEditingController ctrl,
     required String hint,
     required IconData icon,
@@ -866,7 +866,8 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
     required bool isTop,
   }) {
     return Container(
-      height: 44,
+      height: 48,
+      padding: const EdgeInsets.symmetric(horizontal: 12),
       decoration: BoxDecoration(
         color: (isDark ? Colors.white : Colors.black).withValues(alpha: 0.05),
         borderRadius: BorderRadius.only(
@@ -876,41 +877,51 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
           bottomRight: Radius.circular(isTop ? 4 : 12),
         ),
       ),
-      child: TextField(
-        controller: ctrl,
-        maxLines: 1,
-        style: TextStyle(color: isDark ? Colors.white : Colors.black, fontSize: 13),
-        onChanged: (v) => setState(() {}),
-        decoration: InputDecoration(
-          hintText: hint,
-          hintStyle: TextStyle(fontSize: 13, color: (isDark ? Colors.white : Colors.black).withValues(alpha: 0.5)),
-          prefixIcon: Icon(icon, color: iconColor, size: 16),
-          suffixIcon: ctrl.text.isNotEmpty
-              ? IconButton(
-                  icon: const Icon(Icons.clear, size: 16),
-                  onPressed: () => setState(() {
-                    ctrl.clear();
-                    if (isTop) _startRoutePos = null;
-                    else _endRoutePos = null;
-                  }),
-                )
-              : (isTop ? IconButton(
-                  icon: const Icon(Icons.my_location, size: 16),
-                  onPressed: _fillCurrentLocation,
-                ) : null),
-          contentPadding: const EdgeInsets.symmetric(vertical: 14),
-          border: InputBorder.none,
-        ),
+      child: Row(
+        children: [
+          Icon(icon, color: iconColor, size: 18),
+          const SizedBox(width: 12),
+          Expanded(
+            child: TextField(
+              controller: ctrl,
+              maxLines: 1,
+              style: TextStyle(color: isDark ? Colors.white : Colors.black, fontSize: 14),
+              onChanged: (v) => setState(() {}),
+              decoration: InputDecoration(
+                hintText: hint,
+                hintStyle: TextStyle(fontSize: 14, color: (isDark ? Colors.white : Colors.black).withValues(alpha: 0.5)),
+                border: InputBorder.none,
+                isDense: true,
+                contentPadding: EdgeInsets.zero,
+              ),
+            ),
+          ),
+          if (ctrl.text.isNotEmpty)
+            GestureDetector(
+              onTap: () => setState(() {
+                ctrl.clear();
+                if (isTop) _startRoutePos = null;
+                else _endRoutePos = null;
+              }),
+              child: Icon(Icons.clear, size: 18, color: (isDark ? Colors.white : Colors.black).withValues(alpha: 0.5)),
+            )
+          else if (isTop)
+            GestureDetector(
+              onTap: _fillCurrentLocation,
+              child: Icon(Icons.my_location, size: 18, color: AppColors.voltCyan.withValues(alpha: 0.7)),
+            ),
+          const SizedBox(width: 38), // Space for swap button overlap
+        ],
       ),
     );
   }
 
-  Widget _buildRoutePlannerUI(bool isDark) {
+  Widget _buildCompactRoutePlannerCard(bool isDark) {
     bool canSearch = _startLocCtrl.text.isNotEmpty && _destLocCtrl.text.isNotEmpty;
-    String statusText = "No route selected";
-    if (_isLoadingRoute) statusText = "Finding route...";
+    String statusText = "No route";
+    if (_isLoadingRoute) statusText = "Finding...";
     else if (_alternativeRoutes.isNotEmpty) statusText = "Route ready";
-    else if (_routeError != null) statusText = "Route unavailable";
+    else if (_routeError != null) statusText = "Unavailable";
 
     return Container(
       padding: const EdgeInsets.all(12),
@@ -925,11 +936,18 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
         children: [
           Row(
             children: [
-              const Icon(LucideIcons.navigation, color: AppColors.voltCyan, size: 18),
+              const Icon(LucideIcons.navigation, color: AppColors.voltCyan, size: 16),
               const SizedBox(width: 8),
-              Text('Plan Your Route', style: TextStyle(color: isDark ? Colors.white : Colors.black, fontWeight: FontWeight.bold, fontSize: 15)),
+              Text('Plan Route', style: TextStyle(color: isDark ? Colors.white : Colors.black, fontWeight: FontWeight.bold, fontSize: 14)),
               const Spacer(),
-              Text(statusText, style: TextStyle(color: (isDark ? Colors.white : Colors.black).withValues(alpha: 0.5), fontSize: 11)),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: (isDark ? Colors.white : Colors.black).withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(statusText, style: TextStyle(color: (isDark ? Colors.white : Colors.black).withValues(alpha: 0.7), fontSize: 10, fontWeight: FontWeight.w600)),
+              ),
             ],
           ),
           const SizedBox(height: 12),
@@ -938,7 +956,7 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
             children: [
               Column(
                 children: [
-                  _routeInput(
+                  _buildCompactRouteInput(
                     ctrl: _startLocCtrl,
                     hint: 'Start location',
                     icon: LucideIcons.mapPin,
@@ -947,7 +965,7 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
                     isTop: true,
                   ),
                   const SizedBox(height: 2),
-                  _routeInput(
+                  _buildCompactRouteInput(
                     ctrl: _destLocCtrl,
                     hint: 'Destination',
                     icon: LucideIcons.flag,
@@ -958,18 +976,19 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
                 ],
               ),
               Positioned(
-                right: 16,
+                right: 12,
                 child: GestureDetector(
                   onTap: _swapLocations,
                   child: Container(
-                    padding: const EdgeInsets.all(6),
+                    width: 36,
+                    height: 36,
                     decoration: BoxDecoration(
                       color: isDark ? const Color(0xFF2C2C2E) : Colors.white,
                       shape: BoxShape.circle,
                       boxShadow: [
                         BoxShadow(color: Colors.black.withValues(alpha: 0.2), blurRadius: 4),
                       ],
-                      border: Border.all(color: (isDark ? Colors.white : Colors.black).withValues(alpha: 0.1)),
+                      border: Border.all(color: (isDark ? Colors.white : Colors.black).withValues(alpha: 0.05)),
                     ),
                     child: Icon(Icons.swap_vert, size: 18, color: isDark ? Colors.white : Colors.black),
                   ),
@@ -978,7 +997,6 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
             ],
           ),
           const SizedBox(height: 12),
-          // Route preference chips
           SingleChildScrollView(
             scrollDirection: Axis.horizontal,
             child: Row(
@@ -987,59 +1005,36 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
                 final isSupported = option.isSupported;
                 final textColor = isDark ? Colors.white : Colors.black;
                 return Padding(
-                  padding: const EdgeInsets.only(right: 8),
+                  padding: const EdgeInsets.only(right: 6),
                   child: GestureDetector(
                     onTap: () => _onRoutePreferenceSelected(option),
                     child: AnimatedContainer(
                       duration: const Duration(milliseconds: 200),
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                       decoration: BoxDecoration(
                         color: isActive
-                            ? AppColors.voltCyan.withValues(alpha: 0.2)
-                            : textColor.withValues(alpha: isSupported ? 0.05 : 0.03),
-                        borderRadius: BorderRadius.circular(16),
+                            ? AppColors.voltCyan.withValues(alpha: 0.15)
+                            : textColor.withValues(alpha: isSupported ? 0.05 : 0.02),
+                        borderRadius: BorderRadius.circular(12),
                         border: Border.all(
                           color: isActive
                               ? AppColors.voltCyan
-                              : textColor.withValues(alpha: isSupported ? 0.1 : 0.06),
+                              : textColor.withValues(alpha: isSupported ? 0.1 : 0.04),
                         ),
                       ),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(
-                            option.icon,
-                            size: 14,
-                            color: isActive
-                                ? AppColors.voltCyan
-                                : textColor.withValues(alpha: isSupported ? 0.7 : 0.3),
+                          Icon(option.icon, size: 12, color: isActive ? AppColors.voltCyan : textColor.withValues(alpha: isSupported ? 0.7 : 0.3)),
+                          const SizedBox(width: 4),
+                          Text(
+                            option.label,
+                            style: TextStyle(fontSize: 11, fontWeight: isActive ? FontWeight.bold : FontWeight.w500, color: isActive ? AppColors.voltCyan : textColor.withValues(alpha: isSupported ? 0.9 : 0.4)),
                           ),
-                          const SizedBox(width: 6),
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Text(
-                                option.label,
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: isActive ? FontWeight.bold : FontWeight.w500,
-                                  color: isActive
-                                      ? AppColors.voltCyan
-                                      : textColor.withValues(alpha: isSupported ? 1.0 : 0.4),
-                                ),
-                              ),
-                              if (!isSupported)
-                                Text(
-                                  'Soon',
-                                  style: TextStyle(
-                                    fontSize: 8,
-                                    fontWeight: FontWeight.w600,
-                                    color: AppColors.solarAmber.withValues(alpha: 0.7),
-                                  ),
-                                ),
-                            ],
-                          ),
+                          if (!isSupported) ...[
+                            const SizedBox(width: 4),
+                            Text('Soon', style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: AppColors.solarAmber.withValues(alpha: 0.7))),
+                          ]
                         ],
                       ),
                     ),
@@ -1048,9 +1043,8 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
               }).toList(),
             ),
           ),
-          // Alternative route comparison (if multiple real routes exist)
           if (_alternativeRoutes.length > 1 && _lastRouteResult != null) ...[
-            const SizedBox(height: 10),
+            const SizedBox(height: 8),
             SingleChildScrollView(
               scrollDirection: Axis.horizontal,
               child: Row(
@@ -1063,7 +1057,7 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
                     isDark,
                     () => _onRoutePreferenceSelected(kRouteOptions[0]),
                   ),
-                  const SizedBox(width: 8),
+                  const SizedBox(width: 6),
                   _routeComparisonChip(
                     'Shortest',
                     _lastRouteResult!.distances[_shortestRouteIndex],
@@ -1076,27 +1070,11 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
               ),
             ),
           ],
-          const SizedBox(height: 12),
           if (_routeError != null) ...[
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: AppColors.pulseRed.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: AppColors.pulseRed.withValues(alpha: 0.3)),
-              ),
-              child: Row(
-                children: [
-                  const Icon(Icons.error_outline, color: AppColors.pulseRed, size: 20),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(_routeError!, style: const TextStyle(color: AppColors.pulseRed, fontSize: 12)),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 10),
+            Text(_routeError!, style: const TextStyle(color: AppColors.pulseRed, fontSize: 11)),
           ],
+          const SizedBox(height: 12),
           SizedBox(
             width: double.infinity,
             height: 48,
@@ -1108,13 +1086,11 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
                 disabledBackgroundColor: (isDark ? Colors.white : Colors.black).withValues(alpha: 0.1),
                 disabledForegroundColor: (isDark ? Colors.white : Colors.black).withValues(alpha: 0.3),
                 elevation: 0,
-                padding: EdgeInsets.zero,
-                alignment: Alignment.center,
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
               ),
               child: _isLoadingRoute
-                  ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.black, strokeWidth: 2.5))
-                  : Text(_alternativeRoutes.isNotEmpty ? 'Route Ready' : (_routeError != null && _isRetryableError ? 'Try Again' : 'Find Routes'), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                  ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(color: Colors.black, strokeWidth: 2.5))
+                  : Text(_alternativeRoutes.isNotEmpty ? 'Route Ready' : (_routeError != null && _isRetryableError ? 'Try Again' : 'Find Routes'), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
             ),
           ),
         ],
@@ -1147,12 +1123,12 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
               child: SingleChildScrollView(
                 child: Column(
                   children: [
-                    SizedBox(height: MediaQuery.of(context).padding.top + 16),
+                    SizedBox(height: MediaQuery.of(context).padding.top + 12),
                     
-                    // Route Planner
+                    // Compact Route Planner
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 16),
-                      child: _buildRoutePlannerUI(isDark),
+                      child: _buildCompactRoutePlannerCard(isDark),
                     ),
                     const SizedBox(height: 16),
                     
@@ -1160,18 +1136,18 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 16),
                       child: SizedBox(
-                        height: 260,
+                        height: 240,
                         width: double.infinity,
                         child: ClipRRect(
-                          borderRadius: BorderRadius.circular(32),
+                          borderRadius: BorderRadius.circular(24),
                           child: Stack(
                             children: [
                               _buildMapWidget(mapUrl, isDark, true),
                               
                               // Pre-run Map Controls (overlaying the inline map card)
                               Positioned(
-                                top: 16,
-                                right: 16,
+                                top: 12,
+                                right: 12,
                                 child: _buildRightMapControls(
                                   isFullScreen: false,
                                   isRunning: false,
@@ -1181,8 +1157,8 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
                               
                               // Theme Toggle (Inline Map)
                               Positioned(
-                                top: 16,
-                                left: 16,
+                                top: 12,
+                                left: 12,
                                 child: _mapControlBtn(
                                   icon: mapModeIsDark ? Icons.light_mode : Icons.dark_mode,
                                   onTap: () {
@@ -1192,12 +1168,54 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
                                   },
                                 ),
                               ),
+
+                              if (_alternativeRoutes.isEmpty)
+                                Positioned(
+                                  bottom: 12, left: 0, right: 0,
+                                  child: Center(
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                      decoration: BoxDecoration(
+                                        color: Colors.black.withValues(alpha: 0.6),
+                                        borderRadius: BorderRadius.circular(12),
+                                      ),
+                                      child: const Text('Find a route or start free run', style: TextStyle(color: Colors.white, fontSize: 11)),
+                                    ),
+                                  )
+                                ),
                             ],
                           ),
                         ),
                       ),
                     ),
                     const SizedBox(height: 16),
+
+                    // START RUN Button
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: SizedBox(
+                        width: double.infinity,
+                        height: 54,
+                        child: ElevatedButton(
+                          onPressed: _startCountdown,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppColors.pulseRed,
+                            foregroundColor: Colors.white,
+                            elevation: 0,
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                          ),
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Text(_mockPreRunRoute.isNotEmpty ? 'START ROUTE RUN' : 'START FREE RUN', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800, letterSpacing: 1.0)),
+                              if (_mockPreRunRoute.isEmpty)
+                                const Text('No route needed', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w500, color: Colors.white70)),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 24),
                     
                     // Pre-run Metrics and Settings
                     _buildPreRunUI(theme, isDark),
@@ -1609,23 +1627,6 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
               ],
             ),
           ),
-          const SizedBox(height: 48),
-
-          // START RUN button
-          SizedBox(
-            width: double.infinity,
-            height: 56,
-            child: ElevatedButton(
-              onPressed: _startCountdown,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.pulseRed,
-                foregroundColor: Colors.white,
-                elevation: 0,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppSpacing.pillRadius)),
-              ),
-              child: Text(_mockPreRunRoute.isNotEmpty ? 'START PLANNED RUN' : 'START FREE RUN', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800, letterSpacing: 1.2)),
-            ),
-          ),
           const SizedBox(height: 12),
           Center(
             child: Text("Safety check: share route with family/friends before starting.", style: TextStyle(color: (isDark ? Colors.white : Colors.black).withValues(alpha: 0.4), fontSize: 11)),
@@ -1637,7 +1638,7 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
           const SizedBox(height: 16),
           const FitnessScreen(),
           
-          const SizedBox(height: 100), // Padding for bottom nav
+          const SizedBox(height: 160), // Padding for bottom nav
         ],
       ),
     );
