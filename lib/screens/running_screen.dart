@@ -1195,21 +1195,24 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
                       padding: const EdgeInsets.symmetric(horizontal: 16),
                       child: SizedBox(
                         width: double.infinity,
-                        height: 54,
+                        height: 56,
                         child: ElevatedButton(
                           onPressed: _startCountdown,
                           style: ElevatedButton.styleFrom(
                             backgroundColor: AppColors.pulseRed,
                             foregroundColor: Colors.white,
                             elevation: 0,
+                            padding: EdgeInsets.zero,
                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                           ),
                           child: Column(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
                               Text(_mockPreRunRoute.isNotEmpty ? 'START ROUTE RUN' : 'START FREE RUN', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800, letterSpacing: 1.0)),
-                              if (_mockPreRunRoute.isEmpty)
+                              if (_mockPreRunRoute.isEmpty) ...[
+                                const SizedBox(height: 2),
                                 const Text('No route needed', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w500, color: Colors.white70)),
+                              ],
                             ],
                           ),
                         ),
