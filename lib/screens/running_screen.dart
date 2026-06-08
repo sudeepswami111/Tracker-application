@@ -6,6 +6,8 @@ import '../services/route_service.dart';
 import '../services/exceptions.dart';
 import '../models/route_result.dart';
 import '../models/route_option.dart';
+import '../models/location_suggestion.dart';
+import '../widgets/location_input_field.dart';
 
 import 'dart:ui';
 import 'package:flutter/material.dart';
@@ -125,6 +127,10 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
 
   final GlobalKey _mapKey = GlobalKey();
 
+  // Keys for LocationInputField widgets (needed so we can force-clear them)
+  final GlobalKey<State> _startFieldKey = GlobalKey<State>();
+  final GlobalKey<State> _destFieldKey = GlobalKey<State>();
+
   Future<void> _findRoute() async {
     if (_startLocCtrl.text.isEmpty || _destLocCtrl.text.isEmpty) return;
 
@@ -236,17 +242,20 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
         final tempPos = _startRoutePos;
         _startRoutePos = _endRoutePos;
         _endRoutePos = tempPos;
-        
+
         // Clear route since start/end swapped
         _mockPreRunRoute.clear();
         _alternativeRoutes.clear();
+        _routeAlternatives.clear();
+        _lastRouteResult = null;
         _routeDistance = 0.0;
         _routeDuration = 0;
         _routeReadinessScore = 0;
       }
     });
 
-    if (_startLocCtrl.text.isNotEmpty && _destLocCtrl.text.isNotEmpty) {
+    if (_startLocCtrl.text.isNotEmpty && _destLocCtrl.text.isNotEmpty &&
+        _startRoutePos != null && _endRoutePos != null) {
       _findRoute();
     }
   }
@@ -366,27 +375,38 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
   Future<void> _fillCurrentLocation() async {
     if (_curPos != null) {
       try {
-        final placemarks = await placemarkFromCoordinates(_curPos!.latitude, _curPos!.longitude);
+        final placemarks = await placemarkFromCoordinates(
+            _curPos!.latitude, _curPos!.longitude);
         if (placemarks.isNotEmpty) {
           final p = placemarks.first;
           final name = [p.locality, p.administrativeArea, p.country]
               .where((s) => s != null && s.isNotEmpty)
               .join(', ');
           setState(() {
-            _startLocCtrl.text = name.isNotEmpty ? name : '${_curPos!.latitude.toStringAsFixed(4)}, ${_curPos!.longitude.toStringAsFixed(4)}';
+            _startLocCtrl.text = name.isNotEmpty
+                ? name
+                : '${_curPos!.latitude.toStringAsFixed(4)}, ${_curPos!.longitude.toStringAsFixed(4)}';
             _startRoutePos = _curPos;
+            // Clear any stale route since start has changed
+            _alternativeRoutes.clear();
+            _routeAlternatives.clear();
+            _lastRouteResult = null;
+            _mockPreRunRoute.clear();
           });
         }
       } catch (_) {
         setState(() {
-          _startLocCtrl.text = '${_curPos!.latitude.toStringAsFixed(4)}, ${_curPos!.longitude.toStringAsFixed(4)}';
+          _startLocCtrl.text =
+              '${_curPos!.latitude.toStringAsFixed(4)}, ${_curPos!.longitude.toStringAsFixed(4)}';
           _startRoutePos = _curPos;
         });
       }
     } else {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Location not available yet. Make sure GPS is enabled.')),
+          const SnackBar(
+              content: Text(
+                  'Location not available yet. Make sure GPS is enabled.')),
         );
       }
     }
@@ -399,7 +419,7 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
     } else {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Locating you... Ensure GPS is enabled.')),
+          const SnackBar(content: Text('Locating you… Ensure GPS is enabled.')),
         );
       }
       _initLocation();
@@ -1032,68 +1052,13 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
     return LucideIcons.route;
   }
 
-  Widget _buildCompactRouteInput({
-    required TextEditingController ctrl,
-    required String hint,
-    required IconData icon,
-    required Color iconColor,
-    required bool isDark,
-    required bool isTop,
-  }) {
-    return Container(
-      height: 48,
-      padding: const EdgeInsets.symmetric(horizontal: 12),
-      decoration: BoxDecoration(
-        color: (isDark ? Colors.white : Colors.black).withValues(alpha: 0.05),
-        borderRadius: BorderRadius.only(
-          topLeft: Radius.circular(isTop ? 12 : 4),
-          topRight: Radius.circular(isTop ? 12 : 4),
-          bottomLeft: Radius.circular(isTop ? 4 : 12),
-          bottomRight: Radius.circular(isTop ? 4 : 12),
-        ),
-      ),
-      child: Row(
-        children: [
-          Icon(icon, color: iconColor, size: 18),
-          const SizedBox(width: 12),
-          Expanded(
-            child: TextField(
-              controller: ctrl,
-              maxLines: 1,
-              style: TextStyle(color: isDark ? Colors.white : Colors.black, fontSize: 14),
-              onChanged: (v) => setState(() {}),
-              decoration: InputDecoration(
-                hintText: hint,
-                hintStyle: TextStyle(fontSize: 14, color: (isDark ? Colors.white : Colors.black).withValues(alpha: 0.5)),
-                border: InputBorder.none,
-                isDense: true,
-                contentPadding: EdgeInsets.zero,
-              ),
-            ),
-          ),
-          if (ctrl.text.isNotEmpty)
-            GestureDetector(
-              onTap: () => setState(() {
-                ctrl.clear();
-                if (isTop) _startRoutePos = null;
-                else _endRoutePos = null;
-              }),
-              child: Icon(Icons.clear, size: 18, color: (isDark ? Colors.white : Colors.black).withValues(alpha: 0.5)),
-            )
-          else if (isTop)
-            GestureDetector(
-              onTap: _fillCurrentLocation,
-              child: Icon(Icons.my_location, size: 18, color: AppColors.voltCyan.withValues(alpha: 0.7)),
-            ),
-          const SizedBox(width: 38), // Space for swap button overlap
-        ],
-      ),
-    );
-  }
+  // _buildCompactRouteInput replaced by LocationInputField widget.
 
   Widget _buildCompactRoutePlannerCard(bool isDark) {
-    bool canSearch = _startLocCtrl.text.isNotEmpty && _destLocCtrl.text.isNotEmpty;
-    String statusText = "No route";
+    // canSearch: either both coordinate-backed, or both have text (fallback geocode)
+    bool canSearch = (_startRoutePos != null && _endRoutePos != null) ||
+        (_startLocCtrl.text.isNotEmpty && _destLocCtrl.text.isNotEmpty);
+    String statusText = 'No route';
     if (_isLoadingRoute) statusText = "Finding...";
     else if (_alternativeRoutes.isNotEmpty) statusText = "Route ready";
     else if (_routeError != null) statusText = "Unavailable";
@@ -1126,46 +1091,109 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
             ],
           ),
           const SizedBox(height: 12),
+          // ── Inputs with autocomplete ──
           Stack(
             alignment: Alignment.centerRight,
             children: [
               Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _buildCompactRouteInput(
-                    ctrl: _startLocCtrl,
+                  LocationInputField(
+                    key: _startFieldKey,
+                    controller: _startLocCtrl,
                     hint: 'Start location',
-                    icon: LucideIcons.mapPin,
-                    iconColor: AppColors.voltCyan,
+                    prefixIcon: LucideIcons.mapPin,
+                    prefixIconColor: AppColors.voltCyan,
                     isDark: isDark,
                     isTop: true,
+                    trailingAction: GestureDetector(
+                      onTap: _fillCurrentLocation,
+                      child: Icon(
+                        Icons.my_location,
+                        size: 18,
+                        color: AppColors.voltCyan.withValues(alpha: 0.7),
+                      ),
+                    ),
+                    onSuggestionSelected: (LocationSuggestion s) {
+                      setState(() {
+                        _startRoutePos = s.coordinates;
+                        // Clear stale route
+                        _alternativeRoutes.clear();
+                        _routeAlternatives.clear();
+                        _lastRouteResult = null;
+                        _mockPreRunRoute.clear();
+                        _routeReadinessScore = 0;
+                      });
+                      debugPrint('[RunningScreen] Start selected: "${s.shortName}" ${s.latitude},${s.longitude}');
+                    },
+                    onCoordinatesCleared: () => setState(() {
+                      _startRoutePos = null;
+                      _alternativeRoutes.clear();
+                      _routeAlternatives.clear();
+                      _lastRouteResult = null;
+                      _mockPreRunRoute.clear();
+                      _routeReadinessScore = 0;
+                    }),
                   ),
                   const SizedBox(height: 2),
-                  _buildCompactRouteInput(
-                    ctrl: _destLocCtrl,
+                  LocationInputField(
+                    key: _destFieldKey,
+                    controller: _destLocCtrl,
                     hint: 'Destination',
-                    icon: LucideIcons.flag,
-                    iconColor: AppColors.pulseRed,
+                    prefixIcon: LucideIcons.flag,
+                    prefixIconColor: AppColors.pulseRed,
                     isDark: isDark,
                     isTop: false,
+                    onSuggestionSelected: (LocationSuggestion s) {
+                      setState(() {
+                        _endRoutePos = s.coordinates;
+                        // Clear stale route
+                        _alternativeRoutes.clear();
+                        _routeAlternatives.clear();
+                        _lastRouteResult = null;
+                        _mockPreRunRoute.clear();
+                        _routeReadinessScore = 0;
+                      });
+                      debugPrint('[RunningScreen] Dest selected: "${s.shortName}" ${s.latitude},${s.longitude}');
+                    },
+                    onCoordinatesCleared: () => setState(() {
+                      _endRoutePos = null;
+                      _alternativeRoutes.clear();
+                      _routeAlternatives.clear();
+                      _lastRouteResult = null;
+                      _mockPreRunRoute.clear();
+                      _routeReadinessScore = 0;
+                    }),
                   ),
                 ],
               ),
+              // Swap button overlaid on the right
               Positioned(
                 right: 12,
-                child: GestureDetector(
-                  onTap: _swapLocations,
-                  child: Container(
-                    width: 36,
-                    height: 36,
-                    decoration: BoxDecoration(
-                      color: isDark ? const Color(0xFF2C2C2E) : Colors.white,
-                      shape: BoxShape.circle,
-                      boxShadow: [
-                        BoxShadow(color: Colors.black.withValues(alpha: 0.2), blurRadius: 4),
-                      ],
-                      border: Border.all(color: (isDark ? Colors.white : Colors.black).withValues(alpha: 0.05)),
+                top: 0,
+                bottom: 0,
+                child: Center(
+                  child: GestureDetector(
+                    onTap: _swapLocations,
+                    child: Container(
+                      width: 36,
+                      height: 36,
+                      decoration: BoxDecoration(
+                        color: isDark ? const Color(0xFF2C2C2E) : Colors.white,
+                        shape: BoxShape.circle,
+                        boxShadow: [
+                          BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.2),
+                              blurRadius: 4),
+                        ],
+                        border: Border.all(
+                            color: (isDark ? Colors.white : Colors.black)
+                                .withValues(alpha: 0.05)),
+                      ),
+                      child: Icon(Icons.swap_vert,
+                          size: 18,
+                          color: isDark ? Colors.white : Colors.black),
                     ),
-                    child: Icon(Icons.swap_vert, size: 18, color: isDark ? Colors.white : Colors.black),
                   ),
                 ),
               ),
