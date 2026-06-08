@@ -2251,24 +2251,6 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
           ),
           const SizedBox(height: 8),
         ],
-        _mapControlBtn(
-          icon: Icons.add,
-          onTap: () {
-            final newZoom = (_zoom + 1).clamp(1.0, 19.0);
-            _mapCtrl.move(_mapCtrl.camera.center, newZoom);
-            setState(() => _zoom = newZoom);
-          },
-        ),
-        const SizedBox(height: 8),
-        _mapControlBtn(
-          icon: Icons.remove,
-          onTap: () {
-            final newZoom = (_zoom - 1).clamp(1.0, 19.0);
-            _mapCtrl.move(_mapCtrl.camera.center, newZoom);
-            setState(() => _zoom = newZoom);
-          },
-        ),
-        const SizedBox(height: 8),
         if (showCompass) ...[
           _mapControlBtn(
             icon: Icons.explore,
