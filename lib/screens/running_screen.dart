@@ -20,6 +20,7 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_spacing.dart';
 import '../widgets/live_run_metric_panel.dart';
+import '../services/watch_connection_manager.dart';
 import '../widgets/glass_card.dart';
 import 'package:provider/provider.dart';
 import '../providers/app_provider.dart';
@@ -55,8 +56,13 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
   
   double _distKm = 0, _paceMin = 0;
   int _calories = 0, _durSecs = 0;
-  int _estimatedBpm = 0;
   double _lastSpeed = 0; // km/h from GPS
+  
+  // Real Tracking States
+  double _totalDistanceMeters = 0;
+  Position? _lastValidPosition;
+  int? _heartRate;
+  Timer? _hrTimer;
   
   // Animation for pulsing user dot
   late AnimationController _pulseCtrl;
@@ -468,7 +474,7 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
   Future<void> _initLocation() async {
     bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
     if (!serviceEnabled) {
-      debugPrint('Location services are disabled.');
+      debugPrint('LifePulse: Location services are disabled.');
       return;
     }
 
@@ -476,12 +482,12 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
     if (perm == LocationPermission.denied) {
       perm = await Geolocator.requestPermission();
       if (perm == LocationPermission.denied) {
-        debugPrint('Location permission denied.');
+        debugPrint('LifePulse: Location permission denied.');
         return;
       }
     }
     if (perm == LocationPermission.deniedForever) {
-      debugPrint('Location permission permanently denied.');
+      debugPrint('LifePulse: Location permission permanently denied.');
       return;
     }
 
@@ -492,17 +498,19 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
         _mapCtrl.move(_curPos!, _zoom);
       }
     } catch (e) {
-      debugPrint('Error getting initial location: $e');
+      debugPrint('LifePulse: Error getting initial location: $e');
     }
+  }
 
-    // Use platform-specific settings for continuous updates
+  void _startGpsStream() {
+    _posSub?.cancel();
+
     late LocationSettings locSettings;
     if (Platform.isAndroid) {
       locSettings = AndroidSettings(
         accuracy: LocationAccuracy.bestForNavigation,
         distanceFilter: 3, // At least 3 meters
         intervalDuration: const Duration(seconds: 1),
-        forceLocationManager: false,
         foregroundNotificationConfig: const ForegroundNotificationConfig(
           notificationTitle: 'LifePulse Running',
           notificationText: 'Tracking your run',
@@ -525,6 +533,7 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
       );
     }
 
+    debugPrint('LifePulse: Starting GPS stream...');
     _posSub = Geolocator.getPositionStream(
       locationSettings: locSettings,
     ).listen(_onPos);
@@ -533,9 +542,9 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
   void _onPos(Position p) {
     if (!mounted) return;
     
-    // Ignore highly inaccurate points (relaxing to 80m to allow tracking in urban/pocket scenarios)
-    if (p.accuracy > 80) {
-      debugPrint('LifePulse GPS: Point ignored due to poor accuracy (${p.accuracy.toStringAsFixed(1)}m, threshold 80m)');
+    // Ignore highly inaccurate points (User requested 30m threshold)
+    if (p.accuracy > 30) {
+      debugPrint('LifePulse GPS: Ignored poor accuracy (${p.accuracy.toStringAsFixed(1)}m > 30m)');
       return;
     }
 
@@ -553,39 +562,36 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
     }
 
     if (_state == RunState.running) {
-      // Accumulate route points and distance
-      if (_gpsRoute.isEmpty) {
-        setState(() {
-          _gpsRoute.add(pt);
-        });
-        debugPrint('LifePulse GPS: Path started. First point added: $pt');
+      // Add to polyline regardless of distance filter, to keep it smooth
+      setState(() {
+        _gpsRoute.add(pt);
+      });
+
+      if (_lastValidPosition == null) {
+        _lastValidPosition = p;
+        debugPrint('LifePulse GPS: Tracking started. First valid point set.');
       } else {
-        final lastPt = _gpsRoute.last;
-        final distFromLast = const Distance().as(LengthUnit.Meter, lastPt, pt);
+        final distFromLast = Geolocator.distanceBetween(
+          _lastValidPosition!.latitude,
+          _lastValidPosition!.longitude,
+          p.latitude,
+          p.longitude,
+        );
         
-        // Filter out tiny jitters (<1.5m)
-        if (distFromLast >= 1.5) {
+        // Filter out tiny jitters (< 2.0m)
+        if (distFromLast >= 2.0) {
           setState(() {
-            _gpsRoute.add(pt);
-            _distKm += (distFromLast / 1000.0);
+            _totalDistanceMeters += distFromLast;
+            _distKm = _totalDistanceMeters / 1000.0;
             _calories = (_distKm * 65).round();
-            _estimatedBpm = _estimateHeartRate(_lastSpeed);
+            _lastValidPosition = p;
           });
-          debugPrint('LifePulse GPS: Point added: $pt. Distance from last: ${distFromLast.toStringAsFixed(1)}m. Total points: ${_gpsRoute.length}. Total distance: ${_distKm.toStringAsFixed(3)} km');
+          debugPrint('LifePulse GPS: Point added. Segment: ${distFromLast.toStringAsFixed(1)}m. Total: ${_totalDistanceMeters.toStringAsFixed(1)}m');
         } else {
-          debugPrint('LifePulse GPS: Point ignored. Distance from last: ${distFromLast.toStringAsFixed(1)}m (must be >= 1.5m)');
+          debugPrint('LifePulse GPS: Point ignored (distance < 2.0m)');
         }
       }
     }
-  }
-
-  int _estimateHeartRate(double speedKmh) {
-    // Estimate BPM based on running speed
-    if (speedKmh < 0.5) return 72;  // Resting
-    if (speedKmh < 4) return 90 + (speedKmh * 5).round();   // Walking
-    if (speedKmh < 8) return 120 + ((speedKmh - 4) * 8).round();  // Jogging
-    if (speedKmh < 12) return 150 + ((speedKmh - 8) * 5).round(); // Running
-    return 170 + ((speedKmh - 12) * 3).round().clamp(0, 25);  // Sprinting
   }
 
   Duration _elapsed() {
@@ -620,7 +626,19 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
     });
   }
 
+  Future<void> _pollHeartRate() async {
+    final watchMgr = WatchConnectionManager();
+    final data = await watchMgr.fetchHealthData();
+    if (mounted && data['heartRate'] != null) {
+      setState(() {
+        _heartRate = data['heartRate'] as int;
+      });
+    }
+  }
+
   void _startRun() {
+    _startGpsStream();
+    
     setState(() {
       _state = RunState.running;
       _startTime = DateTime.now();
@@ -628,18 +646,27 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
       _paceMin = 0;
       _calories = 0;
       _durSecs = 0;
+      _totalDistanceMeters = 0;
+      _lastValidPosition = null;
+      _heartRate = null;
       _gpsRoute.clear();
       if (_curPos != null) _gpsRoute.add(_curPos!);
       _follow = true;
     });
     if (_curPos != null) _mapCtrl.move(_curPos!, 18); // Zoom in and center
+    
+    _hrTimer?.cancel();
+    _hrTimer = Timer.periodic(const Duration(seconds: 10), (_) => _pollHeartRate());
+    _pollHeartRate(); // initial fetch
+
+    _timer?.cancel();
     _timer = Timer.periodic(const Duration(seconds: 1), (_) {
       if (!mounted) return;
       setState(() {
         _durSecs = _elapsed().inSeconds;
-        // Calculate average pace from accumulated distance and time
-        if (_distKm > 0.005 && _durSecs > 0) {
-          _paceMin = (_durSecs / 60.0) / _distKm;
+        // Calculate pace in seconds per km
+        if (_distKm > 0.01 && _durSecs > 0) {
+          _paceMin = _durSecs / _distKm;
         } else {
           _paceMin = 0;
         }
@@ -654,6 +681,8 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
       _pauseStart = DateTime.now();
     });
     _timer?.cancel();
+    _hrTimer?.cancel();
+    _posSub?.cancel();
   }
 
   void _resumeRun() {
@@ -662,17 +691,31 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
       _pausedDur += DateTime.now().difference(_pauseStart!);
       _pauseStart = null;
     }
+    
+    _lastValidPosition = null; // Reset to avoid jump line
+    _startGpsStream();
+    
     setState(() => _state = RunState.running);
+    _hrTimer?.cancel();
+    _hrTimer = Timer.periodic(const Duration(seconds: 10), (_) => _pollHeartRate());
+    
     _timer?.cancel();
     _timer = Timer.periodic(const Duration(seconds: 1), (_) {
       if (!mounted) return;
-      setState(() => _durSecs = _elapsed().inSeconds);
+      setState(() {
+        _durSecs = _elapsed().inSeconds;
+        if (_distKm > 0.01 && _durSecs > 0) {
+          _paceMin = _durSecs / _distKm;
+        }
+      });
     });
   }
 
   void _finishRun() {
     HapticFeedback.heavyImpact();
     _timer?.cancel();
+    _hrTimer?.cancel();
+    _posSub?.cancel();
     setState(() => _state = RunState.finished);
     // I1: Update Distance challenge progress after run
     if (_distKm > 0) {
@@ -683,6 +726,10 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
 
   void _resetRun() {
     widget.onFullscreenChanged?.call(_isFullScreenMap);
+    _timer?.cancel();
+    _hrTimer?.cancel();
+    _posSub?.cancel();
+    
     setState(() {
       _state = RunState.planning;
       _gpsRoute.clear();
@@ -690,11 +737,17 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
       _paceMin = 0;
       _calories = 0;
       _durSecs = 0;
-      _estimatedBpm = 0;
+      _totalDistanceMeters = 0;
+      _lastValidPosition = null;
+      _heartRate = null;
       _lastSpeed = 0;
       _pausedDur = Duration.zero;
       _startTime = null;
     });
+    
+    // Re-init location without tracking
+    _initLocation();
+    
     if (_curPos != null) _mapCtrl.move(_curPos!, 16); // Reset zoom
   }
 
@@ -704,10 +757,10 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
     return '${m.toString().padLeft(2, '0')}:${sec.toString().padLeft(2, '0')}';
   }
 
-  String _fmtPace(double p) {
-    if (p <= 0 || p > 60) return '--:--';
-    final m = p.floor();
-    final s = ((p - m) * 60).round();
+  String _fmtPace(double paceSecondsPerKm) {
+    if (paceSecondsPerKm <= 0 || paceSecondsPerKm > 3600) return '--:--';
+    final m = (paceSecondsPerKm / 60).floor();
+    final s = (paceSecondsPerKm % 60).round();
     return '$m:${s.toString().padLeft(2, '0')}';
   }
 
@@ -717,6 +770,7 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
     _destLocCtrl.dispose();
     _posSub?.cancel();
     _timer?.cancel();
+    _hrTimer?.cancel();
     _pulseCtrl.dispose();
     widget.onFullscreenChanged?.call(false);
     super.dispose();
@@ -1626,7 +1680,7 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
               child: LiveRunMetricPanel(
                 pace: _fmtPace(_paceMin),
                 distance: _distKm.toStringAsFixed(2),
-                bpm: _estimatedBpm,
+                bpm: _heartRate,
                 duration: _fmtDur(_durSecs),
               ),
             ),

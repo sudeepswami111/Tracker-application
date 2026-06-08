@@ -1,4 +1,4 @@
-﻿import 'dart:math';
+import 'dart:math';
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import '../theme/app_colors.dart';
@@ -7,14 +7,14 @@ import '../theme/app_spacing.dart';
 class LiveRunMetricPanel extends StatelessWidget {
   final String pace;
   final String distance;
-  final int bpm;
+  final int? bpm;
   final String duration;
 
   const LiveRunMetricPanel({
     super.key,
     required this.pace,
     required this.distance,
-    required this.bpm,
+    this.bpm,
     required this.duration,
   });
 
@@ -161,11 +161,11 @@ class _MetricCell extends StatelessWidget {
 }
 
 class _BpmCell extends StatefulWidget {
-  final int bpm;
+  final int? bpm;
   final ThemeData theme;
 
   const _BpmCell({
-    required this.bpm,
+    this.bpm,
     required this.theme,
   });
 
@@ -197,8 +197,9 @@ class _BpmCellState extends State<_BpmCell> with SingleTickerProviderStateMixin 
   }
 
   Color _getZoneColor() {
-    if (widget.bpm < 120) return AppColors.voltCyan;
-    if (widget.bpm < 150) return AppColors.solarAmber;
+    if (widget.bpm == null) return Colors.grey;
+    if (widget.bpm! < 120) return AppColors.voltCyan;
+    if (widget.bpm! < 150) return AppColors.solarAmber;
     return AppColors.pulseRed;
   }
 
@@ -222,7 +223,7 @@ class _BpmCellState extends State<_BpmCell> with SingleTickerProviderStateMixin 
               animation: _pulseAnimation,
               builder: (context, child) {
                 return Opacity(
-                  opacity: _pulseAnimation.value,
+                  opacity: widget.bpm == null ? 0.5 : _pulseAnimation.value,
                   child: Container(
                     width: 8,
                     height: 8,
@@ -231,9 +232,9 @@ class _BpmCellState extends State<_BpmCell> with SingleTickerProviderStateMixin 
                       shape: BoxShape.circle,
                       boxShadow: [
                         BoxShadow(
-                          color: zoneColor.withValues(alpha: 0.5),
-                          blurRadius: 4,
-                          spreadRadius: 1,
+                          color: zoneColor.withValues(alpha: widget.bpm == null ? 0.0 : 0.5),
+                          blurRadius: widget.bpm == null ? 0 : 4,
+                          spreadRadius: widget.bpm == null ? 0 : 1,
                         ),
                       ],
                     ),
@@ -249,7 +250,7 @@ class _BpmCellState extends State<_BpmCell> with SingleTickerProviderStateMixin 
           textBaseline: TextBaseline.alphabetic,
           children: [
             Text(
-              '${widget.bpm}',
+              widget.bpm != null ? '${widget.bpm}' : '--',
               style: widget.theme.textTheme.displaySmall?.copyWith(
                 color: AppColors.textPrimary,
               ),
