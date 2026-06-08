@@ -116,10 +116,10 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
   bool? _mapIsDark;
   RouteResult? _lastRouteResult; // Store full result for alternative selection
   final List<Map<String, String>> _mapLayers = [
-    {'name': 'Standard', 'dark': 'https://a.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}@2x.png', 'light': 'https://a.basemaps.cartocdn.com/light_all/{z}/{x}/{y}@2x.png'},
-    {'name': 'Streets', 'dark': 'https://a.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}@2x.png', 'light': 'https://tile.openstreetmap.org/{z}/{x}/{y}.png'},
-    {'name': 'Voyager', 'dark': 'https://a.basemaps.cartocdn.com/rastertiles/dark_all/{z}/{x}/{y}@2x.png', 'light': 'https://a.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}@2x.png'},
-    {'name': 'Topo', 'dark': 'https://a.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}@2x.png', 'light': 'https://tile.opentopomap.org/{z}/{x}/{y}.png'},
+    {'name': 'Standard', 'dark': 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}@2x.png', 'light': 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}@2x.png'},
+    {'name': 'Streets', 'dark': 'https://{s}.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}@2x.png', 'light': 'https://tile.openstreetmap.org/{z}/{x}/{y}.png'},
+    {'name': 'Voyager', 'dark': 'https://{s}.basemaps.cartocdn.com/rastertiles/dark_all/{z}/{x}/{y}@2x.png', 'light': 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}@2x.png'},
+    {'name': 'Topo', 'dark': 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}@2x.png', 'light': 'https://tile.opentopomap.org/{z}/{x}/{y}.png'},
   ];
 
   final GlobalKey _mapKey = GlobalKey();
