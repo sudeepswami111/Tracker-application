@@ -250,7 +250,7 @@ class _BpmCellState extends State<_BpmCell> with SingleTickerProviderStateMixin 
           textBaseline: TextBaseline.alphabetic,
           children: [
             Text(
-              widget.bpm != null ? '${widget.bpm}' : '--',
+              (widget.bpm != null && widget.bpm! > 0) ? '${widget.bpm}' : '--',
               style: widget.theme.textTheme.displaySmall?.copyWith(
                 color: AppColors.textPrimary,
               ),
@@ -263,6 +263,13 @@ class _BpmCellState extends State<_BpmCell> with SingleTickerProviderStateMixin 
               ),
             ),
           ],
+        ),
+        Text(
+          (widget.bpm != null && widget.bpm! > 0) ? 'Health Connect' : 'No data',
+          style: widget.theme.textTheme.bodySmall?.copyWith(
+            color: const Color(0xFF8E8E9E),
+            fontSize: 10,
+          ),
         ),
       ],
     );

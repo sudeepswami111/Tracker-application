@@ -542,10 +542,14 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
   void _onPos(Position p) {
     if (!mounted) return;
     
-    // Ignore highly inaccurate points (User requested 30m threshold)
-    if (p.accuracy > 30) {
-      debugPrint('LifePulse GPS: Ignored poor accuracy (${p.accuracy.toStringAsFixed(1)}m > 30m)');
+    // Ignore extremely inaccurate points (allow up to 100m for indoor testing)
+    if (p.accuracy > 100) {
+      debugPrint('LifePulse GPS: Ignored poor accuracy (${p.accuracy.toStringAsFixed(1)}m > 100m)');
       return;
+    }
+
+    if (p.accuracy > 30) {
+      debugPrint('LifePulse GPS: Low accuracy (${p.accuracy.toStringAsFixed(1)}m > 30m) - Accepted for indoor testing.');
     }
 
     final pt = LatLng(p.latitude, p.longitude);
@@ -562,13 +566,11 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
     }
 
     if (_state == RunState.running) {
-      // Add to polyline regardless of distance filter, to keep it smooth
-      setState(() {
-        _gpsRoute.add(pt);
-      });
-
       if (_lastValidPosition == null) {
         _lastValidPosition = p;
+        setState(() {
+          _gpsRoute.add(pt);
+        });
         debugPrint('LifePulse GPS: Tracking started. First valid point set.');
       } else {
         final distFromLast = Geolocator.distanceBetween(
@@ -578,17 +580,25 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
           p.longitude,
         );
         
-        // Filter out tiny jitters (< 2.0m)
-        if (distFromLast >= 2.0) {
+        // Filter out tiny jitters (< 1.5m)
+        if (distFromLast >= 1.5) {
           setState(() {
             _totalDistanceMeters += distFromLast;
             _distKm = _totalDistanceMeters / 1000.0;
             _calories = (_distKm * 65).round();
             _lastValidPosition = p;
+            _gpsRoute.add(pt);
+            
+            if (_distKm > 0.01) {
+              final elapsedSecs = _elapsed().inSeconds;
+              _paceMin = elapsedSecs / _distKm;
+            } else {
+              _paceMin = 0.0;
+            }
           });
           debugPrint('LifePulse GPS: Point added. Segment: ${distFromLast.toStringAsFixed(1)}m. Total: ${_totalDistanceMeters.toStringAsFixed(1)}m');
         } else {
-          debugPrint('LifePulse GPS: Point ignored (distance < 2.0m)');
+          debugPrint('LifePulse GPS: Point ignored (distance < 1.5m)');
         }
       }
     }
@@ -758,10 +768,12 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
   }
 
   String _fmtPace(double paceSecondsPerKm) {
-    if (paceSecondsPerKm <= 0 || paceSecondsPerKm > 3600) return '--:--';
-    final m = (paceSecondsPerKm / 60).floor();
-    final s = (paceSecondsPerKm % 60).round();
-    return '$m:${s.toString().padLeft(2, '0')}';
+    if (paceSecondsPerKm.isNaN || paceSecondsPerKm.isInfinite || paceSecondsPerKm <= 0 || paceSecondsPerKm > 3600) {
+      return '--:--';
+    }
+    final minutes = paceSecondsPerKm ~/ 60;
+    final seconds = (paceSecondsPerKm % 60).round();
+    return '${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
   }
 
   @override
@@ -787,12 +799,16 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
           flags: InteractiveFlag.all,
         ),
         onPositionChanged: (pos, gesture) {
-          if (gesture && _follow) setState(() => _follow = false);
+          if (gesture && _follow) {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (mounted) setState(() => _follow = false);
+            });
+          }
           _zoom = pos.zoom ?? _zoom;
           final rot = _mapCtrl.camera.rotation;
-          if (rot != _mapRotation) {
-            setState(() {
-              _mapRotation = rot;
+          if ((rot - _mapRotation).abs() > 0.1) {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (mounted) setState(() => _mapRotation = rot);
             });
           }
         },

@@ -345,13 +345,16 @@ class WatchConnectionManager {
       'totalRecords': 0,
     };
 
+    int totalRecords = 0;
+
+    // 1. Heart Rate (Latest today)
     try {
-      // 1. Heart Rate (Latest today)
       List<HealthDataPoint> hrData = await _health.getHealthDataFromTypes(
         types: [HealthDataType.HEART_RATE],
         startTime: todayStart,
         endTime: now,
       );
+      totalRecords += hrData.length;
       if (hrData.isNotEmpty) {
         final hrValues = hrData
             .map((d) {
@@ -367,20 +370,29 @@ class WatchConnectionManager {
           data['maxHeartRate'] = hrValues.last.toInt();
         }
       }
+    } catch (e) {
+      debugPrint("[WatchManager] Heart Rate read error: $e");
+    }
 
-      // 2. SpO2 (Latest today)
+    // 2. SpO2 (Latest today)
+    try {
       List<HealthDataPoint> spo2Data = await _health.getHealthDataFromTypes(
         types: [HealthDataType.BLOOD_OXYGEN],
         startTime: todayStart,
         endTime: now,
       );
+      totalRecords += spo2Data.length;
       if (spo2Data.isNotEmpty) {
         spo2Data.sort((a, b) => a.dateFrom.compareTo(b.dateFrom));
         final v = spo2Data.last.value;
         data['spO2'] = v is NumericHealthValue ? v.numericValue.toDouble() : null;
       }
+    } catch (e) {
+      debugPrint("[WatchManager] SpO2 read error: $e");
+    }
 
-      // 3. Blood Pressure (Latest last 7 days)
+    // 3. Blood Pressure (Latest last 7 days)
+    try {
       List<HealthDataPoint> bpSysData = await _health.getHealthDataFromTypes(
         types: [HealthDataType.BLOOD_PRESSURE_SYSTOLIC],
         startTime: pastWeek,
@@ -391,6 +403,7 @@ class WatchConnectionManager {
         startTime: pastWeek,
         endTime: now,
       );
+      totalRecords += bpSysData.length + bpDiaData.length;
       if (bpSysData.isNotEmpty && bpDiaData.isNotEmpty) {
         bpSysData.sort((a, b) => a.dateFrom.compareTo(b.dateFrom));
         bpDiaData.sort((a, b) => a.dateFrom.compareTo(b.dateFrom));
@@ -399,56 +412,66 @@ class WatchConnectionManager {
         data['systolic'] = sysV is NumericHealthValue ? sysV.numericValue.toInt() : null;
         data['diastolic'] = diaV is NumericHealthValue ? diaV.numericValue.toInt() : null;
       }
+    } catch (e) {
+      debugPrint("[WatchManager] Blood Pressure read error: $e");
+    }
 
-      // 4. Steps (Today)
+    // 4. Steps (Today)
+    try {
       List<HealthDataPoint> stepsData = await _health.getHealthDataFromTypes(
         types: [HealthDataType.STEPS],
         startTime: todayStart,
         endTime: now,
       );
+      totalRecords += stepsData.length;
       int steps = 0;
       for (final pt in stepsData) {
         final v = pt.value;
         if (v is NumericHealthValue) steps += v.numericValue.toInt();
       }
       data['steps'] = steps > 0 ? steps : null;
+    } catch (e) {
+      debugPrint("[WatchManager] Steps read error: $e");
+    }
 
-      // 5. Sleep (Yesterday evening to now)
+    // 5. Sleep (Yesterday evening to now)
+    try {
       List<HealthDataPoint> sleepData = await _health.getHealthDataFromTypes(
         types: [HealthDataType.SLEEP_ASLEEP],
         startTime: yesterdayEvening,
         endTime: now,
       );
+      totalRecords += sleepData.length;
       double sleepHours = 0;
       for (final pt in sleepData) {
         sleepHours += pt.dateTo.difference(pt.dateFrom).inMinutes / 60.0;
       }
       data['sleepHours'] = sleepHours > 0 ? sleepHours : null;
-
-      // Compute wellness score ONLY if enough data exists
-      int wellnessScore = 0;
-      int metricsCount = 0;
-      if (data['restingHeartRate'] != null) {
-        int hrScore = (100 - ((data['restingHeartRate'] as int) - 60).abs()).clamp(0, 100);
-        wellnessScore += hrScore;
-        metricsCount++;
-      }
-      if (data['steps'] != null) {
-        int stepScore = ((data['steps'] as int) / 100).clamp(0, 100).toInt();
-        wellnessScore += stepScore;
-        metricsCount++;
-      }
-      if (data['sleepHours'] != null) {
-        int sleepScore = (((data['sleepHours'] as double) / 8.0) * 100).clamp(0, 100).toInt();
-        wellnessScore += sleepScore;
-        metricsCount++;
-      }
-      
-      data['wellnessScore'] = metricsCount >= 2 ? (wellnessScore / metricsCount).round() : null;
-      data['totalRecords'] = hrData.length + spo2Data.length + bpSysData.length + stepsData.length + sleepData.length;
     } catch (e) {
-      debugPrint("[WatchManager] Health Connect read error: $e");
+      debugPrint("[WatchManager] Sleep read error: $e");
     }
+
+    // Compute wellness score ONLY if enough data exists
+    int wellnessScore = 0;
+    int metricsCount = 0;
+    if (data['restingHeartRate'] != null) {
+      int hrScore = (100 - ((data['restingHeartRate'] as int) - 60).abs()).clamp(0, 100);
+      wellnessScore += hrScore;
+      metricsCount++;
+    }
+    if (data['steps'] != null) {
+      int stepScore = ((data['steps'] as int) / 100).clamp(0, 100).toInt();
+      wellnessScore += stepScore;
+      metricsCount++;
+    }
+    if (data['sleepHours'] != null) {
+      int sleepScore = (((data['sleepHours'] as double) / 8.0) * 100).clamp(0, 100).toInt();
+      wellnessScore += sleepScore;
+      metricsCount++;
+    }
+    
+    data['wellnessScore'] = metricsCount >= 2 ? (wellnessScore / metricsCount).round() : null;
+    data['totalRecords'] = totalRecords;
 
     return data;
   }
