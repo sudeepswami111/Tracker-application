@@ -76,6 +76,7 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
   bool _isRetryableError = false;
   List<List<LatLng>> _alternativeRoutes = [];
   int _selectedRouteIndex = 0;
+  List<RouteAlternative> _routeAlternatives = [];
 
   final GeocodingService _geocodingService = GeocodingService();
   final RouteService _routeService = RouteService();
@@ -162,25 +163,26 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
       final routeRes = await _routeService.getRoute(startRes.coordinates, destRes.coordinates);
 
       if (routeRes.alternatives.isNotEmpty) {
-        // Classify alternatives: find fastest (lowest duration) and shortest (lowest distance)
-        int fastestIdx = 0;
-        int shortestIdx = 0;
-        for (int i = 1; i < routeRes.alternatives.length; i++) {
-          if (routeRes.durations[i] < routeRes.durations[fastestIdx]) fastestIdx = i;
-          if (routeRes.distances[i] < routeRes.distances[shortestIdx]) shortestIdx = i;
-        }
+        // Use the pre-classified indices from RouteService
+        final fastestIdx = routeRes.fastestIndex;
+        final shortestIdx = routeRes.shortestIndex;
 
-        // Pick the route based on user's selected preference
-        int selectedIdx = 0;
+        // Auto-select based on user preference
+        int selectedIdx = fastestIdx;
         if (_routePreference == RoutePreference.shortest) {
           selectedIdx = shortestIdx;
-        } else {
-          selectedIdx = fastestIdx;
         }
+
+        debugPrint('[LifePulse] Routes found: ${routeRes.routeAlternatives.length}');
+        for (final alt in routeRes.routeAlternatives) {
+          debugPrint('[LifePulse] ${alt.label}: ${alt.distanceText}, ${alt.durationText}, ${alt.points.length} pts');
+        }
+        debugPrint('[LifePulse] Auto-selected: route_$selectedIdx (${routeRes.routeAlternatives[selectedIdx].label})');
 
         setState(() {
           _lastRouteResult = routeRes;
           _alternativeRoutes = routeRes.alternatives;
+          _routeAlternatives = routeRes.routeAlternatives;
           _fastestRouteIndex = fastestIdx;
           _shortestRouteIndex = shortestIdx;
           _selectedRouteIndex = selectedIdx;
@@ -193,8 +195,7 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
           _updateTargetUI();
         });
         _calculateReadiness();
-        _fitMapToRoute();
-        debugPrint('Route plotted. Fastest idx=$fastestIdx, Shortest idx=$shortestIdx, Selected=$selectedIdx, Alternatives: ${_alternativeRoutes.length}');
+        _fitMapToAllRoutes();
       }
     } catch (e) {
       if (mounted) {
@@ -292,6 +293,7 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
     });
   }
 
+  /// Fit map to the selected route only.
   void _fitMapToRoute() {
     if (_mockPreRunRoute.length < 2) return;
     try {
@@ -301,13 +303,30 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
         padding: const EdgeInsets.all(60.0),
       ));
     } catch (e) {
-      debugPrint('Failed to fit camera to route bounds: $e');
+      debugPrint('Failed to fit camera to selected route bounds: $e');
+    }
+  }
+
+  /// Fit map to bounds of ALL alternatives so the user can see the full picture.
+  void _fitMapToAllRoutes() {
+    if (_alternativeRoutes.isEmpty) return;
+    try {
+      final allPoints = _alternativeRoutes.expand((pts) => pts).toList();
+      if (allPoints.length < 2) return;
+      final bounds = LatLngBounds.fromPoints(allPoints);
+      _mapCtrl.fitCamera(CameraFit.bounds(
+        bounds: bounds,
+        padding: const EdgeInsets.all(52.0),
+      ));
+    } catch (e) {
+      debugPrint('Failed to fit camera to all route bounds: $e');
     }
   }
 
   void _selectAlternativeRoute(int index) {
     if (index < 0 || index >= _alternativeRoutes.length) return;
     final result = _lastRouteResult;
+    debugPrint('[LifePulse] Selected route: route_$index (${_routeAlternatives.isNotEmpty ? _routeAlternatives[index].label : "?"}, ${_alternativeRoutes[index].length} points)');
     setState(() {
       _selectedRouteIndex = index;
       _mockPreRunRoute = _alternativeRoutes[index];
@@ -711,16 +730,26 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
           maxZoom: 19,
         ),
 
-        // Alternative routes (dimmed gray)
+        // Unselected alternative routes — visible muted purple/lavender
         if (showPreRunRoute && _alternativeRoutes.length > 1)
           PolylineLayer(polylines: [
             for (int i = 0; i < _alternativeRoutes.length; i++)
-              if (i != _selectedRouteIndex)
+              if (i != _selectedRouteIndex) ...[
+                // Glow layer
                 Polyline(
                   points: _alternativeRoutes[i],
-                  strokeWidth: 3,
-                  color: (isDark ? Colors.white : Colors.black).withValues(alpha: 0.15),
+                  strokeWidth: 7,
+                  color: const Color(0xFF8B5CF6).withValues(alpha: 0.2),
                 ),
+                // Core line
+                Polyline(
+                  points: _alternativeRoutes[i],
+                  strokeWidth: 3.5,
+                  color: const Color(0xFF8B5CF6).withValues(alpha: 0.55),
+                  borderStrokeWidth: 1,
+                  borderColor: Colors.white.withValues(alpha: 0.3),
+                ),
+              ],
           ]),
         
         // Pre-run Route (Cyan Glow)
@@ -855,6 +884,152 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
         ]),
       ],
     );
+  }
+
+  /// Horizontally scrollable cards showing each route alternative.
+  /// Appears below the map when routes have been loaded.
+  Widget _buildRouteAlternativeCards(bool isDark) {
+    if (_routeAlternatives.isEmpty) return const SizedBox.shrink();
+
+    final textColor = isDark ? Colors.white : Colors.black;
+
+    // Single-route message
+    if (_routeAlternatives.length == 1) {
+      final alt = _routeAlternatives.first;
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        decoration: BoxDecoration(
+          color: AppColors.voltCyan.withValues(alpha: 0.08),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: AppColors.voltCyan.withValues(alpha: 0.35)),
+        ),
+        child: Row(
+          children: [
+            const Icon(Icons.info_outline, color: AppColors.voltCyan, size: 18),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(alt.label,
+                      style: const TextStyle(
+                          color: AppColors.voltCyan,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 13)),
+                  Text('${alt.summaryText} · Only 1 route available',
+                      style: TextStyle(
+                          color: textColor.withValues(alpha: 0.6),
+                          fontSize: 11)),
+                ],
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    // Multiple routes — horizontal scroll cards
+    return SizedBox(
+      height: 84,
+      child: ListView.builder(
+        scrollDirection: Axis.horizontal,
+        itemCount: _routeAlternatives.length,
+        itemBuilder: (context, i) {
+          final alt = _routeAlternatives[i];
+          final isSelected = i == _selectedRouteIndex;
+
+          return GestureDetector(
+            onTap: () => _selectAlternativeRoute(i),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 220),
+              curve: Curves.easeOutCubic,
+              width: 158,
+              margin: EdgeInsets.only(left: i == 0 ? 0 : 10),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              decoration: BoxDecoration(
+                color: isSelected
+                    ? AppColors.voltCyan.withValues(alpha: 0.12)
+                    : textColor.withValues(alpha: 0.04),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(
+                  color: isSelected
+                      ? AppColors.voltCyan
+                      : textColor.withValues(alpha: 0.12),
+                  width: isSelected ? 1.5 : 1.0,
+                ),
+                boxShadow: isSelected
+                    ? [
+                        BoxShadow(
+                          color: AppColors.voltCyan.withValues(alpha: 0.18),
+                          blurRadius: 8,
+                          spreadRadius: 1,
+                        )
+                      ]
+                    : null,
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Row(
+                    children: [
+                      Icon(
+                        isSelected
+                            ? Icons.check_circle
+                            : _routeIcon(alt.label),
+                        size: 14,
+                        color: isSelected
+                            ? AppColors.voltCyan
+                            : textColor.withValues(alpha: 0.5),
+                      ),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          alt.label,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                            color: isSelected
+                                ? AppColors.voltCyan
+                                : textColor,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    alt.durationText,
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w800,
+                      color: isSelected
+                          ? AppColors.voltCyan
+                          : textColor,
+                    ),
+                  ),
+                  Text(
+                    alt.distanceText,
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: textColor.withValues(alpha: 0.55),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  IconData _routeIcon(String label) {
+    final l = label.toLowerCase();
+    if (l.contains('fastest')) return LucideIcons.zap;
+    if (l.contains('shortest')) return LucideIcons.ruler;
+    return LucideIcons.route;
   }
 
   Widget _buildCompactRouteInput({
@@ -1132,11 +1307,11 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
                     ),
                     const SizedBox(height: 16),
                     
-                    // Map Card
+                    // ── Map Card ──
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 16),
                       child: SizedBox(
-                        height: 240,
+                        height: 228,
                         width: double.infinity,
                         child: ClipRRect(
                           borderRadius: BorderRadius.circular(24),
@@ -1144,7 +1319,7 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
                             children: [
                               _buildMapWidget(mapUrl, isDark, true),
                               
-                              // Pre-run Map Controls (overlaying the inline map card)
+                              // Map Controls (top right)
                               Positioned(
                                 top: 12,
                                 right: 12,
@@ -1155,23 +1330,41 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
                                 ),
                               ),
                               
-                              // Theme Toggle (Inline Map)
+                              // Theme Toggle (top left)
                               Positioned(
                                 top: 12,
                                 left: 12,
                                 child: _mapControlBtn(
                                   icon: mapModeIsDark ? Icons.light_mode : Icons.dark_mode,
-                                  onTap: () {
-                                    setState(() {
-                                      _mapIsDark = !mapModeIsDark;
-                                    });
-                                  },
+                                  onTap: () => setState(() => _mapIsDark = !mapModeIsDark),
                                 ),
                               ),
 
-                              if (_alternativeRoutes.isEmpty)
+                              // Route count badge (shown when multiple routes are found)
+                              if (_routeAlternatives.length > 1)
                                 Positioned(
-                                  bottom: 12, left: 0, right: 0,
+                                  bottom: 10, left: 10,
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                                    decoration: BoxDecoration(
+                                      color: Colors.black.withValues(alpha: 0.65),
+                                      borderRadius: BorderRadius.circular(10),
+                                      border: Border.all(color: AppColors.voltCyan.withValues(alpha: 0.4)),
+                                    ),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        const Icon(LucideIcons.route, size: 12, color: AppColors.voltCyan),
+                                        const SizedBox(width: 5),
+                                        Text('${_routeAlternatives.length} routes found',
+                                            style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w600)),
+                                      ],
+                                    ),
+                                  ),
+                                )
+                              else if (_routeAlternatives.isEmpty && !_isLoadingRoute)
+                                Positioned(
+                                  bottom: 10, left: 0, right: 0,
                                   child: Center(
                                     child: Container(
                                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
@@ -1179,18 +1372,29 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
                                         color: Colors.black.withValues(alpha: 0.6),
                                         borderRadius: BorderRadius.circular(12),
                                       ),
-                                      child: const Text('Find a route or start free run', style: TextStyle(color: Colors.white, fontSize: 11)),
+                                      child: const Text('Find a route or start free run',
+                                          style: TextStyle(color: Colors.white, fontSize: 11)),
                                     ),
-                                  )
+                                  ),
                                 ),
                             ],
                           ),
                         ),
                       ),
                     ),
-                    const SizedBox(height: 16),
 
-                    // START RUN Button
+                    // ── Route Alternative Cards (shown after route search) ──
+                    if (_routeAlternatives.isNotEmpty) ...[
+                      const SizedBox(height: 12),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        child: _buildRouteAlternativeCards(isDark),
+                      ),
+                    ],
+
+                    const SizedBox(height: 14),
+
+                    // ── START Button ──
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 16),
                       child: SizedBox(
@@ -1199,7 +1403,9 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
                         child: ElevatedButton(
                           onPressed: _startCountdown,
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: AppColors.pulseRed,
+                            backgroundColor: _mockPreRunRoute.isNotEmpty
+                                ? AppColors.pulseRed
+                                : const Color(0xFFDC2626),
                             foregroundColor: Colors.white,
                             elevation: 0,
                             padding: EdgeInsets.zero,
@@ -1208,8 +1414,34 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
                           child: Column(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              Text(_mockPreRunRoute.isNotEmpty ? 'START ROUTE RUN' : 'START FREE RUN', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800, letterSpacing: 1.0)),
-                              if (_mockPreRunRoute.isEmpty) ...[
+                              if (_mockPreRunRoute.isNotEmpty) ...[
+                                // Route selected
+                                Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    const Icon(Icons.play_arrow_rounded, size: 20),
+                                    const SizedBox(width: 6),
+                                    Text(
+                                      'START ${_routeAlternatives.isNotEmpty ? _routeAlternatives[_selectedRouteIndex].label.toUpperCase() : 'SELECTED ROUTE'}',
+                                      style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800, letterSpacing: 0.8),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  _routeAlternatives.isNotEmpty ? _routeAlternatives[_selectedRouteIndex].summaryText : '',
+                                  style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w500, color: Colors.white70),
+                                ),
+                              ] else ...[
+                                // Free run
+                                const Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(Icons.directions_run, size: 20),
+                                    SizedBox(width: 6),
+                                    Text('START FREE RUN', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, letterSpacing: 0.8)),
+                                  ],
+                                ),
                                 const SizedBox(height: 2),
                                 const Text('No route needed', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w500, color: Colors.white70)),
                               ],
