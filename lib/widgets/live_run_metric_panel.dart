@@ -264,6 +264,7 @@ class _BpmCellState extends State<_BpmCell> with SingleTickerProviderStateMixin 
             ),
           ],
         ),
+
         Text(
           (widget.bpm != null && widget.bpm! > 0) ? 'Health Connect' : 'No data',
           style: widget.theme.textTheme.bodySmall?.copyWith(

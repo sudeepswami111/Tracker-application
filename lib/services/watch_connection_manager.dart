@@ -355,7 +355,10 @@ class WatchConnectionManager {
         endTime: now,
       );
       totalRecords += hrData.length;
+      debugPrint('[WatchManager] Heart rate records found: ${hrData.length}');
       if (hrData.isNotEmpty) {
+        // Sort chronologically
+        hrData.sort((a, b) => a.dateFrom.compareTo(b.dateFrom));
         final hrValues = hrData
             .map((d) {
               final v = d.value;
@@ -364,11 +367,17 @@ class WatchConnectionManager {
             .where((v) => v > 0)
             .toList();
         if (hrValues.isNotEmpty) {
-          hrValues.sort();
-          data['heartRate'] = hrValues.last.toInt(); 
-          data['restingHeartRate'] = hrValues.first.toInt();
-          data['maxHeartRate'] = hrValues.last.toInt();
+          final sortedValues = List<double>.from(hrValues)..sort();
+          final lastValue = hrValues.last.toInt();
+          data['heartRate'] = lastValue; 
+          data['restingHeartRate'] = sortedValues.first.toInt();
+          data['maxHeartRate'] = sortedValues.last.toInt();
+          debugPrint('[WatchManager] Heart rate value: $lastValue');
+        } else {
+          debugPrint('[WatchManager] No valid heart rate value found today');
         }
+      } else {
+        debugPrint('[WatchManager] No heart-rate data found today');
       }
     } catch (e) {
       debugPrint("[WatchManager] Heart Rate read error: $e");

@@ -102,6 +102,7 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
   double _routeElevation = 0.0;
   int _routeDuration = 0;
   bool _isFullScreenMap = false;
+  String _gpsStatusText = 'Waiting for GPS...';
 
   // Custom target variables (editable)
   double _customTargetPaceMin = 5.5; // default 5:30 /km
@@ -514,7 +515,7 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
     if (Platform.isAndroid) {
       locSettings = AndroidSettings(
         accuracy: LocationAccuracy.bestForNavigation,
-        distanceFilter: 3, // At least 3 meters
+        distanceFilter: 1, // At least 1 meter
         intervalDuration: const Duration(seconds: 1),
         foregroundNotificationConfig: const ForegroundNotificationConfig(
           notificationTitle: 'LifePulse Running',
@@ -541,20 +542,26 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
     debugPrint('LifePulse: Starting GPS stream...');
     _posSub = Geolocator.getPositionStream(
       locationSettings: locSettings,
-    ).listen(_onPos);
+    ).listen(_onPos, onError: (e) {
+      debugPrint('LifePulse GPS stream error: $e');
+    });
   }
 
   void _onPos(Position p) {
     if (!mounted) return;
     
-    // Ignore extremely inaccurate points (allow up to 100m for indoor testing)
+    debugPrint('LifePulse GPS point received: lat=${p.latitude}, lng=${p.longitude}, accuracy=${p.accuracy}, state=$_state');
+
+    // Filter points
     if (p.accuracy > 100) {
       debugPrint('LifePulse GPS: Ignored poor accuracy (${p.accuracy.toStringAsFixed(1)}m > 100m)');
+      setState(() => _gpsStatusText = 'Low GPS accuracy: ${p.accuracy.toStringAsFixed(0)}m');
       return;
-    }
-
-    if (p.accuracy > 30) {
-      debugPrint('LifePulse GPS: Low accuracy (${p.accuracy.toStringAsFixed(1)}m > 30m) - Accepted for indoor testing.');
+    } else if (p.accuracy > 50) {
+      debugPrint('LifePulse GPS: Warning, accuracy (${p.accuracy.toStringAsFixed(1)}m > 50m) - Accepted for testing.');
+      setState(() => _gpsStatusText = 'Tracking (Low accuracy: ${p.accuracy.toStringAsFixed(0)}m)');
+    } else {
+      setState(() => _gpsStatusText = 'Tracking movement (Accuracy: ${p.accuracy.toStringAsFixed(0)}m)');
     }
 
     final pt = LatLng(p.latitude, p.longitude);
@@ -567,7 +574,11 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
     });
     
     if (_follow && _curPos != null) {
-      _mapCtrl.move(_curPos!, _zoom);
+      try {
+        _mapCtrl.move(_curPos!, _zoom);
+      } catch (e) {
+        debugPrint('LifePulse GPS: Could not move map: $e');
+      }
     }
 
     if (_state == RunState.running) {
@@ -585,8 +596,10 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
           p.longitude,
         );
         
-        // Filter out tiny jitters (< 1.5m)
-        if (distFromLast >= 1.5) {
+        // Filter out tiny jitters (< 1.0m for testing, usually 3-5m for prod)
+        if (distFromLast >= 1.0) {
+          debugPrint('LifePulse GPS accepted. Segment distance: $distFromLast');
+          
           setState(() {
             _totalDistanceMeters += distFromLast;
             _distKm = _totalDistanceMeters / 1000.0;
@@ -594,7 +607,7 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
             _lastValidPosition = p;
             _gpsRoute.add(pt);
             
-            if (_distKm > 0.01) {
+            if (_distKm >= 0.01) {
               final elapsedSecs = _elapsed().inSeconds;
               _paceMin = elapsedSecs / _distKm;
             } else {
@@ -602,9 +615,10 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
             }
           });
           _audioCoach.announceDistance(_distKm);
-          debugPrint('LifePulse GPS: Point added. Segment: ${distFromLast.toStringAsFixed(1)}m. Total: ${_totalDistanceMeters.toStringAsFixed(1)}m');
+          debugPrint('Total distance meters: $_totalDistanceMeters');
+          debugPrint('Route points: ${_gpsRoute.length}');
         } else {
-          debugPrint('LifePulse GPS: Point ignored (distance < 1.5m)');
+          debugPrint('LifePulse GPS: Point ignored (distance < 1.0m)');
         }
       }
     }
@@ -654,9 +668,8 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
   }
 
   void _startRun() {
-    _startGpsStream();
-    _audioCoach.announceWorkoutStart(_startRoutePos != null);
-    
+    _posSub?.cancel();
+
     setState(() {
       _state = RunState.running;
       _startTime = DateTime.now();
@@ -668,10 +681,20 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
       _lastValidPosition = null;
       _heartRate = null;
       _gpsRoute.clear();
-      if (_curPos != null) _gpsRoute.add(_curPos!);
       _follow = true;
+      if (_curPos != null) _gpsRoute.add(_curPos!);
     });
-    if (_curPos != null) _mapCtrl.move(_curPos!, 18); // Zoom in and center
+
+    _startGpsStream();
+    _audioCoach.announceWorkoutStart(_startRoutePos != null);
+    
+    if (_curPos != null) {
+      try {
+        _mapCtrl.move(_curPos!, 18); // Zoom in and center
+      } catch (e) {
+        debugPrint('LifePulse GPS: Could not move map initially: $e');
+      }
+    }
     
     _hrTimer?.cancel();
     _hrTimer = Timer.periodic(const Duration(seconds: 10), (_) => _pollHeartRate());
@@ -715,10 +738,14 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
       _pauseStart = null;
     }
     
-    _lastValidPosition = null; // Reset to avoid jump line
+    setState(() {
+      _state = RunState.running;
+      _lastValidPosition = null; // Reset to avoid jump line
+      if (_curPos != null) _gpsRoute.add(_curPos!);
+    });
+    
     _startGpsStream();
     
-    setState(() => _state = RunState.running);
     _hrTimer?.cancel();
     _hrTimer = Timer.periodic(const Duration(seconds: 10), (_) => _pollHeartRate());
     
@@ -1668,6 +1695,31 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
               right: 16,
               child: _buildFloatingPauseBtn(),
             ),
+
+            // GPS Status Pill
+            if (_state == RunState.running)
+              Positioned(
+                top: MediaQuery.of(context).padding.top > 20 ? MediaQuery.of(context).padding.top + 16 : 40,
+                left: 16,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withValues(alpha: 0.6),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(LucideIcons.satellite, size: 14, color: AppColors.voltCyan),
+                      const SizedBox(width: 8),
+                      Text(
+                        _gpsStatusText,
+                        style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
 
             // MAP CONTROLS (during run) - Placed on the RIGHT side above the elevation strip
             if (_state == RunState.running)
