@@ -325,6 +325,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                 if (uid != null) {
                                   await supabase.from('profiles').delete().eq('id', uid);
                                 }
+                                if (!context.mounted) return;
                                 await context.read<AuthProvider>().signOut();
                               } catch (e) {
                                 if (context.mounted) {

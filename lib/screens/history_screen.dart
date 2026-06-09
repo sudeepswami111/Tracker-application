@@ -451,6 +451,7 @@ class _HistoryScreenState extends State<HistoryScreen> with SingleTickerProvider
                         await file.writeAsString(header + csv);
                         await Share.shareXFiles([XFile(file.path)], text: 'My Activity History from LifePulse');
                       } catch (e) {
+                        if (!mounted) return;
                         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to export: $e')));
                       }
                     },

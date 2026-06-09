@@ -286,12 +286,14 @@ class _CommunityFeedCardState extends State<_CommunityFeedCard> {
         onReplySent: (String reply) async {
           final authorId = widget.post['user_id'];
           final added = await CommunityService().addReply(widget.post['id'], reply, postAuthorId: authorId);
-          if (added != null && mounted) {
+          if (added != null) {
+            if (!mounted) return;
             setState(() {
               if (!_replies.any((r) => r.id == added.id)) {
                 _replies.add(added);
               }
             });
+            if (!context.mounted) return;
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(content: Text('Reply sent', style: TextStyle(color: Colors.white))),
             );

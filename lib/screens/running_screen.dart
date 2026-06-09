@@ -157,6 +157,7 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
       await Future.delayed(const Duration(milliseconds: 1100)); // Respect Nominatim limits
       final destRes = await _geocodingService.geocode(_destLocCtrl.text);
 
+      if (!mounted) return;
       setState(() {
         _startRoutePos = startRes.coordinates;
         _endRoutePos = destRes.coordinates;
@@ -174,6 +175,7 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
 
       final routeRes = await _routeService.getRoute(startRes.coordinates, destRes.coordinates);
 
+      if (!mounted) return;
       if (routeRes.alternatives.isNotEmpty) {
         // Use the pre-classified indices from RouteService
         final fastestIdx = routeRes.fastestIndex;
@@ -383,6 +385,7 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
       try {
         final placemarks = await placemarkFromCoordinates(
             _curPos!.latitude, _curPos!.longitude);
+        if (!mounted) return;
         if (placemarks.isNotEmpty) {
           final p = placemarks.first;
           final name = [p.locality, p.administrativeArea, p.country]
@@ -401,6 +404,7 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
           });
         }
       } catch (_) {
+        if (!mounted) return;
         setState(() {
           _startLocCtrl.text =
               '${_curPos!.latitude.toStringAsFixed(4)}, ${_curPos!.longitude.toStringAsFixed(4)}';

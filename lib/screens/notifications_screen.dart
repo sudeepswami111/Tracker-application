@@ -339,7 +339,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                               final id = unread[i]['id'] as String;
                               setState(() => _notifications.removeWhere((n) => n['id'] == id));
                               await _supabase.from('notifications').delete().eq('id', id);
-                              if (mounted) {
+                              if (context.mounted) {
                                 final unreadCount = _notifications
                                     .where((n) => !(n['is_read'] as bool? ?? false))
                                     .length;
