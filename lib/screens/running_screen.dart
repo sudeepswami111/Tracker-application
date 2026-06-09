@@ -8,6 +8,7 @@ import '../models/route_result.dart';
 import '../models/route_option.dart';
 import '../models/location_suggestion.dart';
 import '../widgets/location_input_field.dart';
+import '../services/audio_coach_service.dart';
 
 import 'dart:ui';
 import 'package:flutter/material.dart';
@@ -41,6 +42,7 @@ class RunningScreen extends StatefulWidget {
 }
 
 class _RunningScreenState extends State<RunningScreen> with TickerProviderStateMixin {
+  final AudioCoachService _audioCoach = AudioCoachService();
   final MapController _mapCtrl = MapController();
   double _zoom = 16;
   bool _follow = true;
@@ -99,7 +101,6 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
   double _routeDistance = 0.0;
   double _routeElevation = 0.0;
   int _routeDuration = 0;
-  bool _audioPrompts = true;
   bool _isFullScreenMap = false;
 
   // Custom target variables (editable)
@@ -111,7 +112,6 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
   double _mapRotation = 0.0;
   double _heading = 0.0;
   bool _isDrawerCollapsed = false;
-  String _selectedMusicPlaylist = 'LifePulse Cardio Boost';
 
 
   // Pre-run target inputs
@@ -439,6 +439,7 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
   @override
   void initState() {
     super.initState();
+    _audioCoach.initialize();
     _pulseCtrl = AnimationController(vsync: this, duration: const Duration(seconds: 1))..repeat(reverse: true);
     _pulseAnim = Tween<double>(begin: 0.85, end: 1.15).animate(CurvedAnimation(parent: _pulseCtrl, curve: Curves.easeInOut));
     _updateTargetUI();
@@ -600,6 +601,7 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
               _paceMin = 0.0;
             }
           });
+          _audioCoach.announceDistance(_distKm);
           debugPrint('LifePulse GPS: Point added. Segment: ${distFromLast.toStringAsFixed(1)}m. Total: ${_totalDistanceMeters.toStringAsFixed(1)}m');
         } else {
           debugPrint('LifePulse GPS: Point ignored (distance < 1.5m)');
@@ -647,11 +649,13 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
       setState(() {
         _heartRate = data['heartRate'] as int;
       });
+      _audioCoach.announceHeartRateWarning(_heartRate!);
     }
   }
 
   void _startRun() {
     _startGpsStream();
+    _audioCoach.announceWorkoutStart(_startRoutePos != null);
     
     setState(() {
       _state = RunState.running;
@@ -685,11 +689,15 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
           _paceMin = 0;
         }
       });
+      _audioCoach.announcePace(_paceMin / 60.0, _distKm);
+      final currentTemp = context.read<WeatherProvider>().weather?.currentTemp ?? 25.0;
+      _audioCoach.announceHydrationReminder(currentTemp: currentTemp);
     });
   }
 
   void _pauseRun() {
     HapticFeedback.mediumImpact();
+    _audioCoach.announceWorkoutPaused();
     setState(() {
       _state = RunState.paused;
       _pauseStart = DateTime.now();
@@ -701,6 +709,7 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
 
   void _resumeRun() {
     HapticFeedback.lightImpact();
+    _audioCoach.announceWorkoutResumed();
     if (_pauseStart != null) {
       _pausedDur += DateTime.now().difference(_pauseStart!);
       _pauseStart = null;
@@ -722,11 +731,15 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
           _paceMin = _durSecs / _distKm;
         }
       });
+      _audioCoach.announcePace(_paceMin / 60.0, _distKm);
+      final currentTemp = context.read<WeatherProvider>().weather?.currentTemp ?? 25.0;
+      _audioCoach.announceHydrationReminder(currentTemp: currentTemp);
     });
   }
 
   void _finishRun() {
     HapticFeedback.heavyImpact();
+    _audioCoach.announceWorkoutCompleted();
     _timer?.cancel();
     _hrTimer?.cancel();
     _posSub?.cancel();
@@ -740,6 +753,7 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
 
   void _resetRun() {
     widget.onFullscreenChanged?.call(_isFullScreenMap);
+    _audioCoach.resetSession();
     _timer?.cancel();
     _hrTimer?.cancel();
     _posSub?.cancel();
@@ -787,6 +801,7 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
     _posSub?.cancel();
     _timer?.cancel();
     _hrTimer?.cancel();
+    _audioCoach.stop();
     _pulseCtrl.dispose();
     widget.onFullscreenChanged?.call(false);
     super.dispose();
@@ -1917,52 +1932,70 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
             const SizedBox(height: AppSpacing.xl),
           ],
 
-          // Music / audio cue row
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.05),
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
-            ),
-            child: Row(
-              children: [
-                Expanded(
-                  child: GestureDetector(
-                    behavior: HitTestBehavior.opaque,
-                    onTap: _showMusicSelector,
-                    child: Row(
-                      children: [
-                        Container(
-                          width: 32,
-                          height: 32,
-                          decoration: const BoxDecoration(
-                            color: AppColors.irisViolet,
-                            shape: BoxShape.circle,
-                          ),
-                          child: const Icon(LucideIcons.music, size: 16, color: Colors.white),
+          // Audio Coach row
+          ListenableBuilder(
+            listenable: _audioCoach,
+            builder: (context, _) {
+              return Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.05),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: GestureDetector(
+                        behavior: HitTestBehavior.opaque,
+                        onTap: _showAudioCoachSettings,
+                        child: Row(
+                          children: [
+                            Container(
+                              width: 32,
+                              height: 32,
+                              decoration: BoxDecoration(
+                                color: _audioCoach.enabled ? AppColors.pulseRed : Colors.grey.withValues(alpha: 0.5),
+                                shape: BoxShape.circle,
+                              ),
+                              child: const Icon(LucideIcons.mic, size: 16, color: Colors.white),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Text('LifePulse Audio Coach', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 14)),
+                                  Text(_audioCoach.enabled ? 'Voice guidance enabled' : 'Tap to configure voice prompts', style: TextStyle(color: Colors.white70, fontSize: 12)),
+                                  if (_audioCoach.enabled)
+                                    Padding(
+                                      padding: const EdgeInsets.only(top: 4),
+                                      child: Text(
+                                        [
+                                          if (_audioCoach.distanceEnabled) 'Dist',
+                                          if (_audioCoach.paceEnabled) 'Pace',
+                                          if (_audioCoach.hydrationEnabled) 'Hydration',
+                                          if (_audioCoach.heartRateEnabled) 'HR'
+                                        ].join(' · '),
+                                        style: TextStyle(color: AppColors.pulseRed.withValues(alpha: 0.8), fontSize: 10, fontWeight: FontWeight.bold),
+                                      ),
+                                    ),
+                                ],
+                              ),
+                            ),
+                          ],
                         ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(_selectedMusicPlaylist, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 14)),
-                              Text('Audio Prompts', style: TextStyle(color: Colors.white.withValues(alpha: 0.5), fontSize: 12)),
-                            ],
-                          ),
-                        ),
-                      ],
+                      ),
                     ),
-                  ),
+                    Switch(
+                      value: _audioCoach.enabled,
+                      onChanged: (v) => _audioCoach.toggleEnabled(v),
+                      activeTrackColor: AppColors.pulseRed,
+                    ),
+                  ],
                 ),
-                Switch(
-                  value: _audioPrompts,
-                  onChanged: (v) => setState(() => _audioPrompts = v),
-                  activeTrackColor: AppColors.pulseRed,
-                ),
-              ],
-            ),
+              );
+            },
           ),
           const SizedBox(height: 12),
           Center(
@@ -2523,52 +2556,78 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
     );
   }
 
-  void _showMusicSelector() {
+  void _showAudioCoachSettings() {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final playlists = [
-      {'name': 'LifePulse Cardio Boost', 'genre': 'Upbeat Dance · 130 BPM', 'icon': LucideIcons.zap},
-      {'name': 'Sunset Trail Ride', 'genre': 'Chill Acoustic / Lo-Fi · 110 BPM', 'icon': LucideIcons.compass},
-      {'name': 'Hardcore Running Mix', 'genre': 'Rock / Metal · 150 BPM', 'icon': LucideIcons.flame},
-      {'name': 'Zen Recovery Walk', 'genre': 'Ambient / Meditation · 90 BPM', 'icon': LucideIcons.sprout},
-    ];
-
+    
     showModalBottomSheet(
       context: context,
       backgroundColor: isDark ? const Color(0xFF1A1A2E) : Colors.white,
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
-      builder: (ctx) => Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Select Running Mix', style: TextStyle(color: isDark ? Colors.white : Colors.black, fontSize: 20, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 4),
-            Text('Choose soundtrack for your workout', style: TextStyle(color: (isDark ? Colors.white : Colors.black).withValues(alpha: 0.5), fontSize: 13)),
-            const SizedBox(height: 20),
-            ...playlists.map((pl) {
-              final isSelected = _selectedMusicPlaylist == pl['name'];
-              return ListTile(
-                leading: Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: isSelected ? AppColors.voltCyan.withValues(alpha: 0.15) : (isDark ? Colors.white10 : Colors.black54.withValues(alpha: 0.05)),
-                    shape: BoxShape.circle,
-                  ),
-                  child: Icon(pl['icon'] as IconData, color: isSelected ? AppColors.voltCyan : (isDark ? Colors.white : Colors.black)),
+      builder: (ctx) => ListenableBuilder(
+        listenable: _audioCoach,
+        builder: (context, _) {
+          return Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Audio Coach Settings', style: TextStyle(color: isDark ? Colors.white : Colors.black, fontSize: 20, fontWeight: FontWeight.bold)),
+                const SizedBox(height: 4),
+                Text('Customize your live voice guidance', style: TextStyle(color: (isDark ? Colors.white : Colors.black).withValues(alpha: 0.5), fontSize: 13)),
+                const SizedBox(height: 20),
+                
+                SwitchListTile(
+                  title: Text('Enable Audio Coach', style: TextStyle(color: isDark ? Colors.white : Colors.black, fontWeight: FontWeight.bold)),
+                  subtitle: Text('Master toggle for all voice prompts', style: TextStyle(color: (isDark ? Colors.white : Colors.black).withValues(alpha: 0.5), fontSize: 12)),
+                  value: _audioCoach.enabled,
+                  onChanged: (v) => _audioCoach.toggleEnabled(v),
+                  activeColor: AppColors.pulseRed,
+                  contentPadding: EdgeInsets.zero,
                 ),
-                title: Text(pl['name'] as String, style: TextStyle(color: isDark ? Colors.white : Colors.black, fontWeight: FontWeight.bold)),
-                subtitle: Text(pl['genre'] as String, style: TextStyle(color: (isDark ? Colors.white : Colors.black).withValues(alpha: 0.5), fontSize: 12)),
-                trailing: isSelected ? const Icon(Icons.check_circle, color: AppColors.voltCyan) : null,
-                onTap: () {
-                  setState(() => _selectedMusicPlaylist = pl['name'] as String);
-                  Navigator.pop(ctx);
-                },
-              );
-            }).toList(),
-            const SizedBox(height: 16),
-          ],
-        ),
+                const Divider(),
+                
+                SwitchListTile(
+                  title: Text('Distance Milestones', style: TextStyle(color: isDark ? Colors.white : Colors.black)),
+                  subtitle: Text('Announce every 0.5km and 1km', style: TextStyle(color: (isDark ? Colors.white : Colors.black).withValues(alpha: 0.5), fontSize: 12)),
+                  value: _audioCoach.distanceEnabled,
+                  onChanged: _audioCoach.enabled ? (v) => _audioCoach.toggleDistance(v) : null,
+                  activeColor: AppColors.pulseRed,
+                  contentPadding: EdgeInsets.zero,
+                ),
+                
+                SwitchListTile(
+                  title: Text('Pace Updates', style: TextStyle(color: isDark ? Colors.white : Colors.black)),
+                  subtitle: Text('Average pace update every 5 mins', style: TextStyle(color: (isDark ? Colors.white : Colors.black).withValues(alpha: 0.5), fontSize: 12)),
+                  value: _audioCoach.paceEnabled,
+                  onChanged: _audioCoach.enabled ? (v) => _audioCoach.togglePace(v) : null,
+                  activeColor: AppColors.pulseRed,
+                  contentPadding: EdgeInsets.zero,
+                ),
+                
+                SwitchListTile(
+                  title: Text('Hydration Reminders', style: TextStyle(color: isDark ? Colors.white : Colors.black)),
+                  subtitle: Text('Smart reminders based on weather temp', style: TextStyle(color: (isDark ? Colors.white : Colors.black).withValues(alpha: 0.5), fontSize: 12)),
+                  value: _audioCoach.hydrationEnabled,
+                  onChanged: _audioCoach.enabled ? (v) => _audioCoach.toggleHydration(v) : null,
+                  activeColor: AppColors.pulseRed,
+                  contentPadding: EdgeInsets.zero,
+                ),
+                
+                SwitchListTile(
+                  title: Text('Heart Rate Alerts', style: TextStyle(color: isDark ? Colors.white : Colors.black)),
+                  subtitle: Text('Warn if HR goes above 170 bpm', style: TextStyle(color: (isDark ? Colors.white : Colors.black).withValues(alpha: 0.5), fontSize: 12)),
+                  value: _audioCoach.heartRateEnabled,
+                  onChanged: _audioCoach.enabled ? (v) => _audioCoach.toggleHeartRate(v) : null,
+                  activeColor: AppColors.pulseRed,
+                  contentPadding: EdgeInsets.zero,
+                ),
+                
+                const SizedBox(height: 16),
+              ],
+            ),
+          );
+        }
       ),
     );
   }
