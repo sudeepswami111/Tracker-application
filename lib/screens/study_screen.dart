@@ -113,6 +113,10 @@ class _StudyScreenState extends State<StudyScreen> with TickerProviderStateMixin
     } else {
       setState(() => _isRunning = true);
       _timer = Timer.periodic(const Duration(seconds: 1), (_) {
+        if (!mounted) {
+          _timer?.cancel();
+          return;
+        }
         final dayIndex = DateTime.now().weekday - 1;
         setState(() {
           _weeklyFocusSeconds[dayIndex] += 1.0;
@@ -506,18 +510,29 @@ class _StudyScreenState extends State<StudyScreen> with TickerProviderStateMixin
               const SizedBox(height: 8),
 
               // 7. TASK LIST
-              ReorderableListView.builder(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                itemCount: _tasks.length,
-                onReorder: (oldIndex, newIndex) {
-                  setState(() {
-                    if (oldIndex < newIndex) newIndex -= 1;
-                    final item = _tasks.removeAt(oldIndex);
-                    _tasks.insert(newIndex, item);
-                  });
-                  _saveTasks();
-                },
+              if (_tasks.isEmpty)
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 24.0),
+                  child: Center(
+                    child: Text(
+                      'No tasks yet. Add one to get started!',
+                      style: TextStyle(color: Colors.grey),
+                    ),
+                  ),
+                )
+              else
+                ReorderableListView.builder(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  itemCount: _tasks.length,
+                  onReorder: (oldIndex, newIndex) {
+                    setState(() {
+                      if (oldIndex < newIndex) newIndex -= 1;
+                      final item = _tasks.removeAt(oldIndex);
+                      _tasks.insert(newIndex, item);
+                    });
+                    _saveTasks();
+                  },
                 itemBuilder: (context, index) {
                   final task = _tasks[index];
                   return Dismissible(

@@ -60,9 +60,8 @@ class _AppShellState extends State<AppShell> {
           .select('id')
           .eq('user_id', uid)
           .eq('is_read', false);
-      if (mounted) {
-        context.read<AppProvider>().setUnreadCount((res as List).length);
-      }
+      if (!mounted) return;
+      context.read<AppProvider>().setUnreadCount((res as List).length);
     } catch (_) {}
   }
 
