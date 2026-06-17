@@ -1,4 +1,4 @@
-﻿import 'package:flutter/foundation.dart';
+import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/chat_models.dart';
 
@@ -52,6 +52,46 @@ class ChatService {
     } catch (e) {
       if (kDebugMode) print('getMyChats error: $e');
       return [];
+    }
+  }
+
+  // ──────────────────────────────────────────────────────────────────
+  // 8.5 GET OR CREATE DM CHAT (Deterministic)
+  // ──────────────────────────────────────────────────────────────────
+  Future<String> getOrCreateDmChat(String otherUserId) async {
+    final me = currentUserId;
+    if (me.isEmpty || otherUserId.isEmpty) throw Exception('User ID is empty');
+
+    final u1 = me.compareTo(otherUserId) < 0 ? me : otherUserId;
+    final u2 = me.compareTo(otherUserId) < 0 ? otherUserId : me;
+
+    try {
+      // 1. Try to find existing
+      final res = await _supabase
+          .from('chats')
+          .select('id')
+          .eq('user1_id', u1)
+          .eq('user2_id', u2)
+          .maybeSingle();
+      
+      if (res != null) {
+        return res['id'] as String;
+      }
+
+      // 2. Create if not exists
+      final insertRes = await _supabase
+          .from('chats')
+          .insert({
+            'user1_id': u1,
+            'user2_id': u2,
+          })
+          .select('id')
+          .single();
+          
+      return insertRes['id'] as String;
+    } catch (e) {
+      if (kDebugMode) print('getOrCreateDmChat error: $e');
+      rethrow;
     }
   }
 
