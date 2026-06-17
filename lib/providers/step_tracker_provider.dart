@@ -14,8 +14,12 @@ class StepTrackerProvider extends ChangeNotifier with WidgetsBindingObserver {
 
   void setAppProvider(AppProvider appProvider) {
     _appProvider = appProvider;
+    // Defer to post-frame because this is called from ProxyProvider.update()
+    // which runs during build — calling notifyListeners() here would crash.
     if (_steps >= 0) {
-      _appProvider!.updateSteps(_steps);
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _appProvider?.updateSteps(_steps);
+      });
     }
   }
 
@@ -42,6 +46,8 @@ class StepTrackerProvider extends ChangeNotifier with WidgetsBindingObserver {
   String _lastSavedDate = '';
   // I2: Rate-limit challenge updates — only update every 500 steps
   int _lastChallengeUpdateSteps = 0;
+  // Throttle UI notifications to at most once per second
+  DateTime _lastNotifyTime = DateTime(2000);
 
   int get steps => _steps;
   int get dailyGoal => _appProvider?.stepsGoal ?? 10000;
@@ -305,27 +311,34 @@ class StepTrackerProvider extends ChangeNotifier with WidgetsBindingObserver {
     }
 
     _steps = currentSteps;
-    if (_appProvider != null) {
-      _appProvider!.updateSteps(_steps);
-    }
 
-    // I2: Rate-limited Steps challenge update (every 500 steps)
-    if (_steps - _lastChallengeUpdateSteps >= 500) {
-      _lastChallengeUpdateSteps = _steps;
-      ChallengeService().updateStepsChallenges(_steps);
-    }
+    // Throttle UI updates to max 1 per second to avoid
+    // "setState() called during build" floods
+    final now = DateTime.now();
+    if (now.difference(_lastNotifyTime).inMilliseconds >= 1000) {
+      _lastNotifyTime = now;
+      if (_appProvider != null) {
+        _appProvider!.updateSteps(_steps);
+      }
 
-    // Auto-validate streak when step threshold is crossed
-    if (!_streakRecordedToday && _steps >= _streakStepThreshold && _appProvider != null) {
-      _streakRecordedToday = true;
-      _appProvider!.recordActivity();
-      if (kDebugMode) print('[StepTracker] Streak recorded via steps: $_steps');
-    }
+      // I2: Rate-limited Steps challenge update (every 500 steps)
+      if (_steps - _lastChallengeUpdateSteps >= 500) {
+        _lastChallengeUpdateSteps = _steps;
+        ChallengeService().updateStepsChallenges(_steps);
+      }
 
-    _safeNotifyListeners();
+      // Auto-validate streak when step threshold is crossed
+      if (!_streakRecordedToday && _steps >= _streakStepThreshold && _appProvider != null) {
+        _streakRecordedToday = true;
+        _appProvider!.recordActivity();
+        if (kDebugMode) print('[StepTracker] Streak recorded via steps: $_steps');
+      }
 
-    if (kDebugMode) {
-      print('[StepTracker] Steps: $_steps (event=${event.steps}, baseline=$_initialStepsForDay)');
+      _safeNotifyListeners();
+
+      if (kDebugMode) {
+        print('[StepTracker] Steps: $_steps (event=${event.steps}, baseline=$_initialStepsForDay)');
+      }
     }
   }
 

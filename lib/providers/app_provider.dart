@@ -836,7 +836,10 @@ class AppProvider extends ChangeNotifier with WidgetsBindingObserver {
     calories = (newSteps * 0.04).round();
     distance = newSteps * 0.00078;
     _saveData();
-    notifyListeners();
+    // Defer notification to avoid triggering rebuilds during an active build phase
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      notifyListeners();
+    });
   }
 
   void addWorkout(Map<String, dynamic> workout) {

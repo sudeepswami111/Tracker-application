@@ -65,6 +65,7 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
   Position? _lastValidPosition;
   int? _heartRate;
   Timer? _hrTimer;
+  Timer? _gpsWatchdogTimer;
   
   // Animation for pulsing user dot
   late AnimationController _pulseCtrl;
@@ -508,14 +509,54 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
     }
   }
 
+  // ─── GPS helpers ─────────────────────────────────────────────────────────
+
+  /// Returns true when location service is enabled and permission granted.
+  Future<bool> _ensureLocationReady() async {
+    final serviceEnabled = await Geolocator.isLocationServiceEnabled();
+    if (!serviceEnabled) {
+      debugPrint('LifePulse GPS: Location services disabled');
+      return false;
+    }
+
+    var permission = await Geolocator.checkPermission();
+    debugPrint('LifePulse GPS: Current permission: $permission');
+
+    if (permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
+      debugPrint('LifePulse GPS: After request, permission: $permission');
+    }
+
+    if (permission == LocationPermission.denied ||
+        permission == LocationPermission.deniedForever) {
+      debugPrint('LifePulse GPS: Permission not granted: $permission');
+      return false;
+    }
+
+    debugPrint('LifePulse GPS: Permission OK ($permission)');
+    return true;
+  }
+
+  /// Adaptive GPS quality filter — accepts up to 100 m for indoor/testing.
+  bool _isAcceptableGpsPoint(Position p) {
+    if (p.latitude == 0.0 && p.longitude == 0.0) return false;
+    if (p.accuracy <= 50) return true;
+    if (p.accuracy <= 100) {
+      debugPrint('LifePulse GPS: Accepting low-accuracy point for testing: ${p.accuracy.toStringAsFixed(0)}m');
+      return true;
+    }
+    debugPrint('LifePulse GPS: Rejecting point — accuracy too poor: ${p.accuracy.toStringAsFixed(0)}m');
+    return false;
+  }
+
   void _startGpsStream() {
     _posSub?.cancel();
 
     late LocationSettings locSettings;
     if (Platform.isAndroid) {
       locSettings = AndroidSettings(
-        accuracy: LocationAccuracy.bestForNavigation,
-        distanceFilter: 1, // At least 1 meter
+        accuracy: LocationAccuracy.high, // high is more reliable than bestForNavigation on many Android devices
+        distanceFilter: 1,
         intervalDuration: const Duration(seconds: 1),
         foregroundNotificationConfig: const ForegroundNotificationConfig(
           notificationTitle: 'LifePulse Running',
@@ -525,8 +566,8 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
       );
     } else if (Platform.isIOS) {
       locSettings = AppleSettings(
-        accuracy: LocationAccuracy.bestForNavigation,
-        distanceFilter: 3,
+        accuracy: LocationAccuracy.high,
+        distanceFilter: 2,
         activityType: ActivityType.fitness,
         pauseLocationUpdatesAutomatically: false,
         allowBackgroundLocationUpdates: true,
@@ -534,94 +575,131 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
       );
     } else {
       locSettings = const LocationSettings(
-        accuracy: LocationAccuracy.bestForNavigation,
-        distanceFilter: 3,
+        accuracy: LocationAccuracy.high,
+        distanceFilter: 2,
       );
     }
 
-    debugPrint('LifePulse: Starting GPS stream...');
+    debugPrint('LifePulse GPS: Starting position stream...');
     _posSub = Geolocator.getPositionStream(
       locationSettings: locSettings,
-    ).listen(_onPos, onError: (e) {
-      debugPrint('LifePulse GPS stream error: $e');
+    ).listen(
+      _onPos,
+      onError: (e) {
+        debugPrint('LifePulse GPS stream error: $e');
+        if (!mounted) return;
+        setState(() => _gpsStatusText = 'GPS stream error — check permissions');
+      },
+      onDone: () => debugPrint('LifePulse GPS stream closed'),
+    );
+
+    // Watchdog: if no callback after 10 s, remind user to go outdoors
+    _gpsWatchdogTimer?.cancel();
+    _gpsWatchdogTimer = Timer(const Duration(seconds: 10), () {
+      if (!mounted) return;
+      if (_state == RunState.running && _gpsRoute.length < 2) {
+        setState(() => _gpsStatusText = 'Waiting for GPS — try moving outdoors');
+      }
     });
   }
 
   void _onPos(Position p) {
     if (!mounted) return;
-    
-    debugPrint('LifePulse GPS point received: lat=${p.latitude}, lng=${p.longitude}, accuracy=${p.accuracy}, state=$_state');
 
-    // Filter points
-    if (p.accuracy > 100) {
-      debugPrint('LifePulse GPS: Ignored poor accuracy (${p.accuracy.toStringAsFixed(1)}m > 100m)');
-      setState(() => _gpsStatusText = 'Low GPS accuracy: ${p.accuracy.toStringAsFixed(0)}m');
-      return;
-    } else if (p.accuracy > 50) {
-      debugPrint('LifePulse GPS: Warning, accuracy (${p.accuracy.toStringAsFixed(1)}m > 50m) - Accepted for testing.');
-      setState(() => _gpsStatusText = 'Tracking (Low accuracy: ${p.accuracy.toStringAsFixed(0)}m)');
-    } else {
-      setState(() => _gpsStatusText = 'Tracking movement (Accuracy: ${p.accuracy.toStringAsFixed(0)}m)');
-    }
+    // Cancel watchdog — we have a GPS callback
+    _gpsWatchdogTimer?.cancel();
+
+    debugPrint('LifePulse GPS point received: lat=${p.latitude}, lng=${p.longitude}, accuracy=${p.accuracy}m, state=$_state');
 
     final pt = LatLng(p.latitude, p.longitude);
-    final speedKmh = p.speed * 3.6; // m/s to km/h
-    
+    final speedKmh = p.speed * 3.6;
+
+    // Update map marker regardless of run state
+    if (!_isAcceptableGpsPoint(p)) {
+      setState(() {
+        _curPos = pt;
+        _gpsStatusText = 'Low GPS accuracy: ${p.accuracy.toStringAsFixed(0)}m';
+      });
+      return;
+    }
+
     setState(() {
       _curPos = pt;
       _lastSpeed = speedKmh;
       _heading = p.heading;
     });
-    
-    if (_follow && _curPos != null) {
+
+    if (_follow) {
       try {
-        _mapCtrl.move(_curPos!, _zoom);
+        _mapCtrl.move(pt, _zoom);
       } catch (e) {
-        debugPrint('LifePulse GPS: Could not move map: $e');
+        debugPrint('LifePulse GPS: map move failed: $e');
       }
     }
 
-    if (_state == RunState.running) {
-      if (_lastValidPosition == null) {
+    // Only accumulate distance when actively running
+    if (_state != RunState.running) return;
+
+    if (_lastValidPosition == null) {
+      // First real point after start/resume — seed the route
+      setState(() {
         _lastValidPosition = p;
-        setState(() {
-          _gpsRoute.add(pt);
-        });
-        debugPrint('LifePulse GPS: Tracking started. First valid point set.');
-      } else {
-        final distFromLast = Geolocator.distanceBetween(
-          _lastValidPosition!.latitude,
-          _lastValidPosition!.longitude,
-          p.latitude,
-          p.longitude,
-        );
-        
-        // Filter out tiny jitters (< 1.0m for testing, usually 3-5m for prod)
-        if (distFromLast >= 1.0) {
-          debugPrint('LifePulse GPS accepted. Segment distance: $distFromLast');
-          
-          setState(() {
-            _totalDistanceMeters += distFromLast;
-            _distKm = _totalDistanceMeters / 1000.0;
-            _calories = (_distKm * 65).round();
-            _lastValidPosition = p;
-            _gpsRoute.add(pt);
-            
-            if (_distKm >= 0.01) {
-              final elapsedSecs = _elapsed().inSeconds;
-              _paceMin = elapsedSecs / _distKm;
-            } else {
-              _paceMin = 0.0;
-            }
-          });
-          _audioCoach.announceDistance(_distKm);
-          debugPrint('Total distance meters: $_totalDistanceMeters');
-          debugPrint('Route points: ${_gpsRoute.length}');
-        } else {
-          debugPrint('LifePulse GPS: Point ignored (distance < 1.0m)');
-        }
-      }
+        if (_gpsRoute.isEmpty) _gpsRoute.add(pt);
+        _gpsStatusText = p.accuracy <= 50
+            ? 'GPS ready'
+            : 'Tracking (accuracy: ${p.accuracy.toStringAsFixed(0)}m)';
+      });
+      debugPrint('LifePulse GPS: First valid point seeded from stream');
+      return;
     }
+
+    final segmentMeters = Geolocator.distanceBetween(
+      _lastValidPosition!.latitude,
+      _lastValidPosition!.longitude,
+      p.latitude,
+      p.longitude,
+    );
+    debugPrint('LifePulse GPS segment: ${segmentMeters.toStringAsFixed(1)}m');
+
+    if (segmentMeters < 1.0) {
+      // Tiny jitter — update position but don't count distance
+      setState(() {
+        _curPos = pt;
+        _gpsStatusText = 'Tracking movement';
+      });
+      return;
+    }
+
+    if (segmentMeters > 200) {
+      // GPS jump — likely a bad fix; ignore for distance but update cursor
+      debugPrint('LifePulse GPS: Jump ignored (${segmentMeters.toStringAsFixed(0)}m)');
+      setState(() {
+        _curPos = pt;
+        _gpsStatusText = 'GPS jump ignored';
+      });
+      return;
+    }
+
+    // Valid movement — accumulate
+    setState(() {
+      _totalDistanceMeters += segmentMeters;
+      _distKm = _totalDistanceMeters / 1000.0;
+      _calories = (_distKm * 65).round();
+      _lastValidPosition = p;
+      _gpsRoute.add(pt);
+
+      if (_distKm >= 0.01) {
+        final elapsedSecs = _elapsed().inSeconds;
+        _paceMin = elapsedSecs > 0 ? elapsedSecs / _distKm : 0.0;
+      }
+
+      _gpsStatusText = p.accuracy <= 50
+          ? 'GPS ready'
+          : 'Tracking (accuracy: ${p.accuracy.toStringAsFixed(0)}m)';
+    });
+
+    _audioCoach.announceDistance(_distKm);
+    debugPrint('LifePulse total: ${_totalDistanceMeters.toStringAsFixed(1)}m, route pts: ${_gpsRoute.length}, pace: ${_paceMin.toStringAsFixed(0)}s/km');
   }
 
   Duration _elapsed() {
@@ -651,7 +729,7 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
       } else {
         HapticFeedback.vibrate();
         timer.cancel();
-        _startRun();
+        _startRun(); // async — fire and forget; errors handled inside
       }
     });
   }
@@ -667,8 +745,33 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
     }
   }
 
-  void _startRun() {
+  Future<void> _startRun() async {
+    debugPrint('LifePulse: Start Free Run tapped');
+
+    // 1. Ensure location is available before doing anything
+    final ready = await _ensureLocationReady();
+    if (!ready) {
+      if (!mounted) return;
+      setState(() => _gpsStatusText = 'Location permission required');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('Location permission is required to track your run.'),
+          action: SnackBarAction(
+            label: 'Settings',
+            onPressed: () => Geolocator.openAppSettings(),
+          ),
+        ),
+      );
+      // Revert state back to planning so the user can try again
+      if (mounted) setState(() => _state = RunState.planning);
+      return;
+    }
+
+    // 2. Cancel old subscriptions and reset state
     _posSub?.cancel();
+    _gpsWatchdogTimer?.cancel();
+    _timer?.cancel();
+    _hrTimer?.cancel();
 
     setState(() {
       _state = RunState.running;
@@ -682,40 +785,70 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
       _heartRate = null;
       _gpsRoute.clear();
       _follow = true;
-      if (_curPos != null) _gpsRoute.add(_curPos!);
+      _gpsStatusText = 'Getting GPS...';
     });
 
-    _startGpsStream();
-    _audioCoach.announceWorkoutStart(_startRoutePos != null);
-    
-    if (_curPos != null) {
-      try {
-        _mapCtrl.move(_curPos!, 18); // Zoom in and center
-      } catch (e) {
-        debugPrint('LifePulse GPS: Could not move map initially: $e');
-      }
-    }
-    
-    _hrTimer?.cancel();
-    _hrTimer = Timer.periodic(const Duration(seconds: 10), (_) => _pollHeartRate());
-    _pollHeartRate(); // initial fetch
+    // 3. Seed first GPS position immediately so the route point is ready
+    debugPrint('LifePulse GPS: Requesting immediate first position...');
+    try {
+      final firstPos = await Geolocator.getCurrentPosition(
+        locationSettings: Platform.isAndroid
+            ? AndroidSettings(
+                accuracy: LocationAccuracy.high,
+                timeLimit: const Duration(seconds: 10),
+              )
+            : const LocationSettings(
+                accuracy: LocationAccuracy.high,
+              ),
+      );
+      final firstPt = LatLng(firstPos.latitude, firstPos.longitude);
+      debugPrint('LifePulse GPS: First position obtained: ${firstPos.latitude}, ${firstPos.longitude}, accuracy=${firstPos.accuracy}m');
 
-    _timer?.cancel();
-    _timer = Timer.periodic(const Duration(seconds: 1), (_) {
       if (!mounted) return;
       setState(() {
+        _curPos = firstPt;
+        _lastValidPosition = firstPos;
+        _gpsRoute.add(firstPt);
+        _gpsStatusText = 'GPS ready';
+      });
+
+      try {
+        _mapCtrl.move(firstPt, 18);
+      } catch (e) {
+        debugPrint('LifePulse GPS: Map move failed after first position: $e');
+      }
+    } catch (e) {
+      debugPrint('LifePulse GPS: First position failed: $e');
+      if (mounted) setState(() => _gpsStatusText = 'Waiting for GPS...');
+      // Continue anyway — the stream will pick up as soon as GPS is ready
+    }
+
+    // 4. Start continuous position stream
+    _startGpsStream();
+    _audioCoach.announceWorkoutStart(_startRoutePos != null);
+
+    // 5. Duration timer (updates every second)
+    _timer = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (!mounted) {
+        _timer?.cancel();
+        return;
+      }
+      setState(() {
         _durSecs = _elapsed().inSeconds;
-        // Calculate pace in seconds per km
         if (_distKm > 0.01 && _durSecs > 0) {
           _paceMin = _durSecs / _distKm;
-        } else {
-          _paceMin = 0;
         }
       });
       _audioCoach.announcePace(_paceMin / 60.0, _distKm);
-      final currentTemp = context.read<WeatherProvider>().weather?.currentTemp ?? 25.0;
-      _audioCoach.announceHydrationReminder(currentTemp: currentTemp);
+      if (mounted) {
+        final currentTemp = context.read<WeatherProvider>().weather?.currentTemp ?? 25.0;
+        _audioCoach.announceHydrationReminder(currentTemp: currentTemp);
+      }
     });
+
+    // 6. Heart-rate polling
+    _hrTimer = Timer.periodic(const Duration(seconds: 10), (_) => _pollHeartRate());
+    _pollHeartRate();
   }
 
   void _pauseRun() {
@@ -737,21 +870,25 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
       _pausedDur += DateTime.now().difference(_pauseStart!);
       _pauseStart = null;
     }
-    
+
     setState(() {
       _state = RunState.running;
-      _lastValidPosition = null; // Reset to avoid jump line
+      _lastValidPosition = null; // Reset to avoid a jump segment after pause
       if (_curPos != null) _gpsRoute.add(_curPos!);
+      _gpsStatusText = 'Resuming GPS...';
     });
-    
+
     _startGpsStream();
-    
+
     _hrTimer?.cancel();
     _hrTimer = Timer.periodic(const Duration(seconds: 10), (_) => _pollHeartRate());
-    
+
     _timer?.cancel();
     _timer = Timer.periodic(const Duration(seconds: 1), (_) {
-      if (!mounted) return;
+      if (!mounted) {
+        _timer?.cancel();
+        return;
+      }
       setState(() {
         _durSecs = _elapsed().inSeconds;
         if (_distKm > 0.01 && _durSecs > 0) {
@@ -759,8 +896,10 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
         }
       });
       _audioCoach.announcePace(_paceMin / 60.0, _distKm);
-      final currentTemp = context.read<WeatherProvider>().weather?.currentTemp ?? 25.0;
-      _audioCoach.announceHydrationReminder(currentTemp: currentTemp);
+      if (mounted) {
+        final currentTemp = context.read<WeatherProvider>().weather?.currentTemp ?? 25.0;
+        _audioCoach.announceHydrationReminder(currentTemp: currentTemp);
+      }
     });
   }
 
@@ -828,6 +967,7 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
     _posSub?.cancel();
     _timer?.cancel();
     _hrTimer?.cancel();
+    _gpsWatchdogTimer?.cancel();
     _audioCoach.stop();
     _pulseCtrl.dispose();
     widget.onFullscreenChanged?.call(false);
