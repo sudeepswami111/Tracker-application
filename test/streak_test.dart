@@ -7,6 +7,7 @@ void main() {
     late SharedPreferences prefs;
 
     setUp(() async {
+      TestWidgetsFlutterBinding.ensureInitialized();
       SharedPreferences.setMockInitialValues({});
       prefs = await SharedPreferences.getInstance();
     });

@@ -19,6 +19,7 @@ void main() {
           ),
         ),
       );
+      await tester.pumpAndSettle();
 
       expect(find.byIcon(LucideIcons.flame), findsOneWidget);
       expect(find.text('5'), findsOneWidget);
@@ -37,6 +38,7 @@ void main() {
           ),
         ),
       );
+      await tester.pumpAndSettle();
 
       expect(find.byIcon(LucideIcons.hourglass), findsOneWidget);
       expect(find.text('5'), findsOneWidget);

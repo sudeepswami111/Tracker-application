@@ -16,7 +16,7 @@ class StepTrackerProvider extends ChangeNotifier with WidgetsBindingObserver {
     _appProvider = appProvider;
     // Defer to post-frame because this is called from ProxyProvider.update()
     // which runs during build — calling notifyListeners() here would crash.
-    if (_steps >= 0) {
+    if (_steps >= 0 && _appProvider?.steps != _steps) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         _appProvider?.updateSteps(_steps);
       });

@@ -55,7 +55,10 @@ class NotificationService {
     final prefs = await SharedPreferences.getInstance();
     final today = _todayStr();
     final hour = DateTime.now().hour;
-    final uid = Supabase.instance.client.auth.currentUser?.id;
+    String? uid;
+    try {
+      uid = Supabase.instance.client.auth.currentUser?.id;
+    } catch (_) {}
 
     const AndroidNotificationDetails androidDetails = AndroidNotificationDetails(
       _nudgeChannelId,
