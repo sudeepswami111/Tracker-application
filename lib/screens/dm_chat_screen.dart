@@ -439,63 +439,22 @@ class _DMChatScreenState extends State<DMChatScreen> {
   final _scrollCtrl  = ScrollController();
   final _supabase    = Supabase.instance.client;
 
-  List<ChatMessage> _messages = [];
-  bool _loading = true;
   bool _sending = false;
-
-  RealtimeChannel? _channel;
-  StreamSubscription<List<ChatMessage>>? _sub;
+  late final Stream<List<ChatMessage>> _messagesStream;
 
   @override
   void initState() {
     super.initState();
-    _loadMessages();
-    _subscribeRealtime();
+    _messagesStream = _chatService.getDMMessagesStream(widget.chatId);
+    // Mark messages as read when opening chat
+    _chatService.markAsRead(widget.chatId);
   }
 
   @override
   void dispose() {
     _inputCtrl.dispose();
     _scrollCtrl.dispose();
-    _channel?.unsubscribe();
-    _sub?.cancel();
     super.dispose();
-  }
-
-  Future<void> _loadMessages() async {
-    setState(() => _loading = true);
-    final msgs = await _chatService.getMessages(widget.chatId);
-    if (mounted) setState(() { _messages = msgs; _loading = false; });
-    _scrollToBottom();
-  }
-
-  void _subscribeRealtime() {
-    _channel = _supabase
-        .channel('chat-${widget.chatId}')
-        .onPostgresChanges(
-          event: PostgresChangeEvent.insert,
-          schema: 'public',
-          table: 'messages',
-          filter: PostgresChangeFilter(
-            type: PostgresChangeFilterType.eq,
-            column: 'chat_id',
-            value: widget.chatId,
-          ),
-          callback: (_) => _loadMessages(),
-        )
-        .subscribe();
-  }
-
-  void _scrollToBottom() {
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (_scrollCtrl.hasClients) {
-        _scrollCtrl.animateTo(
-          _scrollCtrl.position.maxScrollExtent,
-          duration: const Duration(milliseconds: 300),
-          curve: Curves.easeOut,
-        );
-      }
-    });
   }
 
   Future<void> _send() async {
@@ -504,8 +463,16 @@ class _DMChatScreenState extends State<DMChatScreen> {
     HapticFeedback.lightImpact();
     setState(() => _sending = true);
     _inputCtrl.clear();
+    
     try {
       await _chatService.sendDM(widget.chatId, text);
+      if (_scrollCtrl.hasClients) {
+        _scrollCtrl.animateTo(
+          0.0,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeOut,
+        );
+      }
     } finally {
       if (mounted) setState(() => _sending = false);
     }
@@ -528,7 +495,7 @@ class _DMChatScreenState extends State<DMChatScreen> {
         ),
         title: Row(children: [
           ProfileAvatar(
-            imageUrl: null, // Don't have avatar url here, but we can pass null and let it use name
+            imageUrl: null, 
             name: widget.otherUserName,
             radius: 18,
             backgroundColor: AppColors.irisViolet.withValues(alpha: 0.2),
@@ -540,88 +507,117 @@ class _DMChatScreenState extends State<DMChatScreen> {
                   ?.copyWith(fontWeight: FontWeight.bold)),
         ]),
       ),
-      body: Column(children: [
-        // Messages
-        Expanded(
-          child: _loading
-              ? const Center(
-                  child: CircularProgressIndicator(
-                      color: AppColors.irisViolet))
-              : _messages.isEmpty
-                  ? _buildEmptyChat(theme)
-                  : ListView.builder(
-                      controller: _scrollCtrl,
-                      padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
-                      itemCount: _messages.length,
-                      itemBuilder: (_, i) {
-                        final msg   = _messages[i];
-                        final isMe  = msg.senderId == myId;
-                        return _Bubble(
-                            msg: msg, isMe: isMe, theme: theme, isDark: isDark);
-                      },
-                    ),
-        ),
+      body: SafeArea(
+        child: Column(children: [
+          // Messages
+          Expanded(
+            child: StreamBuilder<List<ChatMessage>>(
+              stream: _messagesStream,
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Center(
+                    child: CircularProgressIndicator(color: AppColors.irisViolet)
+                  );
+                }
+                if (snapshot.hasError) {
+                  return Center(
+                    child: Text('Error loading messages', 
+                      style: TextStyle(color: theme.colorScheme.error))
+                  );
+                }
 
-        // Input bar
-        Container(
-          padding: EdgeInsets.only(
-            left: 16,
-            right: 8,
-            top: 8,
-            bottom: MediaQuery.of(context).viewInsets.bottom + 12,
-          ),
-          decoration: BoxDecoration(
-            color: isDark ? AppColors.backgroundDeep : Colors.white,
-            border: Border(
-              top: BorderSide(
-                  color: theme.colorScheme.outlineVariant
-                      .withValues(alpha: 0.3)),
+                final msgs = snapshot.data?.reversed.toList() ?? [];
+
+                if (msgs.isEmpty) {
+                  return _buildEmptyChat(theme);
+                }
+
+                return ListView.builder(
+                  reverse: true,
+                  controller: _scrollCtrl,
+                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+                  itemCount: msgs.length,
+                  itemBuilder: (_, i) {
+                    final msg   = msgs[i];
+                    final isMe  = msg.senderId == myId;
+                    return _Bubble(
+                        msg: msg, isMe: isMe, theme: theme, isDark: isDark);
+                  },
+                );
+              },
             ),
           ),
-          child: Row(children: [
-            Expanded(
-              child: TextField(
-                controller: _inputCtrl,
-                minLines: 1,
-                maxLines: 4,
-                decoration: InputDecoration(
-                  hintText: 'Message…',
-                  filled: true,
-                  fillColor: isDark
-                      ? AppColors.surfaceElevated
-                      : AppColors.lightSurfaceContainer,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(22),
-                    borderSide: BorderSide.none,
+
+          // Input bar
+          Container(
+            padding: const EdgeInsets.only(
+              left: 16,
+              right: 8,
+              top: 8,
+              bottom: 8,
+            ),
+            decoration: BoxDecoration(
+              color: isDark ? AppColors.backgroundDeep : Colors.white,
+              border: Border(
+                top: BorderSide(
+                    color: theme.colorScheme.outlineVariant
+                        .withValues(alpha: 0.3)),
+              ),
+            ),
+            child: Row(children: [
+              Expanded(
+                child: TextField(
+                  controller: _inputCtrl,
+                  minLines: 1,
+                  maxLines: 4,
+                  textCapitalization: TextCapitalization.sentences,
+                  decoration: InputDecoration(
+                    hintText: 'Message…',
+                    filled: true,
+                    fillColor: isDark
+                        ? AppColors.surfaceElevated
+                        : AppColors.lightSurfaceContainer,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(22),
+                      borderSide: BorderSide.none,
+                    ),
+                    contentPadding:
+                        const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                   ),
-                  contentPadding:
-                      const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  onSubmitted: (_) => _send(),
                 ),
-                onSubmitted: (_) => _send(),
               ),
-            ),
-            const SizedBox(width: 8),
-            GestureDetector(
-              onTap: _sending ? null : _send,
-              child: Container(
-                width: 46,
-                height: 46,
-                decoration: const BoxDecoration(
-                  color: AppColors.primary,
-                  shape: BoxShape.circle,
-                ),
-                child: _sending
-                    ? const Padding(
-                        padding: EdgeInsets.all(12),
-                        child: CircularProgressIndicator(
-                            color: Colors.white, strokeWidth: 2))
-                    : const Icon(LucideIcons.send,
-                        color: Colors.white, size: 20),
+              const SizedBox(width: 8),
+              ValueListenableBuilder<TextEditingValue>(
+                valueListenable: _inputCtrl,
+                builder: (context, value, child) {
+                  final hasText = value.text.trim().isNotEmpty;
+                  return GestureDetector(
+                    onTap: (hasText && !_sending) ? _send : null,
+                    child: Container(
+                      width: 46,
+                      height: 46,
+                      decoration: BoxDecoration(
+                        color: hasText
+                            ? AppColors.primary
+                            : (isDark ? AppColors.surfaceElevated : Colors.grey.shade300),
+                        shape: BoxShape.circle,
+                      ),
+                      child: _sending
+                          ? const Padding(
+                              padding: EdgeInsets.all(14),
+                              child: CircularProgressIndicator(
+                                  color: Colors.white, strokeWidth: 2))
+                          : Icon(LucideIcons.send,
+                              color: hasText ? Colors.white : Colors.grey, size: 20),
+                    ),
+                  );
+                },
               ),
-            ),
-          ]),
-        ),
-      ]),
+            ]),
+          ),
+        ]),
+      ),
     );
   }
 
