@@ -221,15 +221,26 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         builder: (_) => ProfileScreen(targetUserId: notif['actor_id'] as String?),
       ));
     } else if (type == 'message') {
-      final chatId = notif['reference_id'] as String?;
-      if (chatId != null) {
-        Navigator.push(context, MaterialPageRoute(
-          builder: (_) => DMChatScreen(
-            chatId: chatId,
-            otherUserId: notif['actor_id'] as String? ?? 'unknown',
-            otherUserName: (notif['actor_details'] as Map<String, dynamic>?)?['full_name'] as String? ?? 'User',
-          ),
-        ));
+      final refId = notif['reference_id'] as String?;
+      if (refId != null) {
+        // Check if refId is a messageId by querying messages table
+        _supabase.from('messages').select('chat_id').eq('id', refId).maybeSingle().then((msgData) {
+          final chatId = (msgData != null && msgData['chat_id'] != null) 
+              ? msgData['chat_id'] as String 
+              : refId; // Fallback to refId directly if it was an old notification
+              
+          if (mounted) {
+            Navigator.push(context, MaterialPageRoute(
+              builder: (_) => DMChatScreen(
+                chatId: chatId,
+                otherUserId: notif['actor_id'] as String? ?? 'unknown',
+                otherUserName: (notif['actor_details'] as Map<String, dynamic>?)?['full_name'] as String? ?? 'User',
+              ),
+            ));
+          }
+        }).catchError((_) {
+          if (kDebugMode) print('Failed to route to message');
+        });
       }
     } else if (type == 'challenge' || type == 'challenge_complete') {
       Navigator.push(context, MaterialPageRoute(

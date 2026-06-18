@@ -148,8 +148,50 @@ class ChatService {
         'message': message.trim(),
       }).select().single();
 
+      final insertedMsg = ChatMessage.fromJson(res);
+
+      // Create notification without failing the message send if it fails
+      try {
+        final chatData = await _supabase
+            .from('chats')
+            .select('user1_id, user2_id')
+            .eq('id', chatId)
+            .maybeSingle();
+
+        if (chatData != null) {
+          final otherUser = chatData['user1_id'] == me
+              ? chatData['user2_id']
+              : chatData['user1_id'];
+
+          final myProfile = await _supabase
+              .from('profiles')
+              .select('full_name, username')
+              .eq('id', me)
+              .maybeSingle();
+
+          final myName = (myProfile?['full_name'] as String?)?.isNotEmpty == true
+              ? myProfile!['full_name']
+              : myProfile?['username'] ?? 'Someone';
+
+          await _supabase.from('notifications').insert({
+            'user_id': otherUser,
+            'actor_id': me,
+            'type': 'message',
+            'title': myName,
+            'body': message.trim().length > 80
+                ? '${message.trim().substring(0, 80)}...'
+                : message.trim(),
+            'reference_id': insertedMsg.id,
+          });
+        }
+      } catch (notificationError) {
+        if (kDebugMode) {
+          print('Notification failed but message sent: $notificationError');
+        }
+      }
+
       if (kDebugMode) print('DM SEND SUCCESS: $res');
-      return ChatMessage.fromJson(res);
+      return insertedMsg;
     } on PostgrestException catch (e) {
       if (kDebugMode) {
         print('DM SEND POSTGREST ERROR');

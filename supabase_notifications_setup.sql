@@ -129,7 +129,7 @@ BEGIN
         'message',
         v_sender_name,
         LEFT(NEW.message, 80),
-        NEW.chat_id::TEXT
+        NEW.chat_id
       );
     END IF;
   END IF;
