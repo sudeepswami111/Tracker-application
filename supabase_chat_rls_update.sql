@@ -1,9 +1,9 @@
 -- =================================================================================
--- LIFE PULSE: CHAT AND MESSAGING RLS OVERHAUL
+-- LIFE PULSE: CHAT AND MESSAGING RLS + REALTIME OVERHAUL
+-- Based on CHAT_SYNC_FIX_README.md diagnosis
 -- =================================================================================
--- Run this in the Supabase Dashboard -> SQL Editor
--- This ensures that chat messages are correctly scoped to the participants
--- and that realtime messaging is fully enabled.
+-- Run this ENTIRE block in the Supabase Dashboard → SQL Editor in ONE click.
+-- Do NOT split it into multiple executions.
 
 -- 1. ENABLE RLS
 ALTER TABLE public.chats ENABLE ROW LEVEL SECURITY;
@@ -52,12 +52,24 @@ DROP POLICY IF EXISTS "Users can delete their own messages" ON public.messages;
 CREATE POLICY "Users can delete their own messages" ON public.messages 
   FOR DELETE USING (auth.uid() = sender_id);
 
--- 4. ENABLE REALTIME
--- Drop and recreate the publication to ensure messages are included
+-- 4. REBUILD REALTIME PUBLICATION (include ALL tables the app needs)
+-- This fixes the root cause: supabase_schema_v2.sql previously dropped
+-- the publication and recreated it WITHOUT public.chats, breaking chat sync.
 DROP PUBLICATION IF EXISTS supabase_realtime;
 CREATE PUBLICATION supabase_realtime FOR TABLE 
   public.follows, 
   public.profiles, 
   public.messages, 
-  public.chats,
+  public.chats,        -- ← was missing from v2 schema, causing sync breakage
   public.notifications;
+
+-- 5. SET REPLICA IDENTITY FULL (required so INSERT payloads carry all columns)
+ALTER TABLE public.messages REPLICA IDENTITY FULL;
+ALTER TABLE public.chats REPLICA IDENTITY FULL;
+
+-- 6. VERIFY — run this SELECT separately to confirm all 5 tables are present:
+-- SELECT schemaname, tablename
+-- FROM pg_publication_tables
+-- WHERE pubname = 'supabase_realtime'
+-- ORDER BY tablename;
+-- Expected: chats, follows, messages, notifications, profiles

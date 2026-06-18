@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -10,9 +9,9 @@ import '../theme/app_colors.dart';
 import '../services/follow_service.dart';
 import '../widgets/profile_avatar.dart';
 
-// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// ─────────────────────────────────────────────────────────────────
 // DM LIST SCREEN — shows all conversations + search bar
-// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// ─────────────────────────────────────────────────────────────────
 class DMListScreen extends StatefulWidget {
   const DMListScreen({super.key});
 
@@ -25,11 +24,11 @@ class _DMListScreenState extends State<DMListScreen> {
   final _followService = FollowService();
   final _searchCtrl    = TextEditingController();
 
-  List<ChatRoom>   _chats       = [];
+  List<ChatRoom>   _chats         = [];
   List<FollowUser> _searchResults = [];
-  bool _loadingChats    = true;
-  bool _loadingSearch   = false;
-  bool _showSearch      = false;
+  bool _loadingChats  = true;
+  bool _loadingSearch = false;
+  bool _showSearch    = false;
 
   Timer? _searchDebounce;
 
@@ -67,9 +66,7 @@ class _DMListScreenState extends State<DMListScreen> {
   }
 
   // ── Open chat with a user found via search ─────────────────────
-  /// Opens existing chat room if present, otherwise shows "not connected" hint.
   void _openChatWithUser(FollowUser user) async {
-    // Check if a chat exists (both must have accepted follow)
     final supabase = Supabase.instance.client;
     final me = supabase.auth.currentUser?.id ?? '';
 
@@ -86,7 +83,6 @@ class _DMListScreenState extends State<DMListScreen> {
 
       if (res == null) {
         if (mounted) {
-          // They are not connected yet
           ScaffoldMessenger.of(context).showSnackBar(SnackBar(
             content: Text(
               user.followStatus == FollowStatus.accepted
@@ -100,7 +96,6 @@ class _DMListScreenState extends State<DMListScreen> {
         return;
       }
 
-      // Chat exists → navigate
       if (mounted) {
         Navigator.push(
           context,
@@ -133,13 +128,11 @@ class _DMListScreenState extends State<DMListScreen> {
                 controller: _searchCtrl,
                 autofocus: true,
                 onChanged: _onSearchChanged,
-                style: TextStyle(
-                    color: isDark ? Colors.white : Colors.black),
+                style: TextStyle(color: isDark ? Colors.white : Colors.black),
                 decoration: InputDecoration(
                   hintText: 'Search by username…',
                   border: InputBorder.none,
-                  hintStyle: TextStyle(
-                      color: theme.colorScheme.onSurfaceVariant),
+                  hintStyle: TextStyle(color: theme.colorScheme.onSurfaceVariant),
                 ),
               )
             : Text('Messages',
@@ -153,8 +146,7 @@ class _DMListScreenState extends State<DMListScreen> {
             : null,
         actions: [
           IconButton(
-            icon: Icon(_showSearch ? LucideIcons.x : LucideIcons.search,
-                size: 20),
+            icon: Icon(_showSearch ? LucideIcons.x : LucideIcons.search, size: 20),
             onPressed: () {
               setState(() {
                 _showSearch = !_showSearch;
@@ -174,15 +166,13 @@ class _DMListScreenState extends State<DMListScreen> {
     );
   }
 
-  // ── Search Results View ─────────────────────────────────────────
   Widget _buildSearchResults(ThemeData theme, bool isDark) {
     if (_searchCtrl.text.trim().isEmpty) {
       return Center(
         child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
           Icon(LucideIcons.atSign,
               size: 60,
-              color: theme.colorScheme.onSurfaceVariant
-                  .withValues(alpha: 0.3)),
+              color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.3)),
           const SizedBox(height: 16),
           Text('Search by username to start a chat',
               style: theme.textTheme.bodyLarge?.copyWith(
@@ -192,8 +182,7 @@ class _DMListScreenState extends State<DMListScreen> {
     }
 
     if (_loadingSearch) {
-      return const Center(
-          child: CircularProgressIndicator(color: AppColors.primary));
+      return const Center(child: CircularProgressIndicator(color: AppColors.primary));
     }
 
     if (_searchResults.isEmpty) {
@@ -220,11 +209,9 @@ class _DMListScreenState extends State<DMListScreen> {
     );
   }
 
-  // ── Chat List View ──────────────────────────────────────────────
   Widget _buildChatList(ThemeData theme, bool isDark) {
     if (_loadingChats) {
-      return const Center(
-          child: CircularProgressIndicator(color: AppColors.irisViolet));
+      return const Center(child: CircularProgressIndicator(color: AppColors.irisViolet));
     }
     if (_chats.isEmpty) {
       return _buildEmpty(theme);
@@ -233,8 +220,7 @@ class _DMListScreenState extends State<DMListScreen> {
       color: AppColors.irisViolet,
       onRefresh: _loadChats,
       child: ListView.separated(
-        physics: const BouncingScrollPhysics(
-            parent: AlwaysScrollableScrollPhysics()),
+        physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
         itemCount: _chats.length,
         separatorBuilder: (_, __) => const SizedBox(height: 10),
@@ -244,7 +230,7 @@ class _DMListScreenState extends State<DMListScreen> {
   }
 
   Widget _buildChatTile(ChatRoom chat, ThemeData theme, bool isDark) {
-    final name    = chat.friend.displayName;
+    final name = chat.friend.displayName;
 
     return GestureDetector(
       onTap: () => Navigator.push(
@@ -272,7 +258,6 @@ class _DMListScreenState extends State<DMListScreen> {
           ],
         ),
         child: Row(children: [
-          // Avatar
           ProfileAvatar(
             imageUrl: chat.friend.avatarUrl,
             name: name,
@@ -294,8 +279,7 @@ class _DMListScreenState extends State<DMListScreen> {
                           color: theme.colorScheme.onSurfaceVariant)),
                 ]),
           ),
-          const Icon(LucideIcons.chevronRight,
-              size: 18, color: Colors.grey),
+          const Icon(LucideIcons.chevronRight, size: 18, color: Colors.grey),
         ]),
       ),
     );
@@ -306,8 +290,7 @@ class _DMListScreenState extends State<DMListScreen> {
       child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
         Icon(LucideIcons.messageCircle,
             size: 80,
-            color: theme.colorScheme.onSurfaceVariant
-                .withValues(alpha: 0.25)),
+            color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.25)),
         const SizedBox(height: 24),
         Text('No conversations yet',
             style: theme.textTheme.headlineSmall
@@ -329,10 +312,8 @@ class _DMListScreenState extends State<DMListScreen> {
           style: ElevatedButton.styleFrom(
             backgroundColor: AppColors.primary,
             foregroundColor: Colors.white,
-            padding:
-                const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
-            shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(14)),
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
           ),
         ),
       ]),
@@ -366,7 +347,7 @@ class _SearchUserTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final name     = user.fullName.isNotEmpty ? user.fullName : user.username;
+    final name = user.fullName.isNotEmpty ? user.fullName : user.username;
 
     return GestureDetector(
       onTap: onTap,
@@ -443,6 +424,12 @@ class _DMChatScreenState extends State<DMChatScreen> {
   late final Stream<List<ChatMessage>> _messagesStream;
   String _currentText = '';
 
+  // Optimistic send — messages shown immediately before Supabase confirms
+  final List<ChatMessage> _optimisticMessages = [];
+
+  // Fallback poll — triggers a setState every 5 s in case realtime drops
+  Timer? _fallbackPoll;
+
   @override
   void initState() {
     super.initState();
@@ -453,10 +440,17 @@ class _DMChatScreenState extends State<DMChatScreen> {
         _currentText = _inputCtrl.text;
       });
     });
+
+    // Fallback: force a rebuild every 5 s so the StreamBuilder picks up any
+    // new snapshot that arrived while realtime was silently disconnected.
+    _fallbackPoll = Timer.periodic(const Duration(seconds: 5), (_) {
+      if (mounted) setState(() {});
+    });
   }
 
   @override
   void dispose() {
+    _fallbackPoll?.cancel();
     _inputCtrl.dispose();
     _scrollCtrl.dispose();
     super.dispose();
@@ -466,20 +460,58 @@ class _DMChatScreenState extends State<DMChatScreen> {
     final text = predefinedText ?? _inputCtrl.text.trim();
     if (text.isEmpty || _sending) return;
     HapticFeedback.lightImpact();
-    setState(() => _sending = true);
-    if (predefinedText == null) {
-      _inputCtrl.clear();
+
+    final myId   = _supabase.auth.currentUser?.id ?? '';
+    final tempId = 'temp-${DateTime.now().millisecondsSinceEpoch}';
+
+    // 1. Optimistically add the message right away — no Supabase wait
+    final optimisticMsg = ChatMessage(
+      id: tempId,
+      chatId: widget.chatId,
+      senderId: myId,
+      message: text,
+      isRead: false,
+      createdAt: DateTime.now(),
+    );
+
+    setState(() {
+      _optimisticMessages.add(optimisticMsg);
+      _sending = true;
+    });
+    if (predefinedText == null) _inputCtrl.clear();
+
+    if (_scrollCtrl.hasClients) {
+      _scrollCtrl.animateTo(
+        0.0,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeOut,
+      );
     }
-    
+
     try {
       await _chatService.sendDM(widget.chatId, text);
-      if (_scrollCtrl.hasClients) {
-        _scrollCtrl.animateTo(
-          0.0,
-          duration: const Duration(milliseconds: 300),
-          curve: Curves.easeOut,
+      // The real message arrives via realtime stream, which will match the
+      // optimistic one by sender+text and the temp bubble disappears naturally.
+      if (mounted) {
+        setState(() {
+          _optimisticMessages.removeWhere((m) => m.id == tempId);
+        });
+      }
+    } catch (e) {
+      // Send failed — remove the optimistic bubble and show error
+      if (mounted) {
+        setState(() {
+          _optimisticMessages.removeWhere((m) => m.id == tempId);
+          _sending = false;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Message failed to send. Tap to retry.'),
+            behavior: SnackBarBehavior.floating,
+          ),
         );
       }
+      return;
     } finally {
       if (mounted) setState(() => _sending = false);
     }
@@ -500,9 +532,9 @@ class _DMChatScreenState extends State<DMChatScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final theme   = Theme.of(context);
-    final isDark  = theme.brightness == Brightness.dark;
-    final myId    = _supabase.auth.currentUser?.id ?? '';
+    final theme  = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final myId   = _supabase.auth.currentUser?.id ?? '';
 
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
@@ -521,6 +553,7 @@ class _DMChatScreenState extends State<DMChatScreen> {
                 myId: myId,
                 theme: theme,
                 isDark: isDark,
+                optimisticMessages: _optimisticMessages,
               ),
             ),
             if (_currentText.isEmpty)
@@ -565,7 +598,7 @@ class _ChatHeader extends StatelessWidget implements PreferredSizeWidget {
       ),
       title: Row(children: [
         ProfileAvatar(
-          imageUrl: null, 
+          imageUrl: null,
           name: otherUserName,
           radius: 18,
           backgroundColor: AppColors.irisViolet.withValues(alpha: 0.2),
@@ -578,7 +611,7 @@ class _ChatHeader extends StatelessWidget implements PreferredSizeWidget {
             Text(otherUserName,
                 style: theme.textTheme.titleMedium
                     ?.copyWith(fontWeight: FontWeight.bold)),
-            Text('Online', 
+            Text('Online',
                 style: theme.textTheme.bodySmall
                     ?.copyWith(color: Colors.green, fontSize: 11)),
           ],
@@ -594,6 +627,7 @@ class _MessageList extends StatelessWidget {
   final String myId;
   final ThemeData theme;
   final bool isDark;
+  final List<ChatMessage> optimisticMessages;
 
   const _MessageList({
     required this.stream,
@@ -601,6 +635,7 @@ class _MessageList extends StatelessWidget {
     required this.myId,
     required this.theme,
     required this.isDark,
+    this.optimisticMessages = const [],
   });
 
   @override
@@ -608,19 +643,34 @@ class _MessageList extends StatelessWidget {
     return StreamBuilder<List<ChatMessage>>(
       stream: stream,
       builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
+        if (snapshot.connectionState == ConnectionState.waiting &&
+            !snapshot.hasData) {
           return const Center(
-            child: CircularProgressIndicator(color: AppColors.irisViolet)
+            child: CircularProgressIndicator(color: AppColors.irisViolet),
           );
         }
         if (snapshot.hasError) {
           return Center(
-            child: Text('Error loading messages', 
-              style: TextStyle(color: theme.colorScheme.error))
+            child: Text('Error loading messages',
+                style: TextStyle(color: theme.colorScheme.error)),
           );
         }
 
-        final msgs = snapshot.data?.reversed.toList() ?? [];
+        // Merge realtime messages with still-pending optimistic ones.
+        // An optimistic message is considered confirmed (drop it) when the stream
+        // contains a real message with the same sender + text from ≤ 10 s ago.
+        final streamMsgs = snapshot.data ?? [];
+        final pendingOptimistic = optimisticMessages.where((opt) {
+          return !streamMsgs.any((m) =>
+              m.senderId == opt.senderId &&
+              m.message == opt.message &&
+              m.createdAt.isAfter(
+                  opt.createdAt.subtract(const Duration(seconds: 10))));
+        }).toList();
+
+        final allMsgs = [...streamMsgs, ...pendingOptimistic];
+        allMsgs.sort((a, b) => a.createdAt.compareTo(b.createdAt));
+        final msgs = allMsgs.reversed.toList();
 
         if (msgs.isEmpty) {
           return Center(
@@ -643,10 +693,16 @@ class _MessageList extends StatelessWidget {
           padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
           itemCount: msgs.length,
           itemBuilder: (_, i) {
-            final msg   = msgs[i];
-            final isMe  = msg.senderId == myId;
+            final msg       = msgs[i];
+            final isMe      = msg.senderId == myId;
+            final isPending = msg.id.startsWith('temp-');
             return _Bubble(
-                msg: msg, isMe: isMe, theme: theme, isDark: isDark);
+              msg: msg,
+              isMe: isMe,
+              theme: theme,
+              isDark: isDark,
+              isPending: isPending,
+            );
           },
         );
       },
@@ -659,12 +715,14 @@ class _Bubble extends StatefulWidget {
   final bool isMe;
   final ThemeData theme;
   final bool isDark;
+  final bool isPending;
 
   const _Bubble({
     required this.msg,
     required this.isMe,
     required this.theme,
     required this.isDark,
+    this.isPending = false,
   });
 
   @override
@@ -679,18 +737,21 @@ class _BubbleState extends State<_Bubble> {
       context: context,
       barrierColor: Colors.black12,
       builder: (context) => AlertDialog(
-        backgroundColor: widget.isDark ? AppColors.surfaceElevated : Colors.white,
+        backgroundColor:
+            widget.isDark ? AppColors.surfaceElevated : Colors.white,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         contentPadding: const EdgeInsets.all(12),
         content: Row(
           mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-          children: ['👍', '🔥', '💪', '😂'].map((r) => GestureDetector(
-            onTap: () {
-              setState(() => _reaction = r);
-              Navigator.pop(context);
-            },
-            child: Text(r, style: const TextStyle(fontSize: 28)),
-          )).toList(),
+          children: ['👍', '🔥', '💪', '😂']
+              .map((r) => GestureDetector(
+                    onTap: () {
+                      setState(() => _reaction = r);
+                      Navigator.pop(context);
+                    },
+                    child: Text(r, style: const TextStyle(fontSize: 28)),
+                  ))
+              .toList(),
         ),
       ),
     );
@@ -698,42 +759,52 @@ class _BubbleState extends State<_Bubble> {
 
   @override
   Widget build(BuildContext context) {
-    final timeStr = "${widget.msg.createdAt.hour.toString().padLeft(2, '0')}:${widget.msg.createdAt.minute.toString().padLeft(2, '0')}";
+    final timeStr =
+        "${widget.msg.createdAt.hour.toString().padLeft(2, '0')}:${widget.msg.createdAt.minute.toString().padLeft(2, '0')}";
 
     return Align(
       alignment: widget.isMe ? Alignment.centerRight : Alignment.centerLeft,
       child: GestureDetector(
-        onLongPress: _showReactions,
+        onLongPress: widget.isPending ? null : _showReactions,
         child: Container(
           margin: const EdgeInsets.symmetric(vertical: 4),
           constraints: BoxConstraints(
               maxWidth: MediaQuery.of(context).size.width * 0.75),
           child: Column(
-            crossAxisAlignment: widget.isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+            crossAxisAlignment: widget.isMe
+                ? CrossAxisAlignment.end
+                : CrossAxisAlignment.start,
             children: [
               Stack(
                 clipBehavior: Clip.none,
                 children: [
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                    decoration: BoxDecoration(
-                      color: widget.isMe
-                          ? AppColors.primary
-                          : (widget.isDark ? AppColors.surfaceElevated : Colors.grey.shade200),
-                      borderRadius: BorderRadius.only(
-                        topLeft: const Radius.circular(18),
-                        topRight: const Radius.circular(18),
-                        bottomLeft: Radius.circular(widget.isMe ? 18 : 4),
-                        bottomRight: Radius.circular(widget.isMe ? 4 : 18),
+                  Opacity(
+                    opacity: widget.isPending ? 0.65 : 1.0,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 14, vertical: 10),
+                      decoration: BoxDecoration(
+                        color: widget.isMe
+                            ? AppColors.primary
+                            : (widget.isDark
+                                ? AppColors.surfaceElevated
+                                : Colors.grey.shade200),
+                        borderRadius: BorderRadius.only(
+                          topLeft: const Radius.circular(18),
+                          topRight: const Radius.circular(18),
+                          bottomLeft: Radius.circular(widget.isMe ? 18 : 4),
+                          bottomRight: Radius.circular(widget.isMe ? 4 : 18),
+                        ),
                       ),
-                    ),
-                    child: Text(
-                      widget.msg.message,
-                      style: TextStyle(
+                      child: Text(
+                        widget.msg.message,
+                        style: TextStyle(
                           color: widget.isMe
                               ? Colors.white
                               : (widget.isDark ? Colors.white : Colors.black87),
-                          fontSize: 15),
+                          fontSize: 15,
+                        ),
+                      ),
                     ),
                   ),
                   if (_reaction != null)
@@ -747,21 +818,40 @@ class _BubbleState extends State<_Bubble> {
                           color: widget.isDark ? Colors.black : Colors.white,
                           shape: BoxShape.circle,
                           boxShadow: [
-                            BoxShadow(color: Colors.black.withValues(alpha: 0.1), blurRadius: 4)
-                          ]
+                            BoxShadow(
+                                color: Colors.black.withValues(alpha: 0.1),
+                                blurRadius: 4)
+                          ],
                         ),
-                        child: Text(_reaction!, style: const TextStyle(fontSize: 12)),
+                        child: Text(_reaction!,
+                            style: const TextStyle(fontSize: 12)),
                       ),
                     ),
                 ],
               ),
               const SizedBox(height: 4),
-              Text(
-                timeStr,
-                style: widget.theme.textTheme.bodySmall?.copyWith(
-                  fontSize: 10,
-                  color: widget.theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.7)
-                ),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (widget.isPending)
+                    Padding(
+                      padding: const EdgeInsets.only(right: 3),
+                      child: Icon(
+                        LucideIcons.clock,
+                        size: 9,
+                        color: widget.theme.colorScheme.onSurfaceVariant
+                            .withValues(alpha: 0.5),
+                      ),
+                    ),
+                  Text(
+                    timeStr,
+                    style: widget.theme.textTheme.bodySmall?.copyWith(
+                      fontSize: 10,
+                      color: widget.theme.colorScheme.onSurfaceVariant
+                          .withValues(alpha: 0.7),
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
@@ -839,7 +929,9 @@ class _ChatInputBar extends StatelessWidget {
                 decoration: BoxDecoration(
                   color: hasText
                       ? AppColors.primary
-                      : (isDark ? AppColors.surfaceElevated : Colors.grey.shade300),
+                      : (isDark
+                          ? AppColors.surfaceElevated
+                          : Colors.grey.shade300),
                   shape: BoxShape.circle,
                 ),
                 child: sending
@@ -849,8 +941,8 @@ class _ChatInputBar extends StatelessWidget {
                             color: Colors.white, strokeWidth: 2))
                     : Icon(
                         hasText ? LucideIcons.send : LucideIcons.mic,
-                        color: hasText ? Colors.white : Colors.grey, 
-                        size: 18
+                        color: hasText ? Colors.white : Colors.grey,
+                        size: 18,
                       ),
               ),
             );
@@ -872,7 +964,7 @@ class _QuickReplyChips extends StatelessWidget {
       'Hey 👋',
       'Great job 🔥',
       'How was your run?',
-      'Keep going 💪'
+      'Keep going 💪',
     ];
     return Container(
       height: 50,
@@ -889,7 +981,8 @@ class _QuickReplyChips extends StatelessWidget {
             onPressed: () => onSelect(reply),
             backgroundColor: AppColors.irisViolet.withValues(alpha: 0.1),
             side: BorderSide.none,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16)),
           );
         },
       ),
@@ -909,7 +1002,7 @@ class _FitnessSuggestionSheet extends StatelessWidget {
       'Want to run together?',
       'Great workout today!',
       'Keep your streak alive 🔥',
-      'Let’s complete today’s goal.',
+      "Let's complete today's goal.",
       'Hydrate and keep going 💧',
     ];
 
@@ -933,13 +1026,15 @@ class _FitnessSuggestionSheet extends StatelessWidget {
             ),
             const SizedBox(height: 20),
             Text('Quick Suggestions',
-                style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+                style: theme.textTheme.titleMedium
+                    ?.copyWith(fontWeight: FontWeight.bold)),
             const SizedBox(height: 16),
             ...suggestions.map((s) => ListTile(
-              leading: const Icon(LucideIcons.messageSquare, color: AppColors.primary),
-              title: Text(s),
-              onTap: () => onSelect(s),
-            )),
+                  leading: const Icon(LucideIcons.messageSquare,
+                      color: AppColors.primary),
+                  title: Text(s),
+                  onTap: () => onSelect(s),
+                )),
           ],
         ),
       ),
