@@ -22,32 +22,12 @@ class ChatService {
       if (kDebugMode) print('getMyChats() for userId: $userId');
 
       final data = await _supabase
-          .from('chats')
-          .select('''
-            id,
-            user1_id,
-            user2_id,
-            created_at,
-            user1:profiles!chats_user1_id_fkey (
-              id,
-              full_name,
-              username,
-              avatar_url
-            ),
-            user2:profiles!chats_user2_id_fkey (
-              id,
-              full_name,
-              username,
-              avatar_url
-            )
-          ''')
-          .or('user1_id.eq.$userId,user2_id.eq.$userId')
-          .order('created_at', ascending: false);
+          .rpc('get_my_chat_rooms', params: {'p_user_id': userId});
 
       if (kDebugMode) print('✅ Chats loaded: ${(data as List).length}');
 
       return (data as List)
-          .map((e) => ChatRoom.fromJson(e as Map<String, dynamic>, userId))
+          .map((e) => ChatRoom.fromRpcJson(e as Map<String, dynamic>, userId))
           .toList();
     } catch (e) {
       if (kDebugMode) print('getMyChats error: $e');

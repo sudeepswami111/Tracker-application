@@ -280,13 +280,16 @@ class _ChatHomeScreenState extends State<ChatHomeScreen> {
                       Text(
                         chat.friend.displayName,
                         style: theme.textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.w700,
+                          fontWeight: chat.unreadCount > 0 ? FontWeight.w800 : FontWeight.w700,
                         ),
                       ),
                       Text(
-                        'Recent',
+                        _formatMessageTime(chat.lastMessageAt ?? chat.createdAt),
                         style: theme.textTheme.labelSmall?.copyWith(
-                          color: isDark ? Colors.white38 : Colors.black38,
+                          color: chat.unreadCount > 0 
+                              ? AppColors.voltCyan 
+                              : (isDark ? Colors.white38 : Colors.black38),
+                          fontWeight: chat.unreadCount > 0 ? FontWeight.bold : FontWeight.normal,
                         ),
                       ),
                     ],
@@ -301,10 +304,31 @@ class _ChatHomeScreenState extends State<ChatHomeScreen> {
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: theme.textTheme.bodyMedium?.copyWith(
-                            color: isDark ? Colors.white60 : Colors.black54,
+                            color: chat.unreadCount > 0 
+                                ? (isDark ? Colors.white : Colors.black87)
+                                : (isDark ? Colors.white60 : Colors.black54),
+                            fontWeight: chat.unreadCount > 0 ? FontWeight.w600 : FontWeight.normal,
                           ),
                         ),
                       ),
+                      if (chat.unreadCount > 0) ...[
+                        const SizedBox(width: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: AppColors.voltCyan,
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Text(
+                            chat.unreadCount > 99 ? '99+' : '${chat.unreadCount}',
+                            style: const TextStyle(
+                              color: Colors.black,
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ]
                     ],
                   ),
                 ],
@@ -467,6 +491,26 @@ class _ChatHomeScreenState extends State<ChatHomeScreen> {
         ),
       ),
     );
+  }
+
+  String _formatMessageTime(DateTime dateTime) {
+    final now = DateTime.now();
+    final difference = now.difference(dateTime);
+
+    if (difference.inDays == 0 && now.day == dateTime.day) {
+      // Same day
+      final hour = dateTime.hour > 12 ? dateTime.hour - 12 : (dateTime.hour == 0 ? 12 : dateTime.hour);
+      final minute = dateTime.minute.toString().padLeft(2, '0');
+      final amPm = dateTime.hour >= 12 ? 'PM' : 'AM';
+      return '$hour:$minute $amPm';
+    } else if (difference.inDays == 1 || (difference.inDays == 0 && now.day != dateTime.day)) {
+      return 'Yesterday';
+    } else if (difference.inDays < 7) {
+      const weekdays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+      return weekdays[dateTime.weekday - 1];
+    } else {
+      return '${dateTime.month}/${dateTime.day}/${dateTime.year}';
+    }
   }
 
   Widget _buildShortcutChip(String label, IconData icon, bool isDark, {bool isOnline = false}) {

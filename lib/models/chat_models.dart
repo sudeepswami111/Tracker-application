@@ -8,6 +8,7 @@ class ChatRoom {
   final DateTime createdAt;
   final String? lastMessage;
   final DateTime? lastMessageAt;
+  final int unreadCount;
 
   const ChatRoom({
     required this.chatId,
@@ -17,6 +18,7 @@ class ChatRoom {
     required this.createdAt,
     this.lastMessage,
     this.lastMessageAt,
+    this.unreadCount = 0,
   });
 
   factory ChatRoom.fromJson(Map<String, dynamic> json, String currentUserId) {
@@ -29,6 +31,24 @@ class ChatRoom {
       user2Id: json['user2_id'] as String,
       friend: ChatFriend.fromJson(friendRaw as Map<String, dynamic>? ?? {}),
       createdAt: DateTime.tryParse(json['created_at'] as String? ?? '') ?? DateTime.now(),
+    );
+  }
+
+  factory ChatRoom.fromRpcJson(Map<String, dynamic> json, String currentUserId) {
+    return ChatRoom(
+      chatId: json['chat_id'] as String,
+      user1Id: currentUserId, // We don't strictly need user1/user2 order for frontend display anymore, but keeping it valid
+      user2Id: json['friend_id'] as String,
+      friend: ChatFriend(
+        id: json['friend_id'] as String,
+        fullName: json['friend_name'] as String? ?? '',
+        username: json['friend_username'] as String? ?? '',
+        avatarUrl: json['friend_avatar'] as String?,
+      ),
+      createdAt: DateTime.now(), // fallback, chat creation time isn't explicitly returned by the new RPC unless we added it
+      lastMessage: json['last_message'] as String?,
+      lastMessageAt: json['last_message_time'] != null ? DateTime.tryParse(json['last_message_time'] as String) : null,
+      unreadCount: (json['unread_count'] as num?)?.toInt() ?? 0,
     );
   }
 }
