@@ -23,7 +23,8 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 // Inspired by modern social fitness apps
 // ====================================================
 class CommunityScreen extends StatefulWidget {
-  const CommunityScreen({super.key});
+  final bool isEmbedded;
+  const CommunityScreen({super.key, this.isEmbedded = false});
 
   @override
   State<CommunityScreen> createState() => _CommunityScreenState();
@@ -123,13 +124,16 @@ class _CommunityScreenState extends State<CommunityScreen> with SingleTickerProv
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text(
-                        'Community',
-                        style: theme.textTheme.headlineLarge?.copyWith(
-                          fontWeight: FontWeight.w900,
-                          letterSpacing: -0.5,
-                        ),
-                      ),
+                      if (!widget.isEmbedded)
+                        Text(
+                          'Community',
+                          style: theme.textTheme.headlineLarge?.copyWith(
+                            fontWeight: FontWeight.w900,
+                            letterSpacing: -0.5,
+                          ),
+                        )
+                      else
+                        const SizedBox.shrink(),
                       Row(
                         children: [
                           _HeaderIconButton(

@@ -11,6 +11,7 @@ import 'screens/running_screen.dart';
 import 'screens/health_screen.dart';
 import 'screens/study_screen.dart';
 import 'screens/history_screen.dart';
+import 'screens/chat_home_screen.dart';
 import 'screens/profile_screen.dart';
 import 'screens/settings_screen.dart';
 import 'screens/challenge_screen.dart';
@@ -69,7 +70,7 @@ class _AppShellState extends State<AppShell> {
     const DashboardScreen(),
     const HealthScreen(),
     RunningScreen(onFullscreenChanged: (v) => setState(() => _isMapFullscreen = v)),
-    const CommunityScreen(),
+    const ChatHomeScreen(),
     const StudyScreen(),
   ];
 
