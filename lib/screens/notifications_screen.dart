@@ -11,6 +11,8 @@ import '../screens/challenge_screen.dart';
 import '../screens/history_screen.dart';
 import '../screens/dm_chat_screen.dart';
 import '../widgets/profile_avatar.dart';
+import '../services/chat_service.dart';
+import 'package:flutter/foundation.dart';
 
 // ─────────────────────────────────────────────────────────────────
 // NOTIFICATIONS SCREEN
@@ -123,7 +125,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         .subscribe();
   }
 
-  Future<void> _accept(String followId, String name) async {
+  Future<void> _accept(String followId, String followerId, String name) async {
     HapticFeedback.mediumImpact();
     final ok = await _followService.acceptFollowRequest(followId);
     if (!mounted) return;
@@ -136,25 +138,20 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
           label: 'Say Hi →',
           textColor: Colors.white,
           onPressed: () async {
-            final uid = _supabase.auth.currentUser?.id;
-            if (uid == null) return;
             try {
-              final chats = await _supabase
-                  .from('chat_participants')
-                  .select('chat_id')
-                  .eq('participant_id', uid)
-                  .order('created_at', ascending: false)
-                  .limit(1);
-              if ((chats as List).isNotEmpty && mounted) {
+              final chatId = await ChatService().getOrCreateDmChat(followerId);
+              if (mounted) {
                 Navigator.push(context, MaterialPageRoute(
                   builder: (_) => DMChatScreen(
-                    chatId: chats.first['chat_id'] as String,
-                    otherUserId: 'unknown',
+                    chatId: chatId,
+                    otherUserId: followerId,
                     otherUserName: name,
                   ),
                 ));
               }
-            } catch (_) {}
+            } catch (e) {
+              if (kDebugMode) print('Failed to open chat: $e');
+            }
           },
         ),
       ));
@@ -407,7 +404,7 @@ class _RequestsSection extends StatelessWidget {
   final List<Map<String, dynamic>> requests;
   final bool isDark;
   final ThemeData theme;
-  final Future<void> Function(String id, String name) onAccept;
+  final Future<void> Function(String id, String followerId, String name) onAccept;
   final Future<void> Function(String id) onReject;
 
   const _RequestsSection({
@@ -504,7 +501,7 @@ class _RequestsSection extends StatelessWidget {
                 const SizedBox(width: 8),
                 // Accept
                 GestureDetector(
-                  onTap: () => onAccept(req['id'] as String, name),
+                  onTap: () => onAccept(req['id'] as String, req['follower_id'] as String, name),
                   child: Container(
                     padding: const EdgeInsets.symmetric(
                         horizontal: 14, vertical: 8),

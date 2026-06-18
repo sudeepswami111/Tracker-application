@@ -98,16 +98,72 @@ class ChatService {
   // ──────────────────────────────────────────────────────────────────
   // 9. SEND DM MESSAGE  (mirrors JS sendMessage exactly)
   // ──────────────────────────────────────────────────────────────────
-  Future<void> sendDM(String chatId, String message) async {
-    if (message.trim().isEmpty) return;
+  Future<bool> canSendInChat(String chatId) async {
+    final me = currentUserId;
+    if (me.isEmpty) return false;
     try {
-      await _supabase.from('messages').insert({
-        'chat_id': chatId,
-        'sender_id': currentUserId,
-        'message': message.trim(),
-      });
+      final chat = await _supabase
+          .from('chats')
+          .select('id,user1_id,user2_id')
+          .eq('id', chatId)
+          .maybeSingle();
+      if (chat == null) return false;
+      return chat['user1_id'] == me || chat['user2_id'] == me;
     } catch (e) {
-      if (kDebugMode) print('sendDM error: $e');
+      if (kDebugMode) print('canSendInChat error: $e');
+      return false;
+    }
+  }
+
+  Future<ChatMessage> sendDM(String chatId, String message) async {
+    if (message.trim().isEmpty) throw Exception('Message is empty');
+    
+    final me = currentUserId;
+    if (me.isEmpty) throw Exception('Not authenticated');
+
+    // Ensure sender has a profile row to satisfy foreign key constraints
+    final profile = await _supabase
+        .from('profiles')
+        .select('id')
+        .eq('id', me)
+        .maybeSingle();
+    if (profile == null) {
+      throw Exception('Profile missing. Please update your profile.');
+    }
+
+    // Verify chat exists and user is a member
+    final canSend = await canSendInChat(chatId);
+    if (!canSend) {
+      throw Exception('Chat not found or current user is not a member.');
+    }
+
+    try {
+      if (kDebugMode) {
+        print('DM SEND: chatId=$chatId sender=$me messageLen=${message.trim().length}');
+      }
+
+      final res = await _supabase.from('messages').insert({
+        'chat_id': chatId,
+        'sender_id': me,
+        'message': message.trim(),
+      }).select().single();
+
+      if (kDebugMode) print('DM SEND SUCCESS: $res');
+      return ChatMessage.fromJson(res);
+    } on PostgrestException catch (e) {
+      if (kDebugMode) {
+        print('DM SEND POSTGREST ERROR');
+        print('code: ${e.code}');
+        print('message: ${e.message}');
+        print('details: ${e.details}');
+        print('hint: ${e.hint}');
+      }
+      rethrow;
+    } catch (e, st) {
+      if (kDebugMode) {
+        print('DM SEND UNKNOWN ERROR: $e');
+        print('$st');
+      }
       rethrow;
     }
   }

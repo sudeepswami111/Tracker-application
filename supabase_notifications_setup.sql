@@ -99,9 +99,13 @@ DECLARE
   v_recent_count INTEGER;
 BEGIN
   -- Find the other participant in the chat
-  SELECT participant_id INTO v_receiver
-  FROM public.chat_participants
-  WHERE chat_id = NEW.chat_id AND participant_id != NEW.sender_id
+  SELECT 
+    CASE 
+      WHEN user1_id = NEW.sender_id THEN user2_id 
+      ELSE user1_id 
+    END INTO v_receiver
+  FROM public.chats
+  WHERE id = NEW.chat_id
   LIMIT 1;
 
   SELECT COALESCE(full_name, username) INTO v_sender_name
@@ -124,7 +128,7 @@ BEGIN
         NEW.sender_id,
         'message',
         v_sender_name,
-        LEFT(NEW.content, 80),
+        LEFT(NEW.message, 80),
         NEW.chat_id::TEXT
       );
     END IF;

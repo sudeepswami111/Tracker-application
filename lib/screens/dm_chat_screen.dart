@@ -489,12 +489,15 @@ class _DMChatScreenState extends State<DMChatScreen> {
     }
 
     try {
-      await _chatService.sendDM(widget.chatId, text);
-      // The real message arrives via realtime stream, which will match the
-      // optimistic one by sender+text and the temp bubble disappears naturally.
+      final insertedMsg = await _chatService.sendDM(widget.chatId, text);
+      // The real message has successfully inserted. Replace our temp one immediately
+      // to avoid UI flicker while waiting for the realtime stream to deliver it.
       if (mounted) {
         setState(() {
-          _optimisticMessages.removeWhere((m) => m.id == tempId);
+          final idx = _optimisticMessages.indexWhere((m) => m.id == tempId);
+          if (idx != -1) {
+            _optimisticMessages[idx] = insertedMsg;
+          }
         });
       }
     } catch (e) {
@@ -504,10 +507,22 @@ class _DMChatScreenState extends State<DMChatScreen> {
           _optimisticMessages.removeWhere((m) => m.id == tempId);
           _sending = false;
         });
+
+        String shortError = e.toString();
+        if (e is PostgrestException) {
+          shortError = e.message;
+        } else if (shortError.startsWith('Exception: ')) {
+          shortError = shortError.substring(11); // remove "Exception: "
+        }
+
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Message failed to send. Tap to retry.'),
+          SnackBar(
+            content: Text('Send failed: $shortError'),
             behavior: SnackBarBehavior.floating,
+            action: SnackBarAction(
+              label: 'Retry',
+              onPressed: () => _send(text),
+            ),
           ),
         );
       }
