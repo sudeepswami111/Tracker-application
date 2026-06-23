@@ -120,14 +120,9 @@ class StepTrackerProvider extends ChangeNotifier with WidgetsBindingObserver {
 
       final prefs = await SharedPreferences.getInstance();
 
-      // Set the new baseline to wherever the hardware counter was at end of yesterday
-      if (_lastKnownDeviceSteps > 0) {
-        _initialStepsForDay = _lastKnownDeviceSteps;
-      } else {
-        _initialStepsForDay = -1;
-      }
-      // If _lastKnownDeviceSteps is still -1 (no events ever), we'll set
-      // the baseline from the first onStepCount event of the new day.
+      // Force the baseline to -1. This ensures that the FIRST step event received
+      // today will be used as the exact 0-point baseline, perfectly resetting steps to 0.
+      _initialStepsForDay = -1;
 
       _lastSavedDate = todayStr;
       _streakRecordedToday = false;
@@ -198,12 +193,9 @@ class StepTrackerProvider extends ChangeNotifier with WidgetsBindingObserver {
 
         if (_lastSavedDate.isNotEmpty && _lastSavedDate != todayStr) {
           // Day changed while app was closed.
-          // Baseline = yesterday's last known device steps.
-          if (_lastKnownDeviceSteps > 0) {
-            _initialStepsForDay = _lastKnownDeviceSteps;
-          } else {
-            _initialStepsForDay = -1;
-          }
+          // Force baseline to -1 so that the very next step event sets the 0-point.
+          // This prevents massive step inflation (e.g. 27000 steps) from stale yesterday data.
+          _initialStepsForDay = -1;
           _lastSavedDate = todayStr;
           _steps = 0;
           _streakRecordedToday = false;
@@ -272,13 +264,9 @@ class StepTrackerProvider extends ChangeNotifier with WidgetsBindingObserver {
       if (kDebugMode) {
         print('[StepTracker] onStepCount detected day change: $_lastSavedDate -> $todayStr');
       }
-      // Set baseline to PREVIOUS last known steps (end of yesterday)
-      if (_lastSavedDate.isNotEmpty && _lastKnownDeviceSteps > 0) {
-        _initialStepsForDay = _lastKnownDeviceSteps;
-      } else {
-        // No previous data at all — use current event as baseline
-        _initialStepsForDay = event.steps;
-      }
+      // Force the baseline to the CURRENT event's steps. 
+      // This immediately zeroes out the current steps for the new day.
+      _initialStepsForDay = event.steps;
       _lastSavedDate = todayStr;
       _streakRecordedToday = false;
       await prefs.setInt(_prefKeyInitialSteps, _initialStepsForDay);
