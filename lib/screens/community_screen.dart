@@ -3,13 +3,9 @@ import 'package:flutter/services.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_spacing.dart';
-import '../widgets/glass_card.dart';
-import '../widgets/dashboard_community_section.dart' show DashboardCommunitySection;
 import '../widgets/reply_bottom_sheet.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import '../widgets/create_post_sheet.dart';
 import '../widgets/community_search_delegate.dart';
-import 'dart:ui';
 import '../services/community_service.dart';
 import '../services/challenge_service.dart';
 import 'dm_chat_screen.dart';
@@ -794,7 +790,7 @@ class _PremiumFeedCardState extends State<_PremiumFeedCard> with SingleTickerPro
                         onTap: () => _toggleReaction('cheer'),
                         behavior: HitTestBehavior.opaque,
                         child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                           decoration: BoxDecoration(
                             color: _reactionSummary.hasCurrentUserCheered ? AppColors.teal.withValues(alpha: 0.15) : Colors.transparent,
                             borderRadius: BorderRadius.circular(20),
@@ -832,13 +828,18 @@ class _PremiumFeedCardState extends State<_PremiumFeedCard> with SingleTickerPro
                             AnimatedBuilder(
                               animation: _boostAnim,
                               builder: (context, child) {
+                                final isAnimating = _boostCtrl.isAnimating;
+                                if (!isAnimating) {
+                                  return const SizedBox.shrink();
+                                }
+                                final alpha = (1.0 - _boostAnim.value).clamp(0.0, 1.0);
                                 return Container(
                                   width: 28 + (_boostAnim.value * 40),
                                   height: 28 + (_boostAnim.value * 40),
                                   decoration: BoxDecoration(
                                     shape: BoxShape.circle,
                                     border: Border.all(
-                                      color: AppColors.pulseRed.withValues(alpha: (1.0 - _boostAnim.value).clamp(0, 1)),
+                                      color: AppColors.pulseRed.withValues(alpha: alpha),
                                       width: 2,
                                     ),
                                   ),
@@ -846,7 +847,7 @@ class _PremiumFeedCardState extends State<_PremiumFeedCard> with SingleTickerPro
                               },
                             ),
                             Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                               decoration: BoxDecoration(
                                 color: _reactionSummary.hasCurrentUserFired ? AppColors.pulseRed.withValues(alpha: 0.15) : Colors.transparent,
                                 borderRadius: BorderRadius.circular(20),
@@ -875,7 +876,7 @@ class _PremiumFeedCardState extends State<_PremiumFeedCard> with SingleTickerPro
                           ],
                         ),
                       ),
-                      const SizedBox(width: 12),
+                      const SizedBox(width: 8),
                       // Reply Button
                       GestureDetector(
                         onTap: () {
@@ -885,7 +886,7 @@ class _PremiumFeedCardState extends State<_PremiumFeedCard> with SingleTickerPro
                         },
                         behavior: HitTestBehavior.opaque,
                         child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                           decoration: BoxDecoration(
                             color: _replies.isNotEmpty ? AppColors.voltCyan.withValues(alpha: 0.1) : Colors.transparent,
                             borderRadius: BorderRadius.circular(20),
@@ -908,11 +909,15 @@ class _PremiumFeedCardState extends State<_PremiumFeedCard> with SingleTickerPro
                       ),
                       const Spacer(),
                       // Share Button
-                      IconButton(
-                        icon: const Icon(LucideIcons.share, size: 20, color: AppColors.textSecondary),
-                        onPressed: () {
+                      GestureDetector(
+                        onTap: () {
                           HapticFeedback.lightImpact();
                         },
+                        behavior: HitTestBehavior.opaque,
+                        child: const Padding(
+                          padding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                          child: Icon(LucideIcons.share, size: 20, color: AppColors.textSecondary),
+                        ),
                       ),
                     ],
                   ),
