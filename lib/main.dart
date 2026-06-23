@@ -16,6 +16,7 @@ import 'providers/watch_metrics_provider.dart';
 import 'providers/auth_provider.dart';
 import 'providers/weather_provider.dart';
 import 'providers/step_tracker_provider.dart';
+import 'providers/workout_session_provider.dart';
 import 'theme/app_theme.dart';
 import 'app.dart';
 import 'screens/login_screen.dart';
@@ -75,6 +76,7 @@ void main() async {
         ChangeNotifierProvider(create: (_) => WatchMetricsProvider()),
         ChangeNotifierProvider(create: (_) => AuthProvider()),
         ChangeNotifierProvider(create: (_) => WeatherProvider()),
+        ChangeNotifierProvider(create: (_) => WorkoutSessionProvider()),
         ChangeNotifierProxyProvider<AppProvider, StepTrackerProvider>(
           create: (context) => StepTrackerProvider(),
           update: (context, appProvider, stepTracker) {

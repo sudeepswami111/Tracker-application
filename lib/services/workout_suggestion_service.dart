@@ -268,18 +268,21 @@ class WorkoutPlanSuggestionService {
     return [
       WorkoutPhase(
         title: warmUpTitle,
+        shortTitle: _getShortTitle(warmUpTitle),
         durationMinutes: warmUp,
         icon: warmUpIcon,
         description: warmUpDesc,
       ),
       WorkoutPhase(
         title: mainTitle,
+        shortTitle: _getShortTitle(mainTitle),
         durationMinutes: main,
         icon: mainIcon,
         description: mainDesc,
       ),
       WorkoutPhase(
         title: coolTitle,
+        shortTitle: _getShortTitle(coolTitle),
         durationMinutes: coolDown,
         icon: coolIcon,
         description: coolDesc,
@@ -408,5 +411,64 @@ class WorkoutPlanSuggestionService {
     }
 
     return 'Unknown';
+  }
+
+  static String _getShortTitle(String title) {
+    final lower = title.toLowerCase().trim();
+    if (lower.contains('warm-up') || lower.contains('warmup')) {
+      return 'Warm-up';
+    }
+    if (lower.contains('cooldown') || lower.contains('cool down')) {
+      return 'Cooldown';
+    }
+    if (lower.contains('easy start')) return 'Start';
+    if (lower.contains('safety check')) return 'Safety';
+    if (lower.contains('focus prep')) return 'Prep';
+    if (lower.contains('settle')) return 'Settle';
+    if (lower.contains('breathing')) return 'Breathe';
+    if (lower.contains('mobility')) return 'Mobility';
+    
+    if (lower.contains('run') || lower.contains('treadmill')) {
+      return 'Run';
+    }
+    if (lower.contains('walk')) {
+      return 'Walk';
+    }
+    if (lower.contains('cycle') || lower.contains('ride') || lower.contains('spin') || lower.contains('bike')) {
+      return 'Ride';
+    }
+    if (lower.contains('yoga') || lower.contains('flow')) {
+      return 'Flow';
+    }
+    if (lower.contains('strength')) {
+      return 'Strength';
+    }
+    if (lower.contains('gym') || lower.contains('workout')) {
+      return 'Workout';
+    }
+    if (lower.contains('swim') || lower.contains('laps')) {
+      if (lower.contains('easy swim')) return 'Easy Swim';
+      if (lower.contains('swim laps')) return 'Swim Laps';
+      return 'Swim';
+    }
+    if (lower.contains('meditat')) {
+      return 'Meditate';
+    }
+    if (lower.contains('study') || lower.contains('deep work') || lower.contains('focus')) {
+      return 'Work';
+    }
+    if (lower.contains('stretch')) {
+      return 'Stretch';
+    }
+    if (lower.contains('hiit')) {
+      return 'HIIT';
+    }
+    if (lower.contains('rest') || lower.contains('recovery')) {
+      return 'Rest';
+    }
+    if (lower.contains('break')) {
+      return 'Break';
+    }
+    return title;
   }
 }

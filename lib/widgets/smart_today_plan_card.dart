@@ -11,6 +11,8 @@ import '../models/workout_phase.dart';
 import '../services/workout_suggestion_service.dart';
 import 'workout_phase_details_sheet.dart';
 import '../services/workout_start_router.dart';
+import 'package:provider/provider.dart';
+import '../providers/workout_session_provider.dart';
 
 class SmartTodayPlanCard extends StatelessWidget {
   final DailyPlan plan;
@@ -258,11 +260,24 @@ class SmartTodayPlanCard extends StatelessWidget {
                   weatherStatus: weatherStatus,
                 );
 
+                final session = context.watch<WorkoutSessionProvider>();
+                final isActiveSession = session.activePlanId == plan.id;
+
+                final p0Active = isActiveSession ? session.currentPhaseIndex == 0 : true;
+                final p0Completed = isActiveSession && session.phaseCompleted.isNotEmpty && session.phaseCompleted[0];
+
+                final p1Active = isActiveSession ? session.currentPhaseIndex == 1 : false;
+                final p1Completed = isActiveSession && session.phaseCompleted.length > 1 && session.phaseCompleted[1];
+
+                final p2Active = isActiveSession ? session.currentPhaseIndex == 2 : false;
+                final p2Completed = isActiveSession && session.phaseCompleted.length > 2 && session.phaseCompleted[2];
+
                 return Row(
                   children: [
                     _TimelineStep(
                       phase: phases[0],
-                      isActive: true,
+                      isActive: p0Active,
+                      isCompleted: p0Completed,
                       onTap: () {
                         showModalBottomSheet(
                           context: context,
@@ -279,10 +294,11 @@ class SmartTodayPlanCard extends StatelessWidget {
                         );
                       },
                     ),
-                    _TimelineDivider(isActive: false),
+                    _TimelineDivider(isCompleted: p0Completed),
                     _TimelineStep(
                       phase: phases[1],
-                      isActive: false,
+                      isActive: p1Active,
+                      isCompleted: p1Completed,
                       onTap: () {
                         showModalBottomSheet(
                           context: context,
@@ -299,10 +315,11 @@ class SmartTodayPlanCard extends StatelessWidget {
                         );
                       },
                     ),
-                    _TimelineDivider(isActive: false),
+                    _TimelineDivider(isCompleted: p1Completed),
                     _TimelineStep(
                       phase: phases[2],
-                      isActive: false,
+                      isActive: p2Active,
+                      isCompleted: p2Completed,
                       onTap: () {
                         showModalBottomSheet(
                           context: context,
@@ -447,17 +464,46 @@ class SmartTodayPlanCard extends StatelessWidget {
 class _TimelineStep extends StatelessWidget {
   final WorkoutPhase phase;
   final bool isActive;
+  final bool isCompleted;
   final VoidCallback onTap;
 
   const _TimelineStep({
     required this.phase,
     required this.isActive,
+    required this.isCompleted,
     required this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+
+    Color ringColor;
+    Color iconColor;
+    IconData iconData;
+    FontWeight fontWeight;
+    Color textColor;
+
+    if (isCompleted) {
+      ringColor = AppColors.teal;
+      iconColor = AppColors.teal;
+      iconData = LucideIcons.check;
+      fontWeight = FontWeight.normal;
+      textColor = AppColors.textSecondary;
+    } else if (isActive) {
+      ringColor = AppColors.voltCyan;
+      iconColor = AppColors.voltCyan;
+      iconData = phase.icon;
+      fontWeight = FontWeight.bold;
+      textColor = AppColors.textPrimary;
+    } else {
+      ringColor = AppColors.borderSubtle;
+      iconColor = AppColors.textSecondary.withValues(alpha: 0.5);
+      iconData = phase.icon;
+      fontWeight = FontWeight.normal;
+      textColor = AppColors.textSecondary.withValues(alpha: 0.5);
+    }
+
     return GestureDetector(
       onTap: onTap,
       behavior: HitTestBehavior.opaque,
@@ -473,26 +519,26 @@ class _TimelineStep extends StatelessWidget {
                 color: isActive ? AppColors.voltCyan.withValues(alpha: 0.2) : Colors.transparent,
                 shape: BoxShape.circle,
                 border: Border.all(
-                  color: isActive ? AppColors.voltCyan : AppColors.borderSubtle,
-                  width: 1.5,
+                  color: ringColor,
+                  width: isActive ? 2.0 : 1.5,
                 ),
               ),
               child: Icon(
-                phase.icon,
+                iconData,
                 size: 16,
-                color: isActive ? AppColors.voltCyan : AppColors.textSecondary,
+                color: iconColor,
               ),
             ),
             const SizedBox(height: 6),
             Text(
-              phase.title,
+              phase.shortTitle,
               textAlign: TextAlign.center,
-              maxLines: 1,
+              maxLines: 2,
               overflow: TextOverflow.ellipsis,
               style: theme.textTheme.labelSmall?.copyWith(
-                color: isActive ? AppColors.textPrimary : AppColors.textSecondary,
+                color: textColor,
                 fontSize: 10,
-                fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
+                fontWeight: fontWeight,
               ),
             ),
             const SizedBox(height: 2),
@@ -500,7 +546,9 @@ class _TimelineStep extends StatelessWidget {
               '${phase.durationMinutes}m',
               textAlign: TextAlign.center,
               style: theme.textTheme.labelSmall?.copyWith(
-                color: isActive ? AppColors.voltCyan : AppColors.textSecondary,
+                color: isCompleted
+                    ? AppColors.teal.withValues(alpha: 0.7)
+                    : (isActive ? AppColors.voltCyan : AppColors.textSecondary.withValues(alpha: 0.5)),
                 fontSize: 9,
                 fontWeight: FontWeight.bold,
               ),
@@ -513,8 +561,8 @@ class _TimelineStep extends StatelessWidget {
 }
 
 class _TimelineDivider extends StatelessWidget {
-  final bool isActive;
-  const _TimelineDivider({required this.isActive});
+  final bool isCompleted;
+  const _TimelineDivider({required this.isCompleted});
 
   @override
   Widget build(BuildContext context) {
@@ -523,7 +571,9 @@ class _TimelineDivider extends StatelessWidget {
         padding: const EdgeInsets.only(bottom: 22.0),
         child: Container(
           height: 1.5,
-          color: isActive ? AppColors.voltCyan : AppColors.borderSubtle,
+          color: isCompleted
+              ? AppColors.teal.withValues(alpha: 0.8)
+              : AppColors.borderSubtle.withValues(alpha: 0.3),
         ),
       ),
     );

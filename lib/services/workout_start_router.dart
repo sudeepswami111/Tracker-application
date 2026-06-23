@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../models/workout_phase.dart';
 import '../providers/app_provider.dart'; // for DailyPlan
+import '../providers/workout_session_provider.dart';
 import '../screens/running_screen.dart';
 import '../screens/guided_workout_session_screen.dart';
 
@@ -34,6 +36,13 @@ class WorkoutStartRouter {
     required DailyPlan plan,
     required List<WorkoutPhase> phases,
   }) {
+    // Start session state in provider
+    try {
+      context.read<WorkoutSessionProvider>().startSession(plan.id, phases.length);
+    } catch (e) {
+      debugPrint('[WorkoutStartRouter] Provider error: $e');
+    }
+
     if (isGpsActivity(plan.type)) {
       Navigator.push(
         context,
