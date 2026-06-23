@@ -12,6 +12,8 @@ import '../models/community_reply.dart';
 import '../models/community_reaction.dart';
 import 'profile_avatar.dart';
 import 'reply_bottom_sheet.dart';
+import '../screens/profile_screen.dart';
+
 
 class DashboardCommunitySection extends StatelessWidget {
   const DashboardCommunitySection({super.key});
@@ -400,27 +402,48 @@ class _CommunityFeedCardState extends State<_CommunityFeedCard> {
           // Header
           Row(
             children: [
-              ProfileAvatar(
-                imageUrl: authorAvatar,
-                name: authorName,
-                radius: 18,
-              ),
-              const SizedBox(width: 12),
               Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      authorName,
-                      style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
-                    ),
-                    Text(
-                      'Today', // Time fallback
-                      style: theme.textTheme.bodySmall?.copyWith(color: AppColors.textSecondary),
-                    ),
-                  ],
+                child: GestureDetector(
+                  onTap: () {
+                    final authorId = widget.post['user_id'] as String?;
+                    if (authorId != null && authorId.isNotEmpty) {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => ProfileScreen(targetUserId: authorId),
+                        ),
+                      );
+                    }
+                  },
+                  behavior: HitTestBehavior.opaque,
+                  child: Row(
+                    children: [
+                      ProfileAvatar(
+                        imageUrl: authorAvatar,
+                        name: authorName,
+                        radius: 18,
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              authorName,
+                              style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+                            ),
+                            Text(
+                              'Today', // Time fallback
+                              style: theme.textTheme.bodySmall?.copyWith(color: AppColors.textSecondary),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
+
               if (badgeInfo != null)
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),

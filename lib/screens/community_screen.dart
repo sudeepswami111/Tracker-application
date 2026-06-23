@@ -14,7 +14,9 @@ import '../services/community_service.dart';
 import '../services/challenge_service.dart';
 import 'package:intl/intl.dart';
 import 'dm_chat_screen.dart';
+import 'profile_screen.dart';
 import '../widgets/profile_avatar.dart';
+
 import '../models/community_reply.dart';
 import '../models/community_reaction.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -644,30 +646,49 @@ class _PremiumFeedCardState extends State<_PremiumFeedCard> with SingleTickerPro
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // 1. Author Header
                   Row(
                     children: [
-                      Container(
-                        padding: const EdgeInsets.all(2),
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          gradient: LinearGradient(colors: [accent, accent.withValues(alpha: 0.2)]),
-                        ),
-                        child: ProfileAvatar(
-                          imageUrl: widget.post['author']?['avatar_url'] as String?,
-                          name: (widget.post['author']?['full_name'] as String?) ?? 'Anonymous',
-                          radius: 20,
-                          backgroundColor: widget.isDark ? AppColors.surfaceElevated : Colors.grey[200]!,
-                        ),
-                      ),
-                      const SizedBox(width: 12),
                       Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text((widget.post['author']?['full_name'] as String?) ?? 'Anonymous', style: widget.theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold)),
-                            Text('${_formatTime(widget.post['created_at'])} • ${widget.post['activity_type'] ?? 'Update'}', style: widget.theme.textTheme.bodySmall?.copyWith(color: AppColors.textSecondary, fontWeight: FontWeight.w500)),
-                          ],
+                        child: GestureDetector(
+                          onTap: () {
+                            final authorId = widget.post['user_id'] as String?;
+                            if (authorId != null && authorId.isNotEmpty) {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => ProfileScreen(targetUserId: authorId),
+                                ),
+                              );
+                            }
+                          },
+                          behavior: HitTestBehavior.opaque,
+                          child: Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(2),
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  gradient: LinearGradient(colors: [accent, accent.withValues(alpha: 0.2)]),
+                                ),
+                                child: ProfileAvatar(
+                                  imageUrl: widget.post['author']?['avatar_url'] as String?,
+                                  name: (widget.post['author']?['full_name'] as String?) ?? 'Anonymous',
+                                  radius: 20,
+                                  backgroundColor: widget.isDark ? AppColors.surfaceElevated : Colors.grey[200]!,
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text((widget.post['author']?['full_name'] as String?) ?? 'Anonymous', style: widget.theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold)),
+                                    Text('${_formatTime(widget.post['created_at'])} • ${widget.post['activity_type'] ?? 'Update'}', style: widget.theme.textTheme.bodySmall?.copyWith(color: AppColors.textSecondary, fontWeight: FontWeight.w500)),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                       ),
                       IconButton(
@@ -677,6 +698,7 @@ class _PremiumFeedCardState extends State<_PremiumFeedCard> with SingleTickerPro
                       ),
                     ],
                   ),
+
                   const SizedBox(height: 16),
                   
                   // 2. Post Content

@@ -9,7 +9,9 @@ import '../models/chat_models.dart';
 import '../services/follow_service.dart';
 import 'community_screen.dart';
 import 'dm_chat_screen.dart';
+import 'profile_screen.dart';
 import '../widgets/profile_avatar.dart';
+
 
 class ChatHomeScreen extends StatefulWidget {
   const ChatHomeScreen({super.key});
@@ -486,27 +488,45 @@ class _ChatHomeScreenState extends State<ChatHomeScreen> {
                     ),
                     child: Row(
                       children: [
-                        ProfileAvatar(
-                          imageUrl: user.avatarUrl,
-                          name: user.fullName.isNotEmpty ? user.fullName : user.username,
-                          radius: 22,
-                        ),
-                        const SizedBox(width: 12),
                         Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                user.fullName.isNotEmpty ? user.fullName : user.username,
-                                style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold),
-                              ),
-                              Text(
-                                '@${user.username}',
-                                style: theme.textTheme.bodySmall?.copyWith(color: Colors.grey),
-                              ),
-                            ],
+                          child: GestureDetector(
+                            onTap: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => ProfileScreen(targetUserId: user.id),
+                                ),
+                              );
+                            },
+                            behavior: HitTestBehavior.opaque,
+                            child: Row(
+                              children: [
+                                ProfileAvatar(
+                                  imageUrl: user.avatarUrl,
+                                  name: user.fullName.isNotEmpty ? user.fullName : user.username,
+                                  radius: 22,
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        user.fullName.isNotEmpty ? user.fullName : user.username,
+                                        style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold),
+                                      ),
+                                      Text(
+                                        '@${user.username}',
+                                        style: theme.textTheme.bodySmall?.copyWith(color: Colors.grey),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
                         ),
+
                         IconButton(
                           icon: const Icon(LucideIcons.messageCircle, color: AppColors.voltCyan),
                           onPressed: () => _openChatWithUser(user),
@@ -545,32 +565,43 @@ class _ChatHomeScreenState extends State<ChatHomeScreen> {
         child: Row(
           children: [
             // Avatar with dynamic online indicator
-            Stack(
-              children: [
-                ProfileAvatar(
-                  imageUrl: chat.friend.avatarUrl,
-                  name: chat.friend.displayName,
-                  radius: 28,
-                ),
-                if (isOnline)
-                  Positioned(
-                    right: 0,
-                    bottom: 0,
-                    child: Container(
-                      width: 14,
-                      height: 14,
-                      decoration: BoxDecoration(
-                        color: AppColors.voltCyan,
-                        shape: BoxShape.circle,
-                        border: Border.all(
-                          color: isDark ? AppColors.backgroundDeep : AppColors.lightBg,
-                          width: 2,
+            GestureDetector(
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => ProfileScreen(targetUserId: chat.friend.id),
+                  ),
+                );
+              },
+              child: Stack(
+                children: [
+                  ProfileAvatar(
+                    imageUrl: chat.friend.avatarUrl,
+                    name: chat.friend.displayName,
+                    radius: 28,
+                  ),
+                  if (isOnline)
+                    Positioned(
+                      right: 0,
+                      bottom: 0,
+                      child: Container(
+                        width: 14,
+                        height: 14,
+                        decoration: BoxDecoration(
+                          color: AppColors.voltCyan,
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: isDark ? AppColors.backgroundDeep : AppColors.lightBg,
+                            width: 2,
+                          ),
                         ),
                       ),
                     ),
-                  ),
-              ],
+                ],
+              ),
             ),
+
             const SizedBox(width: AppSpacing.md),
             // Text Content
             Expanded(

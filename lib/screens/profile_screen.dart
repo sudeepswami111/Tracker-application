@@ -8,6 +8,8 @@ import '../providers/watch_metrics_provider.dart';
 import '../theme/app_colors.dart';
 import '../widgets/glass_card.dart';
 import '../services/follow_service.dart';
+import 'dm_chat_screen.dart';
+
 import 'package:image_picker/image_picker.dart';
 import 'package:image_cropper/image_cropper.dart';
 import 'package:share_plus/share_plus.dart';
@@ -47,6 +49,8 @@ class _ProfileScreenState extends State<ProfileScreen>
   bool _followActionLoading = false;
 
   RealtimeChannel? _profileChannel;
+  String? _chatId;
+
 
   int _runsCount = 0;
   int _postsCount = 0;
@@ -89,7 +93,28 @@ class _ProfileScreenState extends State<ProfileScreen>
       if (!_isOwnProfile) {
         final status = await _followService.getFollowStatus(_userId);
         if (mounted) setState(() => _followStatus = status);
+
+        // Fetch chat ID if a chat exists
+        final me = _supabase.auth.currentUser?.id ?? '';
+        if (me.isNotEmpty) {
+          final u1 = me.compareTo(_userId) < 0 ? me : _userId;
+          final u2 = me.compareTo(_userId) < 0 ? _userId : me;
+          try {
+            final chatRes = await _supabase
+                .from('chats')
+                .select('id')
+                .eq('user1_id', u1)
+                .eq('user2_id', u2)
+                .maybeSingle();
+            if (mounted) {
+              setState(() {
+                _chatId = chatRes?['id'] as String?;
+              });
+            }
+          } catch (_) {}
+        }
       }
+
 
       // Fetch extra statistics from Supabase
       // Fetch runs count
@@ -551,50 +576,94 @@ class _ProfileScreenState extends State<ProfileScreen>
 
                           const SizedBox(height: 12),
                           if (!_isOwnProfile)
-                            SizedBox(
-                              width: 150,
-                              child: ElevatedButton(
-                                onPressed: _followActionLoading
-                                    ? null
-                                    : _handleFollowAction,
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor:
-                                      _followStatus == FollowStatus.accepted
-                                      ? Colors.grey.shade700
-                                      : _followStatus == FollowStatus.pending
-                                      ? AppColors.solarAmber
-                                      : AppColors.primary,
-                                  foregroundColor: Colors.white,
-                                  padding: const EdgeInsets.symmetric(
-                                    vertical: 10,
-                                  ),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(14),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                SizedBox(
+                                  width: _chatId != null ? 130 : 150,
+                                  child: ElevatedButton(
+                                    onPressed: _followActionLoading
+                                        ? null
+                                        : _handleFollowAction,
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor:
+                                          _followStatus == FollowStatus.accepted
+                                          ? Colors.grey.shade800
+                                          : _followStatus == FollowStatus.pending
+                                          ? AppColors.solarAmber
+                                          : AppColors.primary,
+                                      foregroundColor: Colors.white,
+                                      padding: const EdgeInsets.symmetric(
+                                        vertical: 10,
+                                      ),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(14),
+                                      ),
+                                    ),
+                                    child: _followActionLoading
+                                        ? const SizedBox(
+                                            height: 14,
+                                            width: 14,
+                                            child: CircularProgressIndicator(
+                                              color: Colors.white,
+                                              strokeWidth: 2,
+                                            ),
+                                          )
+                                        : Text(
+                                            _followStatus == FollowStatus.accepted
+                                                ? 'Unfollow'
+                                                : _followStatus ==
+                                                      FollowStatus.pending
+                                                ? 'Requested'
+                                                : 'Follow',
+                                            style: const TextStyle(
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 14,
+                                            ),
+                                          ),
                                   ),
                                 ),
-                                child: _followActionLoading
-                                    ? const SizedBox(
-                                        height: 14,
-                                        width: 14,
-                                        child: CircularProgressIndicator(
-                                          color: Colors.white,
-                                          strokeWidth: 2,
-                                        ),
-                                      )
-                                    : Text(
-                                        _followStatus == FollowStatus.accepted
-                                            ? 'Unfollow'
-                                            : _followStatus ==
-                                                  FollowStatus.pending
-                                            ? 'Requested'
-                                            : 'Follow',
-                                        style: const TextStyle(
+                                if (_chatId != null) ...[
+                                  const SizedBox(width: 12),
+                                  SizedBox(
+                                    width: 130,
+                                    child: ElevatedButton.icon(
+                                      onPressed: () {
+                                        Navigator.push(
+                                          context,
+                                          MaterialPageRoute(
+                                            builder: (_) => DMChatScreen(
+                                              chatId: _chatId!,
+                                              otherUserId: _userId,
+                                              otherUserName: fullName,
+                                            ),
+                                          ),
+                                        );
+                                      },
+                                      icon: const Icon(LucideIcons.messageCircle, size: 16, color: Colors.black),
+                                      label: const Text(
+                                        'Message',
+                                        style: TextStyle(
                                           fontWeight: FontWeight.bold,
                                           fontSize: 14,
+                                          color: Colors.black,
                                         ),
                                       ),
-                              ),
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: AppColors.voltCyan,
+                                        padding: const EdgeInsets.symmetric(
+                                          vertical: 10,
+                                        ),
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(14),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ],
                             ),
+
                         ],
                       ),
                     ),

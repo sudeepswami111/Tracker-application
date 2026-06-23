@@ -328,4 +328,29 @@ class ChatService {
       // Ignore presence track errors if channel is disconnected
     }
   }
+
+  Future<void> deleteMessage(String messageId) async {
+    try {
+      await _supabase
+          .from('messages')
+          .delete()
+          .eq('id', messageId);
+    } catch (e) {
+      if (kDebugMode) print('deleteMessage error: $e');
+      rethrow;
+    }
+  }
+
+  Future<void> clearChatHistory(String chatId) async {
+    try {
+      await _supabase
+          .from('messages')
+          .delete()
+          .eq('chat_id', chatId);
+    } catch (e) {
+      if (kDebugMode) print('clearChatHistory error: $e');
+      rethrow;
+    }
+  }
 }
+

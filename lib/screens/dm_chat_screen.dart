@@ -11,6 +11,8 @@ import '../services/follow_service.dart';
 import '../widgets/profile_avatar.dart';
 import '../providers/app_provider.dart';
 import '../providers/step_tracker_provider.dart';
+import 'profile_screen.dart';
+
 
 // ─────────────────────────────────────────────────────────────────
 // DM LIST SCREEN — shows all conversations + search bar
@@ -645,9 +647,12 @@ class _DMChatScreenState extends State<DMChatScreen> {
       resizeToAvoidBottomInset: true,
       appBar: _ChatHeader(
         otherUserName: widget.otherUserName,
+        otherUserId: widget.otherUserId,
+        chatId: widget.chatId,
         onBack: () => Navigator.pop(context),
         isOnline: _onlineUsers.contains(widget.otherUserId),
       ),
+
       body: SafeArea(
         child: Column(
           children: [
@@ -710,11 +715,15 @@ class _DMChatScreenState extends State<DMChatScreen> {
 
 class _ChatHeader extends StatelessWidget implements PreferredSizeWidget {
   final String otherUserName;
+  final String otherUserId;
+  final String chatId;
   final VoidCallback onBack;
   final bool isOnline;
 
   const _ChatHeader({
     required this.otherUserName,
+    required this.otherUserId,
+    required this.chatId,
     required this.onBack,
     required this.isOnline,
   });
@@ -732,35 +741,169 @@ class _ChatHeader extends StatelessWidget implements PreferredSizeWidget {
         icon: const Icon(LucideIcons.arrowLeft),
         onPressed: onBack,
       ),
-      title: Row(children: [
-        ProfileAvatar(
-          imageUrl: null,
-          name: otherUserName,
-          radius: 18,
-          backgroundColor: AppColors.irisViolet.withValues(alpha: 0.2),
-          foregroundColor: AppColors.irisViolet,
-        ),
-        const SizedBox(width: 10),
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(otherUserName,
-                style: theme.textTheme.titleMedium
-                    ?.copyWith(fontWeight: FontWeight.bold)),
-            Text(
-              isOnline ? 'Online' : 'Offline',
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: isOnline ? Colors.green : Colors.grey,
-                fontSize: 11,
-                fontWeight: FontWeight.w600,
-              ),
+      title: GestureDetector(
+        onTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => ProfileScreen(targetUserId: otherUserId),
             ),
-          ],
+          );
+        },
+        behavior: HitTestBehavior.opaque,
+        child: Row(children: [
+          ProfileAvatar(
+            imageUrl: null,
+            name: otherUserName,
+            radius: 18,
+            backgroundColor: AppColors.irisViolet.withValues(alpha: 0.2),
+            foregroundColor: AppColors.irisViolet,
+          ),
+          const SizedBox(width: 10),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(otherUserName,
+                  style: theme.textTheme.titleMedium
+                      ?.copyWith(fontWeight: FontWeight.bold)),
+              Text(
+                isOnline ? 'Online' : 'Offline',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: isOnline ? Colors.green : Colors.grey,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+        ]),
+      ),
+      actions: [
+        IconButton(
+          icon: const Icon(LucideIcons.moreVertical, size: 20),
+          onPressed: () {
+            showModalBottomSheet(
+              context: context,
+              backgroundColor: Colors.transparent,
+              builder: (ctx) => _ChatMoreOptionsSheet(
+                otherUserId: otherUserId,
+                otherUserName: otherUserName,
+                chatId: chatId,
+              ),
+            );
+          },
         ),
-      ]),
+        const SizedBox(width: 8),
+      ],
     );
   }
 }
+
+class _ChatMoreOptionsSheet extends StatelessWidget {
+  final String otherUserId;
+  final String otherUserName;
+  final String chatId;
+
+  const _ChatMoreOptionsSheet({
+    required this.otherUserId,
+    required this.otherUserName,
+    required this.chatId,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final chatService = ChatService();
+
+    return Container(
+      decoration: BoxDecoration(
+        color: isDark ? AppColors.surfaceElevated : Colors.white,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      padding: const EdgeInsets.all(20),
+      child: SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: Colors.grey.withValues(alpha: 0.3),
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            const SizedBox(height: 16),
+            ListTile(
+              leading: const Icon(LucideIcons.user, size: 20),
+              title: const Text('View Profile'),
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => ProfileScreen(targetUserId: otherUserId),
+                  ),
+                );
+              },
+            ),
+            ListTile(
+              leading: const Icon(LucideIcons.trash2, size: 20, color: AppColors.pulseRed),
+              title: const Text('Clear Chat History', style: TextStyle(color: AppColors.pulseRed)),
+              onTap: () async {
+                Navigator.pop(context);
+                final confirm = await showDialog<bool>(
+                  context: context,
+                  builder: (ctx) => AlertDialog(
+                    title: const Text('Clear Chat History'),
+                    content: Text('Are you sure you want to delete all messages in this chat with $otherUserName? This action cannot be undone.'),
+                    actions: [
+                      TextButton(
+                        onPressed: () => Navigator.pop(ctx, false),
+                        child: const Text('Cancel'),
+                      ),
+                      TextButton(
+                        onPressed: () => Navigator.pop(ctx, true),
+                        child: const Text('Clear All', style: TextStyle(color: AppColors.pulseRed)),
+                      ),
+                    ],
+                  ),
+                );
+                if (confirm == true) {
+                  try {
+                    await chatService.clearChatHistory(chatId);
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Chat history cleared')),
+                      );
+                    }
+                  } catch (e) {
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('Failed to clear: $e')),
+                      );
+                    }
+                  }
+                }
+              },
+            ),
+            ListTile(
+              leading: const Icon(LucideIcons.ban, size: 20, color: Colors.grey),
+              title: const Text('Block User', style: TextStyle(color: Colors.grey)),
+              onTap: () {
+                Navigator.pop(context);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('Blocked $otherUserName (Mock)')),
+                );
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 
 class _MessageList extends StatelessWidget {
   final Stream<List<ChatMessage>> stream;
@@ -847,12 +990,14 @@ class _MessageList extends StatelessWidget {
             final isMe      = msg.senderId == myId;
             final isPending = msg.id.startsWith('temp-');
             return _Bubble(
+              key: ValueKey(msg.id),
               msg: msg,
               isMe: isMe,
               theme: theme,
               isDark: isDark,
               isPending: isPending,
             );
+
           },
         );
       },
@@ -868,12 +1013,14 @@ class _Bubble extends StatefulWidget {
   final bool isPending;
 
   const _Bubble({
+    super.key,
     required this.msg,
     required this.isMe,
     required this.theme,
     required this.isDark,
     this.isPending = false,
   });
+
 
   @override
   State<_Bubble> createState() => _BubbleState();
@@ -882,27 +1029,19 @@ class _Bubble extends StatefulWidget {
 class _BubbleState extends State<_Bubble> {
   String? _reaction;
 
-  void _showReactions() {
-    showDialog(
+  void _showMessageOptionsSheet() {
+    showModalBottomSheet(
       context: context,
-      barrierColor: Colors.black12,
-      builder: (context) => AlertDialog(
-        backgroundColor:
-            widget.isDark ? AppColors.surfaceElevated : Colors.white,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        contentPadding: const EdgeInsets.all(12),
-        content: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-          children: ['👍', '🔥', '💪', '😂']
-              .map((r) => GestureDetector(
-                    onTap: () {
-                      setState(() => _reaction = r);
-                      Navigator.pop(context);
-                    },
-                    child: Text(r, style: const TextStyle(fontSize: 28)),
-                  ))
-              .toList(),
-        ),
+      backgroundColor: Colors.transparent,
+      builder: (context) => _MessageOptionsSheet(
+        message: widget.msg,
+        isMe: widget.isMe,
+        isDark: widget.isDark,
+        theme: widget.theme,
+        currentReaction: _reaction,
+        onReactionSelected: (emoji) {
+          setState(() => _reaction = emoji);
+        },
       ),
     );
   }
@@ -915,7 +1054,8 @@ class _BubbleState extends State<_Bubble> {
     return Align(
       alignment: widget.isMe ? Alignment.centerRight : Alignment.centerLeft,
       child: GestureDetector(
-        onLongPress: widget.isPending ? null : _showReactions,
+        onLongPress: widget.isPending ? null : _showMessageOptionsSheet,
+
         child: Container(
           margin: const EdgeInsets.symmetric(vertical: 4),
           constraints: BoxConstraints(
@@ -1010,6 +1150,129 @@ class _BubbleState extends State<_Bubble> {
     );
   }
 }
+
+class _MessageOptionsSheet extends StatelessWidget {
+  final ChatMessage message;
+  final bool isMe;
+  final bool isDark;
+  final ThemeData theme;
+  final String? currentReaction;
+  final ValueChanged<String?> onReactionSelected;
+
+  const _MessageOptionsSheet({
+    required this.message,
+    required this.isMe,
+    required this.isDark,
+    required this.theme,
+    this.currentReaction,
+    required this.onReactionSelected,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final chatService = ChatService();
+    return Container(
+      decoration: BoxDecoration(
+        color: isDark ? AppColors.surfaceElevated : Colors.white,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      padding: const EdgeInsets.all(20),
+      child: SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: Colors.grey.withValues(alpha: 0.3),
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            const SizedBox(height: 16),
+            // Reaction row
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              children: ['👍', '🔥', '💪', '😂', '❤️', '😮'].map((emoji) {
+                final isSelected = currentReaction == emoji;
+                return GestureDetector(
+                  onTap: () {
+                    onReactionSelected(isSelected ? null : emoji);
+                    Navigator.pop(context);
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: isSelected
+                          ? AppColors.voltCyan.withValues(alpha: 0.2)
+                          : Colors.transparent,
+                      shape: BoxShape.circle,
+                    ),
+                    child: Text(emoji, style: const TextStyle(fontSize: 26)),
+                  ),
+                );
+              }).toList(),
+            ),
+            const SizedBox(height: 16),
+            const Divider(height: 1),
+            // Options list
+            ListTile(
+              leading: const Icon(LucideIcons.copy, size: 20),
+              title: const Text('Copy Text'),
+              onTap: () {
+                Clipboard.setData(ClipboardData(text: message.message));
+                Navigator.pop(context);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Message copied to clipboard'),
+                    duration: Duration(seconds: 2),
+                  ),
+                );
+              },
+            ),
+            if (isMe)
+              ListTile(
+                leading: const Icon(LucideIcons.trash2, size: 20, color: AppColors.pulseRed),
+                title: const Text('Delete Message', style: TextStyle(color: AppColors.pulseRed)),
+                onTap: () async {
+                  Navigator.pop(context);
+                  final confirm = await showDialog<bool>(
+                    context: context,
+                    builder: (ctx) => AlertDialog(
+                      title: const Text('Delete Message'),
+                      content: const Text('Are you sure you want to delete this message?'),
+                      actions: [
+                        TextButton(
+                          onPressed: () => Navigator.pop(ctx, false),
+                          child: const Text('Cancel'),
+                        ),
+                        TextButton(
+                          onPressed: () => Navigator.pop(ctx, true),
+                          child: const Text('Delete', style: TextStyle(color: AppColors.pulseRed)),
+                        ),
+                      ],
+                    ),
+                  );
+                  if (confirm == true) {
+                    try {
+                      await chatService.deleteMessage(message.id);
+                    } catch (e) {
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text('Failed to delete: $e')),
+                        );
+                      }
+                    }
+                  }
+                },
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 
 class _ChatInputBar extends StatelessWidget {
   final TextEditingController controller;
