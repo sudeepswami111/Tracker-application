@@ -403,6 +403,16 @@ class AppProvider extends ChangeNotifier with WidgetsBindingObserver {
     }
   }
 
+  void completePlan(String id) {
+    final idx = dailyPlans.indexWhere((p) => p.id == id);
+    if (idx != -1 && !dailyPlans[idx].isCompleted) {
+      dailyPlans[idx].isCompleted = true;
+      completedTasksCount++;
+      _saveData();
+      notifyListeners();
+    }
+  }
+
   bool hasUnreadNotifications = false;
   int _supabaseUnreadCount = 0;
   int get unreadNotificationCount => _supabaseUnreadCount;

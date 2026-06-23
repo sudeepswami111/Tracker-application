@@ -7,6 +7,11 @@ import '../providers/app_provider.dart';
 import '../services/plan_readiness_service.dart';
 import '../services/plan_recommendation_service.dart';
 import '../theme/app_colors.dart';
+import '../models/workout_phase.dart';
+import '../services/workout_suggestion_service.dart';
+import 'workout_phase_details_sheet.dart';
+import '../screens/running_screen.dart';
+import '../screens/guided_workout_session_screen.dart';
 
 class SmartTodayPlanCard extends StatelessWidget {
   final DailyPlan plan;
@@ -147,7 +152,7 @@ class SmartTodayPlanCard extends StatelessWidget {
                       children: [
                         const Icon(LucideIcons.timer, size: 14, color: AppColors.textSecondary),
                         const SizedBox(width: 4),
-                        Text(plan.duration, style: theme.textTheme.bodyMedium?.copyWith(color: AppColors.textSecondary)),
+                        Text('${plan.duration}m', style: theme.textTheme.bodyMedium?.copyWith(color: AppColors.textSecondary)),
                         const SizedBox(width: 12),
                         const Icon(LucideIcons.zap, size: 14, color: AppColors.textSecondary),
                         const SizedBox(width: 4),
@@ -183,28 +188,33 @@ class SmartTodayPlanCard extends StatelessWidget {
             const SizedBox(height: 20),
             
             // ── Smart Context ──
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: isDark ? Colors.white.withValues(alpha: 0.03) : Colors.black.withValues(alpha: 0.03),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Row(
-                children: [
-                  const Icon(LucideIcons.info, size: 18, color: AppColors.voltCyan),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(recommendation.bestTimeMessage, style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
-                        const SizedBox(height: 2),
-                        Text(recommendation.reason, style: theme.textTheme.bodySmall?.copyWith(color: AppColors.textSecondary)),
-                      ],
-                    ),
+            Builder(
+              builder: (context) {
+                final suggestion = WorkoutPlanSuggestionService.getSuggestion(plan.type);
+                return Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: isDark ? Colors.white.withValues(alpha: 0.03) : Colors.black.withValues(alpha: 0.03),
+                    borderRadius: BorderRadius.circular(12),
                   ),
-                ],
-              ),
+                  child: Row(
+                    children: [
+                      const Icon(LucideIcons.info, size: 18, color: AppColors.voltCyan),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(suggestion.title, style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
+                            const SizedBox(height: 2),
+                            Text(suggestion.body, style: theme.textTheme.bodySmall?.copyWith(color: AppColors.textSecondary)),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              }
             ),
 
             // ── One-Tap Alternatives ──
@@ -233,53 +243,71 @@ class SmartTodayPlanCard extends StatelessWidget {
             // ── Workout Timeline ──
             Builder(
               builder: (context) {
-                List<String> getTimelineSteps() {
-                  String mainActivity = plan.type;
-                  String lowerType = mainActivity.toLowerCase();
-                  
-                  if (recommendation.adaptiveActionText == 'Switch to Indoor') {
-                    if (lowerType.contains('run')) mainActivity = 'Treadmill';
-                    else if (lowerType.contains('cycle') || lowerType.contains('bike')) mainActivity = 'Indoor Spin';
-                    else if (lowerType.contains('walk')) mainActivity = 'Treadmill Walk';
-                    else mainActivity = 'Indoor $mainActivity';
-                  } else {
-                    if (lowerType == 'run') mainActivity = 'Outdoor Run';
-                    if (lowerType == 'cycle' || lowerType == 'bike') mainActivity = 'Outdoor Cycle';
-                    if (lowerType == 'walk') mainActivity = 'Outdoor Walk';
+                final durationInt = int.tryParse(plan.duration) ?? 30;
+                String? weatherStatus;
+                if (weather != null) {
+                  if (weather!.currentTemp > 30) {
+                    weatherStatus = 'hot';
+                  } else if (weather!.condition.toLowerCase().contains('rain')) {
+                    weatherStatus = 'rainy';
                   }
-
-                  if (lowerType.contains('yoga')) {
-                    return ['Meditation\n5m', '$mainActivity\n${plan.duration}', 'Savasana\n5m'];
-                  } else if (lowerType.contains('gym') || lowerType.contains('strength') || lowerType.contains('weight')) {
-                    return ['Mobility\n5m', '$mainActivity\n${plan.duration}', 'Stretch\n5m'];
-                  } else if (lowerType.contains('swim')) {
-                    return ['Warm-up\n5m', '$mainActivity\n${plan.duration}', 'Dryland\n5m'];
-                  } else if (lowerType.contains('hiit') || lowerType.contains('cardio') || lowerType.contains('crossfit')) {
-                    return ['Active Prep\n5m', '$mainActivity\n${plan.duration}', 'Recovery\n5m'];
-                  } else if (lowerType.contains('pilates') || lowerType.contains('barre')) {
-                    return ['Centering\n5m', '$mainActivity\n${plan.duration}', 'Relaxation\n5m'];
-                  } else if (lowerType.contains('dance') || lowerType.contains('zumba')) {
-                    return ['Groove\n5m', '$mainActivity\n${plan.duration}', 'Cool Down\n5m'];
-                  } else if (lowerType.contains('box') || lowerType.contains('martial')) {
-                    return ['Shadowbox\n5m', '$mainActivity\n${plan.duration}', 'Stretching\n5m'];
-                  } else if (lowerType.contains('sport') || lowerType.contains('basket') || lowerType.contains('foot') || lowerType.contains('tennis')) {
-                    return ['Drills\n10m', '$mainActivity\n${plan.duration}', 'Stretch\n5m'];
-                  } else if (lowerType.contains('walk') || lowerType.contains('hike')) {
-                    return ['Brisk Pace\n5m', '$mainActivity\n${plan.duration}', 'Slow Pace\n5m'];
-                  }
-                  
-                  return ['Warm-up\n5m', '$mainActivity\n${plan.duration}', 'Cooldown\n5m'];
                 }
 
-                final steps = getTimelineSteps();
-                
+                final phases = WorkoutPlanSuggestionService.generatePhases(
+                  activityType: plan.type,
+                  totalDurationMinutes: durationInt,
+                  weatherStatus: weatherStatus,
+                );
+
                 return Row(
                   children: [
-                    _TimelineStep(steps[0], isActive: true),
-                    _TimelineDivider(),
-                    _TimelineStep(steps[1], isActive: false),
-                    _TimelineDivider(),
-                    _TimelineStep(steps[2], isActive: false),
+                    _TimelineStep(
+                      phase: phases[0],
+                      isActive: true,
+                      onTap: () {
+                        showModalBottomSheet(
+                          context: context,
+                          backgroundColor: Colors.transparent,
+                          isScrollControlled: true,
+                          builder: (_) => WorkoutPhaseDetailsSheet(
+                            phase: phases[0],
+                            onStartWorkout: () => _startWorkoutFlow(context, phases),
+                          ),
+                        );
+                      },
+                    ),
+                    _TimelineDivider(isActive: false),
+                    _TimelineStep(
+                      phase: phases[1],
+                      isActive: false,
+                      onTap: () {
+                        showModalBottomSheet(
+                          context: context,
+                          backgroundColor: Colors.transparent,
+                          isScrollControlled: true,
+                          builder: (_) => WorkoutPhaseDetailsSheet(
+                            phase: phases[1],
+                            onStartWorkout: () => _startWorkoutFlow(context, phases),
+                          ),
+                        );
+                      },
+                    ),
+                    _TimelineDivider(isActive: false),
+                    _TimelineStep(
+                      phase: phases[2],
+                      isActive: false,
+                      onTap: () {
+                        showModalBottomSheet(
+                          context: context,
+                          backgroundColor: Colors.transparent,
+                          isScrollControlled: true,
+                          builder: (_) => WorkoutPhaseDetailsSheet(
+                            phase: phases[2],
+                            onStartWorkout: () => _startWorkoutFlow(context, phases),
+                          ),
+                        );
+                      },
+                    ),
                   ],
                 );
               },
@@ -292,7 +320,7 @@ class SmartTodayPlanCard extends StatelessWidget {
               children: [
                 const Icon(LucideIcons.trendingUp, size: 16, color: AppColors.solarAmber),
                 const SizedBox(width: 6),
-                Text('+${plan.duration} active', style: theme.textTheme.labelMedium?.copyWith(color: AppColors.solarAmber)),
+                Text('+${plan.duration}m active', style: theme.textTheme.labelMedium?.copyWith(color: AppColors.solarAmber)),
                 const SizedBox(width: 12),
                 const Icon(LucideIcons.flame, size: 16, color: AppColors.solarAmber),
                 const SizedBox(width: 6),
@@ -326,7 +354,23 @@ class SmartTodayPlanCard extends StatelessWidget {
                           ),
                         )
                       : ElevatedButton(
-                          onPressed: onStart,
+                          onPressed: () {
+                            final durationInt = int.tryParse(plan.duration) ?? 30;
+                            String? weatherStatus;
+                            if (weather != null) {
+                              if (weather!.currentTemp > 30) {
+                                weatherStatus = 'hot';
+                              } else if (weather!.condition.toLowerCase().contains('rain')) {
+                                weatherStatus = 'rainy';
+                              }
+                            }
+                            final phases = WorkoutPlanSuggestionService.generatePhases(
+                              activityType: plan.type,
+                              totalDurationMinutes: durationInt,
+                              weatherStatus: weatherStatus,
+                            );
+                            _startWorkoutFlow(context, phases);
+                          },
                           style: ElevatedButton.styleFrom(
                             backgroundColor: statusColor == AppColors.pulseRed ? AppColors.pulseRed : AppColors.voltCyan,
                             foregroundColor: Colors.black,
@@ -360,48 +404,119 @@ class SmartTodayPlanCard extends StatelessWidget {
       ),
     );
   }
+
+  void _startWorkoutFlow(BuildContext context, List<WorkoutPhase> phases) {
+    final lowerType = plan.type.toLowerCase();
+    final isGps = lowerType.contains('run') ||
+        lowerType.contains('walk') ||
+        lowerType.contains('cycle') ||
+        lowerType.contains('bike');
+
+    if (isGps) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => RunningScreen(
+            phases: phases,
+            plan: plan,
+          ),
+        ),
+      );
+    } else {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => GuidedWorkoutSessionScreen(
+            plan: plan,
+            phases: phases,
+          ),
+        ),
+      );
+    }
+  }
 }
 
 class _TimelineStep extends StatelessWidget {
-  final String label;
+  final WorkoutPhase phase;
   final bool isActive;
+  final VoidCallback onTap;
 
-  const _TimelineStep(this.label, {required this.isActive});
+  const _TimelineStep({
+    required this.phase,
+    required this.isActive,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: [
-        Container(
-          width: 12,
-          height: 12,
-          decoration: BoxDecoration(
-            color: isActive ? AppColors.voltCyan : AppColors.borderSubtle,
-            shape: BoxShape.circle,
-          ),
+    final theme = Theme.of(context);
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: SizedBox(
+        width: 75,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 32,
+              height: 32,
+              decoration: BoxDecoration(
+                color: isActive ? AppColors.voltCyan.withValues(alpha: 0.2) : Colors.transparent,
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: isActive ? AppColors.voltCyan : AppColors.borderSubtle,
+                  width: 1.5,
+                ),
+              ),
+              child: Icon(
+                phase.icon,
+                size: 16,
+                color: isActive ? AppColors.voltCyan : AppColors.textSecondary,
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              phase.title,
+              textAlign: TextAlign.center,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: theme.textTheme.labelSmall?.copyWith(
+                color: isActive ? AppColors.textPrimary : AppColors.textSecondary,
+                fontSize: 10,
+                fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
+              ),
+            ),
+            const SizedBox(height: 2),
+            Text(
+              '${phase.durationMinutes}m',
+              textAlign: TextAlign.center,
+              style: theme.textTheme.labelSmall?.copyWith(
+                color: isActive ? AppColors.voltCyan : AppColors.textSecondary,
+                fontSize: 9,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
         ),
-        const SizedBox(height: 4),
-        Text(
-          label,
-          textAlign: TextAlign.center,
-          style: Theme.of(context).textTheme.labelSmall?.copyWith(
-            color: isActive ? AppColors.textPrimary : AppColors.textSecondary,
-            fontSize: 10,
-          ),
-        ),
-      ],
+      ),
     );
   }
 }
 
 class _TimelineDivider extends StatelessWidget {
+  final bool isActive;
+  const _TimelineDivider({required this.isActive});
+
   @override
   Widget build(BuildContext context) {
     return Expanded(
-      child: Container(
-        height: 2,
-        margin: const EdgeInsets.symmetric(horizontal: 4).copyWith(bottom: 16),
-        color: AppColors.borderSubtle,
+      child: Padding(
+        padding: const EdgeInsets.only(bottom: 22.0),
+        child: Container(
+          height: 1.5,
+          color: isActive ? AppColors.voltCyan : AppColors.borderSubtle,
+        ),
       ),
     );
   }

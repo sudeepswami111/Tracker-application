@@ -330,6 +330,19 @@ class StepTrackerProvider extends ChangeNotifier with WidgetsBindingObserver {
     }
   }
 
+  void addManualSteps(int extraSteps) async {
+    _steps += extraSteps;
+    if (_initialStepsForDay != -1) {
+      _initialStepsForDay -= extraSteps;
+    }
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt(_prefKeyInitialSteps, _initialStepsForDay);
+    if (_appProvider != null) {
+      _appProvider!.updateSteps(_steps);
+    }
+    _safeNotifyListeners();
+  }
+
   void onPedestrianStatusChanged(PedestrianStatus event) {
     _status = event.status;
     _safeNotifyListeners();

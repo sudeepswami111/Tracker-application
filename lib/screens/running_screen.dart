@@ -32,12 +32,23 @@ import 'fitness_screen.dart';
 import '../services/challenge_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../services/notification_service.dart';
+import '../models/workout_phase.dart';
+import '../providers/step_tracker_provider.dart';
 
 enum RunState { planning, countdown, running, paused, finished }
 
 class RunningScreen extends StatefulWidget {
   final ValueChanged<bool>? onFullscreenChanged;
-  const RunningScreen({super.key, this.onFullscreenChanged});
+  final List<WorkoutPhase>? phases;
+  final DailyPlan? plan;
+
+  const RunningScreen({
+    super.key,
+    this.onFullscreenChanged,
+    this.phases,
+    this.plan,
+  });
+
   @override State<RunningScreen> createState() => _RunningScreenState();
 }
 
@@ -438,9 +449,18 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
     }
   }
 
+  List<WorkoutPhase>? _guidedPhases;
+  int _currentPhaseIndex = 0;
+  int _phaseTimeElapsedSecs = 0;
+
   @override
   void initState() {
     super.initState();
+    if (widget.phases != null && widget.phases!.isNotEmpty) {
+      _guidedPhases = List.from(widget.phases!);
+      _currentPhaseIndex = 0;
+      _phaseTimeElapsedSecs = 0;
+    }
     _audioCoach.initialize();
     _pulseCtrl = AnimationController(vsync: this, duration: const Duration(seconds: 1))..repeat(reverse: true);
     _pulseAnim = Tween<double>(begin: 0.85, end: 1.15).animate(CurvedAnimation(parent: _pulseCtrl, curve: Curves.easeInOut));
@@ -452,9 +472,8 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
   void didChangeDependencies() {
     super.didChangeDependencies();
     final app = context.read<AppProvider>();
-    if (app.activeRunPlan != null && _state == RunState.planning) {
-      final plan = app.activeRunPlan!;
-      
+    final plan = widget.plan ?? app.activeRunPlan;
+    if (plan != null && _state == RunState.planning) {
       String foundCat = 'Cardio';
       for (final cat in kSportsCategories.keys) {
         if (kSportsCategories[cat]!.any((s) => s.label == plan.type)) {
@@ -469,11 +488,13 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
           _selectedSportCategory = foundCat;
           _selectedRunType = plan.type;
           _targetLeftLabel = 'Duration';
-          _targetLeftValue = plan.duration;
+          _targetLeftValue = '${plan.duration} min';
           _targetRightLabel = 'Target Burn';
           _targetRightValue = '${plan.kcal} kcal';
         });
-        app.setActiveRunPlan(null);
+        if (app.activeRunPlan != null) {
+          app.setActiveRunPlan(null);
+        }
       });
     }
   }
@@ -828,23 +849,7 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
     _audioCoach.announceWorkoutStart(_startRoutePos != null);
 
     // 5. Duration timer (updates every second)
-    _timer = Timer.periodic(const Duration(seconds: 1), (_) {
-      if (!mounted) {
-        _timer?.cancel();
-        return;
-      }
-      setState(() {
-        _durSecs = _elapsed().inSeconds;
-        if (_distKm > 0.01 && _durSecs > 0) {
-          _paceMin = _durSecs / _distKm;
-        }
-      });
-      _audioCoach.announcePace(_paceMin / 60.0, _distKm);
-      if (mounted) {
-        final currentTemp = context.read<WeatherProvider>().weather?.currentTemp ?? 25.0;
-        _audioCoach.announceHydrationReminder(currentTemp: currentTemp);
-      }
-    });
+    _timer = Timer.periodic(const Duration(seconds: 1), (_) => _onTimerTick());
 
     // 6. Heart-rate polling
     _hrTimer = Timer.periodic(const Duration(seconds: 10), (_) => _pollHeartRate());
@@ -884,23 +889,46 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
     _hrTimer = Timer.periodic(const Duration(seconds: 10), (_) => _pollHeartRate());
 
     _timer?.cancel();
-    _timer = Timer.periodic(const Duration(seconds: 1), (_) {
-      if (!mounted) {
-        _timer?.cancel();
-        return;
+    _timer = Timer.periodic(const Duration(seconds: 1), (_) => _onTimerTick());
+  }
+
+  void _onTimerTick() {
+    if (!mounted) return;
+    setState(() {
+      _durSecs = _elapsed().inSeconds;
+      if (_distKm > 0.01 && _durSecs > 0) {
+        _paceMin = _durSecs / _distKm;
       }
-      setState(() {
-        _durSecs = _elapsed().inSeconds;
-        if (_distKm > 0.01 && _durSecs > 0) {
-          _paceMin = _durSecs / _distKm;
+      if (_guidedPhases != null) {
+        _phaseTimeElapsedSecs++;
+        final currentPhaseSecs = _guidedPhases![_currentPhaseIndex].durationMinutes * 60;
+        if (_phaseTimeElapsedSecs >= currentPhaseSecs) {
+          _advanceGuidedPhase();
         }
-      });
-      _audioCoach.announcePace(_paceMin / 60.0, _distKm);
-      if (mounted) {
-        final currentTemp = context.read<WeatherProvider>().weather?.currentTemp ?? 25.0;
-        _audioCoach.announceHydrationReminder(currentTemp: currentTemp);
       }
     });
+    _audioCoach.announcePace(_paceMin / 60.0, _distKm);
+    if (mounted) {
+      final currentTemp = context.read<WeatherProvider>().weather?.currentTemp ?? 25.0;
+      _audioCoach.announceHydrationReminder(currentTemp: currentTemp);
+    }
+  }
+
+  void _advanceGuidedPhase() {
+    HapticFeedback.heavyImpact();
+    if (_currentPhaseIndex < _guidedPhases!.length - 1) {
+      setState(() {
+        _currentPhaseIndex++;
+        _phaseTimeElapsedSecs = 0;
+      });
+    } else {
+      _finishRun();
+    }
+  }
+
+  void _skipGuidedPhase() {
+    HapticFeedback.mediumImpact();
+    _advanceGuidedPhase();
   }
 
   void _finishRun() {
@@ -914,6 +942,24 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
     if (_distKm > 0) {
       ChallengeService().updateDistanceChallengesAfterRun(_distKm);
     }
+
+    if (widget.plan != null) {
+      final app = context.read<AppProvider>();
+      app.completePlan(widget.plan!.id);
+
+      final durMin = int.tryParse(widget.plan!.duration) ?? 30;
+      final kcalBurned = int.tryParse(widget.plan!.kcal) ?? 200;
+      app.addWorkout({
+        'type': widget.plan!.type,
+        'title': widget.plan!.title,
+        'duration': durMin,
+        'calories': kcalBurned,
+        'date': DateTime.now().toIso8601String(),
+      });
+
+      context.read<StepTrackerProvider>().addManualSteps(durMin * 100);
+    }
+
     _showSummary();
   }
 
@@ -1911,6 +1957,14 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
                 duration: _fmtDur(_durSecs),
               ),
             ),
+
+            if (isRunningPhase && _guidedPhases != null)
+              Positioned(
+                top: (MediaQuery.of(context).padding.top > 20 ? MediaQuery.of(context).padding.top + 16 : 40) + 48,
+                left: 16,
+                right: 16,
+                child: _buildGuidedPhaseOverlay(isDark, theme),
+              ),
             
             // Paused Overlay
             if (_state == RunState.paused)
@@ -3360,5 +3414,91 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
     );
   }
 
+  Widget _buildGuidedPhaseOverlay(bool isDark, ThemeData theme) {
+    final currentPhase = _guidedPhases![_currentPhaseIndex];
+    final nextPhase = _currentPhaseIndex < _guidedPhases!.length - 1
+        ? _guidedPhases![_currentPhaseIndex + 1]
+        : null;
 
+    final currentPhaseSecs = currentPhase.durationMinutes * 60;
+    final remainingSecs = (currentPhaseSecs - _phaseTimeElapsedSecs).clamp(0, currentPhaseSecs);
+
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(16),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          decoration: BoxDecoration(
+            color: (isDark ? Colors.black : Colors.white).withValues(alpha: 0.75),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: isDark ? Colors.white.withValues(alpha: 0.1) : Colors.black.withValues(alpha: 0.1),
+            ),
+          ),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: AppColors.voltCyan.withValues(alpha: 0.15),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(currentPhase.icon, color: AppColors.voltCyan, size: 20),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      currentPhase.title,
+                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      nextPhase != null
+                          ? 'Next: ${nextPhase.title} (${nextPhase.durationMinutes}m)'
+                          : 'Final phase',
+                      style: const TextStyle(color: AppColors.textSecondary, fontSize: 10),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
+              ),
+              Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Text(
+                    _fmtDur(remainingSecs),
+                    style: const TextStyle(
+                      fontFamily: 'monospace',
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                      color: AppColors.voltCyan,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  GestureDetector(
+                    onTap: _skipGuidedPhase,
+                    child: const Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text('Skip', style: TextStyle(color: AppColors.textSecondary, fontSize: 10, fontWeight: FontWeight.bold)),
+                        SizedBox(width: 2),
+                        Icon(LucideIcons.skipForward, size: 10, color: AppColors.textSecondary),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }
