@@ -10,8 +10,7 @@ import '../theme/app_colors.dart';
 import '../models/workout_phase.dart';
 import '../services/workout_suggestion_service.dart';
 import 'workout_phase_details_sheet.dart';
-import '../screens/running_screen.dart';
-import '../screens/guided_workout_session_screen.dart';
+import '../services/workout_start_router.dart';
 
 class SmartTodayPlanCard extends StatelessWidget {
   final DailyPlan plan;
@@ -271,7 +270,11 @@ class SmartTodayPlanCard extends StatelessWidget {
                           isScrollControlled: true,
                           builder: (_) => WorkoutPhaseDetailsSheet(
                             phase: phases[0],
-                            onStartWorkout: () => _startWorkoutFlow(context, phases),
+                            onStartWorkout: () => WorkoutStartRouter.startWorkoutFromPlan(
+                              context: context,
+                              plan: plan,
+                              phases: phases,
+                            ),
                           ),
                         );
                       },
@@ -287,7 +290,11 @@ class SmartTodayPlanCard extends StatelessWidget {
                           isScrollControlled: true,
                           builder: (_) => WorkoutPhaseDetailsSheet(
                             phase: phases[1],
-                            onStartWorkout: () => _startWorkoutFlow(context, phases),
+                            onStartWorkout: () => WorkoutStartRouter.startWorkoutFromPlan(
+                              context: context,
+                              plan: plan,
+                              phases: phases,
+                            ),
                           ),
                         );
                       },
@@ -303,7 +310,11 @@ class SmartTodayPlanCard extends StatelessWidget {
                           isScrollControlled: true,
                           builder: (_) => WorkoutPhaseDetailsSheet(
                             phase: phases[2],
-                            onStartWorkout: () => _startWorkoutFlow(context, phases),
+                            onStartWorkout: () => WorkoutStartRouter.startWorkoutFromPlan(
+                              context: context,
+                              plan: plan,
+                              phases: phases,
+                            ),
                           ),
                         );
                       },
@@ -369,7 +380,11 @@ class SmartTodayPlanCard extends StatelessWidget {
                               totalDurationMinutes: durationInt,
                               weatherStatus: weatherStatus,
                             );
-                            _startWorkoutFlow(context, phases);
+                            WorkoutStartRouter.startWorkoutFromPlan(
+                              context: context,
+                              plan: plan,
+                              phases: phases,
+                            );
                           },
                           style: ElevatedButton.styleFrom(
                             backgroundColor: statusColor == AppColors.pulseRed ? AppColors.pulseRed : AppColors.voltCyan,
@@ -377,7 +392,7 @@ class SmartTodayPlanCard extends StatelessWidget {
                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                           ),
                           child: Text(
-                            recommendation.adaptiveActionText,
+                            _getButtonText(plan.type, recommendation.adaptiveActionText),
                             style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                           ),
                         ),
@@ -405,34 +420,27 @@ class SmartTodayPlanCard extends StatelessWidget {
     );
   }
 
-  void _startWorkoutFlow(BuildContext context, List<WorkoutPhase> phases) {
-    final lowerType = plan.type.toLowerCase();
-    final isGps = lowerType.contains('run') ||
-        lowerType.contains('walk') ||
-        lowerType.contains('cycle') ||
-        lowerType.contains('bike');
-
-    if (isGps) {
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (_) => RunningScreen(
-            phases: phases,
-            plan: plan,
-          ),
-        ),
-      );
-    } else {
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (_) => GuidedWorkoutSessionScreen(
-            plan: plan,
-            phases: phases,
-          ),
-        ),
-      );
+  String _getButtonText(String type, String defaultActionText) {
+    if (defaultActionText == 'Switch to Indoor') {
+      return defaultActionText;
     }
+    final lower = type.toLowerCase().trim();
+    if (lower.contains('run') || lower == 'outdoor run' || lower == 'trail run' || lower == 'treadmill') {
+      return 'Start Run';
+    } else if (lower.contains('walk') || lower == 'outdoor walk') {
+      return 'Start Walk';
+    } else if (lower.contains('cycling') || lower.contains('cycle') || lower.contains('bike')) {
+      return 'Start Ride';
+    } else if (lower.contains('yoga')) {
+      return 'Start Yoga';
+    } else if (lower.contains('study') || lower.contains('focus') || lower.contains('deep work')) {
+      return 'Start Focus';
+    } else if (lower.contains('meditat')) {
+      return 'Start Session';
+    } else if (lower.contains('strength') || lower.contains('gym') || lower.contains('swim') || lower.contains('hiit') || lower.contains('stretch') || lower.contains('rest') || lower.contains('recovery')) {
+      return 'Start Session';
+    }
+    return 'Start Workout';
   }
 }
 
