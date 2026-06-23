@@ -9,6 +9,7 @@ import '../providers/app_provider.dart';
 import '../providers/step_tracker_provider.dart';
 import '../models/workout_phase.dart';
 import '../theme/app_colors.dart';
+import '../services/audio_coach_service.dart';
 
 class GuidedWorkoutSessionScreen extends StatefulWidget {
   final DailyPlan plan;
@@ -27,13 +28,10 @@ class GuidedWorkoutSessionScreen extends StatefulWidget {
 class _GuidedWorkoutSessionScreenState extends State<GuidedWorkoutSessionScreen> {
   late List<WorkoutPhase> _phases;
   int _currentPhaseIndex = 0;
-  bool _isRunning = true;
-
-  late int _phaseTimeTotalSecs;
-  int _phaseTimeRemainingSecs = 0;
-  int _totalTimeElapsedSecs = 0;
-
+  int _phaseRemainingSeconds = 0;
+  int _totalElapsedSeconds = 0;
   Timer? _timer;
+  bool _isRunning = true;
   late ConfettiController _confetti;
   bool _isFinished = false;
 
@@ -42,37 +40,59 @@ class _GuidedWorkoutSessionScreenState extends State<GuidedWorkoutSessionScreen>
     super.initState();
     _phases = List.from(widget.phases);
     _confetti = ConfettiController(duration: const Duration(seconds: 3));
-    _initPhase(_currentPhaseIndex);
+
+    // Initialize audio coach
+    AudioCoachService().initialize().then((_) {
+      if (mounted) {
+        AudioCoachService().announcePhase(_phases[_currentPhaseIndex].title);
+      }
+    });
+
+    _currentPhaseIndex = 0;
+    _startCurrentPhase();
+  }
+
+  void _startCurrentPhase() {
+    final phase = _phases[_currentPhaseIndex];
+
+    setState(() {
+      _phaseRemainingSeconds = phase.durationMinutes * 60;
+      _isRunning = true;
+    });
+
+    HapticFeedback.mediumImpact();
     _startTimer();
   }
 
-  void _initPhase(int index) {
-    _currentPhaseIndex = index;
-    _phaseTimeTotalSecs = _phases[index].durationMinutes * 60;
-    _phaseTimeRemainingSecs = _phaseTimeTotalSecs;
-  }
-
   void _startTimer() {
+    _timer?.cancel();
+
     _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (!_isRunning) return;
 
+      if (!mounted) return;
+
       setState(() {
-        _totalTimeElapsedSecs++;
-        if (_phaseTimeRemainingSecs > 0) {
-          _phaseTimeRemainingSecs--;
-        } else {
-          _advancePhase();
-        }
+        _phaseRemainingSeconds--;
+        _totalElapsedSeconds++;
       });
+
+      if (_phaseRemainingSeconds <= 0) {
+        _goToNextPhase();
+      }
     });
   }
 
-  void _advancePhase() {
-    HapticFeedback.heavyImpact();
+  void _goToNextPhase() {
+    _timer?.cancel();
+
     if (_currentPhaseIndex < _phases.length - 1) {
       setState(() {
-        _initPhase(_currentPhaseIndex + 1);
+        _currentPhaseIndex++;
       });
+
+      _startCurrentPhase();
+      AudioCoachService().announcePhase(_phases[_currentPhaseIndex].title);
     } else {
       _finishWorkout();
     }
@@ -80,9 +100,7 @@ class _GuidedWorkoutSessionScreenState extends State<GuidedWorkoutSessionScreen>
 
   void _skipPhase() {
     HapticFeedback.mediumImpact();
-    setState(() {
-      _advancePhase();
-    });
+    _goToNextPhase();
   }
 
   void _togglePlayPause() {
@@ -90,12 +108,18 @@ class _GuidedWorkoutSessionScreenState extends State<GuidedWorkoutSessionScreen>
     setState(() {
       _isRunning = !_isRunning;
     });
+    if (_isRunning) {
+      AudioCoachService().announceWorkoutResumed();
+    } else {
+      AudioCoachService().announceWorkoutPaused();
+    }
   }
 
   void _finishWorkout() {
     _timer?.cancel();
     HapticFeedback.vibrate();
-    
+    AudioCoachService().announceWorkoutCompleted();
+
     // Calculate total duration in minutes
     final durationMinutes = int.tryParse(widget.plan.duration) ?? 30;
     final kcalBurned = int.tryParse(widget.plan.kcal) ?? 200;
@@ -103,7 +127,7 @@ class _GuidedWorkoutSessionScreenState extends State<GuidedWorkoutSessionScreen>
     // Complete plan and record metrics
     final app = context.read<AppProvider>();
     app.completePlan(widget.plan.id);
-    
+
     app.addWorkout({
       'type': widget.plan.type,
       'title': widget.plan.title,
@@ -141,8 +165,15 @@ class _GuidedWorkoutSessionScreenState extends State<GuidedWorkoutSessionScreen>
     final currentPhase = _phases[_currentPhaseIndex];
     final nextPhase = _currentPhaseIndex < _phases.length - 1 ? _phases[_currentPhaseIndex + 1] : null;
 
-    final progressValue = _phaseTimeTotalSecs > 0 ? _phaseTimeRemainingSecs / _phaseTimeTotalSecs : 0.0;
+    final phaseTotalSeconds = currentPhase.durationMinutes * 60;
+    final progressValue = phaseTotalSeconds > 0
+        ? (1.0 - (_phaseRemainingSeconds / phaseTotalSeconds)).clamp(0.0, 1.0)
+        : 0.0;
+
     final targetTotalSecs = (widget.phases.fold<int>(0, (sum, p) => sum + p.durationMinutes)) * 60;
+    final totalProgress = targetTotalSecs > 0
+        ? (_totalElapsedSeconds / targetTotalSecs).clamp(0.0, 1.0)
+        : 0.0;
 
     return Scaffold(
       backgroundColor: isDark ? AppColors.backgroundDeep : AppColors.lightBg,
@@ -250,7 +281,7 @@ class _GuidedWorkoutSessionScreenState extends State<GuidedWorkoutSessionScreen>
                               ),
                               const SizedBox(height: 12),
                               Text(
-                                _fmtSecs(_phaseTimeRemainingSecs),
+                                _fmtSecs(_phaseRemainingSeconds),
                                 style: theme.textTheme.displayLarge?.copyWith(
                                   fontWeight: FontWeight.w900,
                                   color: AppColors.textPrimary,
@@ -280,7 +311,7 @@ class _GuidedWorkoutSessionScreenState extends State<GuidedWorkoutSessionScreen>
                           children: [
                             const Text('Total Time', style: TextStyle(color: AppColors.textSecondary, fontWeight: FontWeight.w500)),
                             Text(
-                              '${_fmtSecs(_totalTimeElapsedSecs)} / ${_fmtSecs(targetTotalSecs)}',
+                              '${_fmtSecs(_totalElapsedSeconds)} / ${_fmtSecs(targetTotalSecs)}',
                               style: const TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.bold),
                             ),
                           ],
@@ -289,7 +320,7 @@ class _GuidedWorkoutSessionScreenState extends State<GuidedWorkoutSessionScreen>
                         ClipRRect(
                           borderRadius: BorderRadius.circular(10),
                           child: LinearProgressIndicator(
-                            value: (targetTotalSecs > 0 ? _totalTimeElapsedSecs / targetTotalSecs : 0.0).clamp(0.0, 1.0),
+                            value: totalProgress,
                             minHeight: 6,
                             backgroundColor: isDark ? Colors.white10 : Colors.black.withValues(alpha: 0.05),
                             valueColor: const AlwaysStoppedAnimation<Color>(AppColors.solarAmber),
@@ -354,7 +385,7 @@ class _GuidedWorkoutSessionScreenState extends State<GuidedWorkoutSessionScreen>
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                       children: [
-                        // Finish Button
+                        // Stop Button
                         IconButton(
                           icon: const Icon(LucideIcons.square),
                           onPressed: () {
@@ -363,8 +394,8 @@ class _GuidedWorkoutSessionScreenState extends State<GuidedWorkoutSessionScreen>
                               builder: (ctx) => AlertDialog(
                                 backgroundColor: AppColors.surfaceElevated,
                                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-                                title: const Text('Finish workout?', style: TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.bold)),
-                                content: const Text('This will complete the workout and save your metrics.', style: TextStyle(color: AppColors.textSecondary)),
+                                title: const Text('End workout?', style: TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.bold)),
+                                content: const Text('You have not completed all phases.', style: TextStyle(color: AppColors.textSecondary)),
                                 actions: [
                                   TextButton(
                                     onPressed: () => Navigator.pop(ctx),
@@ -375,7 +406,7 @@ class _GuidedWorkoutSessionScreenState extends State<GuidedWorkoutSessionScreen>
                                       Navigator.pop(ctx);
                                       _finishWorkout();
                                     },
-                                    child: const Text('Finish', style: TextStyle(color: AppColors.voltCyan, fontWeight: FontWeight.bold)),
+                                    child: const Text('End', style: TextStyle(color: AppColors.pulseRed, fontWeight: FontWeight.bold)),
                                   ),
                                 ],
                               ),
@@ -401,17 +432,30 @@ class _GuidedWorkoutSessionScreenState extends State<GuidedWorkoutSessionScreen>
                           ),
                         ),
 
-                        // Skip Phase Button
-                        IconButton(
-                          icon: const Icon(LucideIcons.skipForward),
-                          onPressed: _skipPhase,
-                          style: IconButton.styleFrom(
-                            backgroundColor: isDark ? Colors.white10 : Colors.black.withValues(alpha: 0.05),
-                            foregroundColor: AppColors.textPrimary,
-                            minimumSize: const Size(60, 60),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                        // Skip/Next/Finish Button
+                        if (nextPhase == null)
+                          ElevatedButton.icon(
+                            onPressed: _skipPhase,
+                            icon: const Icon(LucideIcons.check, size: 16),
+                            label: const Text('Finish', style: TextStyle(fontWeight: FontWeight.bold)),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppColors.voltCyan,
+                              foregroundColor: Colors.black,
+                              minimumSize: const Size(100, 60),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                            ),
+                          )
+                        else
+                          IconButton(
+                            icon: const Icon(LucideIcons.skipForward),
+                            onPressed: _skipPhase,
+                            style: IconButton.styleFrom(
+                              backgroundColor: isDark ? Colors.white10 : Colors.black.withValues(alpha: 0.05),
+                              foregroundColor: AppColors.textPrimary,
+                              minimumSize: const Size(60, 60),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                            ),
                           ),
-                        ),
                       ],
                     ),
                     const SizedBox(height: 24),
