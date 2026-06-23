@@ -424,6 +424,14 @@ class AppProvider extends ChangeNotifier with WidgetsBindingObserver {
     notifyListeners();
   }
 
+  int unreadChatCount = 0;
+  bool get hasUnreadChats => unreadChatCount > 0;
+
+  void setUnreadChatCount(int count) {
+    unreadChatCount = count;
+    notifyListeners();
+  }
+
   // ──── 2.1 History ────
   List<DailySnapshot> history = [];
 
