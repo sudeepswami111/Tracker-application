@@ -12,7 +12,6 @@ import '../widgets/community_search_delegate.dart';
 import 'dart:ui';
 import '../services/community_service.dart';
 import '../services/challenge_service.dart';
-import 'package:intl/intl.dart';
 import 'dm_chat_screen.dart';
 import 'profile_screen.dart';
 import '../widgets/profile_avatar.dart';
@@ -58,121 +57,65 @@ class _CommunityScreenState extends State<CommunityScreen> with SingleTickerProv
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
 
-    return Scaffold(
-      backgroundColor: isDark ? AppColors.backgroundDeep : AppColors.lightBg,
-      // ── FLOATING ACTION BUTTON WITH GLOW ──
-      floatingActionButton: Padding(
-        padding: const EdgeInsets.only(bottom: 90.0), // Safely above bottom nav
-        child: AnimatedBuilder(
-          animation: _fabPulseAnim,
-          builder: (context, child) {
-            return Container(
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                boxShadow: [
-                  BoxShadow(
-                    color: AppColors.irisViolet.withValues(alpha: 0.4 * (_fabPulseAnim.value - 0.8)),
-                    blurRadius: 20 * _fabPulseAnim.value,
-                    spreadRadius: 10 * _fabPulseAnim.value,
-                  ),
-                ],
-              ),
-              child: FloatingActionButton(
-                onPressed: () async {
-                  HapticFeedback.mediumImpact();
-                  final result = await showModalBottomSheet<bool>(
-                    context: context,
-                    isScrollControlled: true,
-                    backgroundColor: Colors.transparent,
-                    builder: (_) => const CreatePostSheet(),
-                  );
-                  if (result == true && mounted) {
-                    setState(() {});
-                  }
-                },
-                backgroundColor: AppColors.irisViolet,
-                elevation: 0,
-                child: Container(
-                  decoration: const BoxDecoration(
-                    shape: BoxShape.circle,
-                    gradient: LinearGradient(
-                      colors: [AppColors.irisViolet, Color(0xFF9D4EDD)],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
-                  ),
-                  child: const Center(
-                    child: Icon(LucideIcons.feather, color: Colors.white),
-                  ),
-                ),
-              ),
-            );
-          },
-        ),
-      ),
-      body: SafeArea(
-        bottom: false,
-        child: RefreshIndicator(
-          color: AppColors.irisViolet,
-          backgroundColor: isDark ? AppColors.surfaceElevated : Colors.white,
-          onRefresh: () async => await Future.delayed(const Duration(seconds: 1)),
-          child: CustomScrollView(
-            physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
-            slivers: [
-              // ── 1. PREMIUM HEADER ──
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(AppSpacing.screenMargin, AppSpacing.lg, AppSpacing.screenMargin, AppSpacing.md),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      if (!widget.isEmbedded)
-                        Text(
-                          'Community',
-                          style: theme.textTheme.headlineLarge?.copyWith(
-                            fontWeight: FontWeight.w900,
-                            letterSpacing: -0.5,
-                          ),
-                        )
-                      else
-                        const SizedBox.shrink(),
-                      Row(
-                        children: [
-                          _HeaderIconButton(
-                            icon: LucideIcons.search, 
-                            onTap: () {
-                              showSearch(context: context, delegate: CommunitySearchDelegate());
-                            }
-                          ),
-                          const SizedBox(width: 8),
-                          _HeaderIconButton(
-                            icon: LucideIcons.messageCircle,
-                            hasBadge: true,
-                            badgeCount: 2,
-                            onTap: () {
-                              HapticFeedback.lightImpact();
-                              Navigator.push(
-                                context,
-                                PageRouteBuilder(
-                                  pageBuilder: (context, animation, secondaryAnimation) => const DMListScreen(),
-                                  transitionsBuilder: (context, animation, secondaryAnimation, child) {
-                                    return SlideTransition(
-                                      position: Tween<Offset>(begin: const Offset(1, 0), end: Offset.zero)
-                                          .animate(CurvedAnimation(parent: animation, curve: Curves.easeOutCubic)),
-                                      child: child,
-                                    );
-                                  },
-                                  transitionDuration: const Duration(milliseconds: 350),
-                                ),
-                              );
-                            },
-                          ),
-                        ],
+    final bodyContent = RefreshIndicator(
+      color: AppColors.irisViolet,
+      backgroundColor: isDark ? AppColors.surfaceElevated : Colors.white,
+      onRefresh: () async => await Future.delayed(const Duration(seconds: 1)),
+      child: CustomScrollView(
+        physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
+        slivers: [
+          // ── 1. PREMIUM HEADER ──
+          if (!widget.isEmbedded)
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(AppSpacing.screenMargin, AppSpacing.lg, AppSpacing.screenMargin, AppSpacing.md),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      'Community',
+                      style: theme.textTheme.headlineLarge?.copyWith(
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: -0.5,
                       ),
-                    ],
-                  ),
+                    ),
+                    Row(
+                      children: [
+                        _HeaderIconButton(
+                          icon: LucideIcons.search, 
+                          onTap: () {
+                            showSearch(context: context, delegate: CommunitySearchDelegate());
+                          }
+                        ),
+                        const SizedBox(width: 8),
+                        _HeaderIconButton(
+                          icon: LucideIcons.messageCircle,
+                          hasBadge: true,
+                          badgeCount: 2,
+                          onTap: () {
+                            HapticFeedback.lightImpact();
+                            Navigator.push(
+                              context,
+                              PageRouteBuilder(
+                                pageBuilder: (context, animation, secondaryAnimation) => const DMListScreen(),
+                                transitionsBuilder: (context, animation, secondaryAnimation, child) {
+                                  return SlideTransition(
+                                    position: Tween<Offset>(begin: const Offset(1, 0), end: Offset.zero)
+                                        .animate(CurvedAnimation(parent: animation, curve: Curves.easeOutCubic)),
+                                    child: child,
+                                  );
+                                },
+                                transitionDuration: const Duration(milliseconds: 350),
+                              ),
+                            );
+                          },
+                        ),
+                      ],
+                    ),
+                  ],
                 ),
               ),
+            ),
 
               // ── 2. ANIMATED FILTER CHIPS ──
               SliverToBoxAdapter(
@@ -323,7 +266,66 @@ class _CommunityScreenState extends State<CommunityScreen> with SingleTickerProv
               ),
             ],
           ),
+        );
+
+    if (widget.isEmbedded) {
+      return bodyContent;
+    }
+
+    return Scaffold(
+      backgroundColor: isDark ? AppColors.backgroundDeep : AppColors.lightBg,
+      floatingActionButton: Padding(
+        padding: const EdgeInsets.only(bottom: 90.0), // Safely above bottom nav
+        child: AnimatedBuilder(
+          animation: _fabPulseAnim,
+          builder: (context, child) {
+            return Container(
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                boxShadow: [
+                  BoxShadow(
+                    color: AppColors.irisViolet.withValues(alpha: 0.4 * (_fabPulseAnim.value - 0.8)),
+                    blurRadius: 20 * _fabPulseAnim.value,
+                    spreadRadius: 10 * _fabPulseAnim.value,
+                  ),
+                ],
+              ),
+              child: FloatingActionButton(
+                onPressed: () async {
+                  HapticFeedback.mediumImpact();
+                  final result = await showModalBottomSheet<bool>(
+                    context: context,
+                    isScrollControlled: true,
+                    backgroundColor: Colors.transparent,
+                    builder: (_) => const CreatePostSheet(),
+                  );
+                  if (result == true && mounted) {
+                    setState(() {});
+                  }
+                },
+                backgroundColor: AppColors.irisViolet,
+                elevation: 0,
+                child: Container(
+                  decoration: const BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: LinearGradient(
+                      colors: [AppColors.irisViolet, Color(0xFF9D4EDD)],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                  ),
+                  child: const Center(
+                    child: Icon(LucideIcons.feather, color: Colors.white),
+                  ),
+                ),
+              ),
+            );
+          },
         ),
+      ),
+      body: SafeArea(
+        bottom: false,
+        child: bodyContent,
       ),
     );
   }
