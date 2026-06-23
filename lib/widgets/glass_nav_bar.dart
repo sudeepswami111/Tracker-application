@@ -1,8 +1,10 @@
-﻿import 'dart:ui';
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
+import 'package:provider/provider.dart';
 import '../theme/app_colors.dart';
+import '../providers/app_provider.dart';
 
 // ─── Data ─────────────────────────────────────────────────────────────────────
 
@@ -221,6 +223,50 @@ class _NavTabState extends State<_NavTab> with SingleTickerProviderStateMixin {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final inactiveColor = isDark ? Colors.white54 : Colors.black54;
 
+    final app = context.watch<AppProvider>();
+    final showChatBadge = widget.destination.index == 3 && app.unreadChatCount > 0;
+
+    Widget iconWidget = Icon(
+      widget.destination.icon,
+      size: 24, // Consistent icon size 24px
+      color: widget.isActive ? activeColor : inactiveColor,
+    );
+
+    if (showChatBadge) {
+      iconWidget = Stack(
+        clipBehavior: Clip.none,
+        children: [
+          iconWidget,
+          Positioned(
+            right: -6,
+            top: -6,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+              constraints: const BoxConstraints(
+                minWidth: 14,
+                minHeight: 14,
+              ),
+              decoration: const BoxDecoration(
+                color: AppColors.pulseRed,
+                shape: BoxShape.circle,
+              ),
+              child: Center(
+                child: Text(
+                  app.unreadChatCount > 99 ? '99+' : '${app.unreadChatCount}',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 8,
+                    fontWeight: FontWeight.bold,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+              ),
+            ),
+          ),
+        ],
+      );
+    }
+
     return GestureDetector(
       onTapDown: _onTapDown,
       behavior: HitTestBehavior.opaque,
@@ -247,11 +293,7 @@ class _NavTabState extends State<_NavTab> with SingleTickerProviderStateMixin {
                 mainAxisSize: MainAxisSize.min,
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(
-                    widget.destination.icon,
-                    size: 24, // Consistent icon size 24px
-                    color: widget.isActive ? activeColor : inactiveColor,
-                  ),
+                  iconWidget,
                   const SizedBox(height: 2),
                   Text(
                     widget.destination.label,
