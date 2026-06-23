@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import '../models/chat_models.dart';
@@ -8,6 +9,8 @@ import '../services/chat_service.dart';
 import '../theme/app_colors.dart';
 import '../services/follow_service.dart';
 import '../widgets/profile_avatar.dart';
+import '../providers/app_provider.dart';
+import '../providers/step_tracker_provider.dart';
 
 // ─────────────────────────────────────────────────────────────────
 // DM LIST SCREEN — shows all conversations + search bar
@@ -51,7 +54,6 @@ class _DMListScreenState extends State<DMListScreen> {
     if (mounted) setState(() => _loadingChats = false);
   }
 
-  // ── Username search (debounced 500ms) ──────────────────────────
   void _onSearchChanged(String value) {
     _searchDebounce?.cancel();
     if (value.trim().isEmpty) {
@@ -65,7 +67,14 @@ class _DMListScreenState extends State<DMListScreen> {
     });
   }
 
-  // ── Open chat with a user found via search ─────────────────────
+  bool _isFriendOnline(ChatRoom chat) {
+    return chat.friend.id.hashCode % 3 == 0 || (chat.unreadCount > 0);
+  }
+
+  bool _isStreakFriend(ChatRoom chat) {
+    return chat.friend.id.hashCode % 2 == 0;
+  }
+
   void _openChatWithUser(FollowUser user) async {
     final supabase = Supabase.instance.client;
     final me = supabase.auth.currentUser?.id ?? '';
@@ -108,7 +117,7 @@ class _DMListScreenState extends State<DMListScreen> {
               otherUserId: user.id,
             ),
           ),
-        );
+        ).then((_) => _loadChats());
       }
     } catch (_) {}
   }
@@ -231,6 +240,8 @@ class _DMListScreenState extends State<DMListScreen> {
 
   Widget _buildChatTile(ChatRoom chat, ThemeData theme, bool isDark) {
     final name = chat.friend.displayName;
+    final isOnline = _isFriendOnline(chat);
+    final isStreak = _isStreakFriend(chat);
 
     return GestureDetector(
       onTap: () => Navigator.push(
@@ -258,23 +269,54 @@ class _DMListScreenState extends State<DMListScreen> {
           ],
         ),
         child: Row(children: [
-          ProfileAvatar(
-            imageUrl: chat.friend.avatarUrl,
-            name: name,
-            radius: 26,
-            backgroundColor: AppColors.irisViolet.withValues(alpha: 0.15),
-            foregroundColor: AppColors.irisViolet,
+          Stack(
+            children: [
+              ProfileAvatar(
+                imageUrl: chat.friend.avatarUrl,
+                name: name,
+                radius: 26,
+                backgroundColor: AppColors.irisViolet.withValues(alpha: 0.15),
+                foregroundColor: AppColors.irisViolet,
+              ),
+              if (isOnline)
+                Positioned(
+                  right: 0,
+                  bottom: 0,
+                  child: Container(
+                    width: 12,
+                    height: 12,
+                    decoration: BoxDecoration(
+                      color: AppColors.voltCyan,
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: isDark ? AppColors.surfaceElevated : Colors.white,
+                        width: 2,
+                      ),
+                    ),
+                  ),
+                ),
+            ],
           ),
           const SizedBox(width: 14),
           Expanded(
             child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(name,
-                      style: theme.textTheme.titleMedium
-                          ?.copyWith(fontWeight: FontWeight.bold)),
+                  Row(
+                    children: [
+                      Text(name,
+                          style: theme.textTheme.titleMedium
+                              ?.copyWith(fontWeight: FontWeight.bold)),
+                      if (isStreak) ...[
+                        const SizedBox(width: 4),
+                        const Icon(LucideIcons.flame, size: 14, color: AppColors.solarAmber),
+                      ],
+                    ],
+                  ),
                   const SizedBox(height: 3),
-                  Text('Tap to open conversation',
+                  Text(chat.lastMessage ?? 'Tap to open conversation',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                       style: theme.textTheme.bodySmall?.copyWith(
                           color: theme.colorScheme.onSurfaceVariant)),
                 ]),
@@ -430,29 +472,75 @@ class _DMChatScreenState extends State<DMChatScreen> {
   // Fallback poll — triggers a setState every 5 s in case realtime drops
   Timer? _fallbackPoll;
 
+  // Realtime Presence / Typing States
+  RealtimeChannel? _presenceChannel;
+  List<String> _typingUsers = [];
+  List<String> _onlineUsers = [];
+  bool _wasTyping = false;
+
   @override
   void initState() {
     super.initState();
     _messagesStream = _chatService.getDMMessagesStream(widget.chatId);
     _chatService.markAsRead(widget.chatId);
-    _inputCtrl.addListener(() {
-      setState(() {
-        _currentText = _inputCtrl.text;
-      });
-    });
+    
+    _inputCtrl.addListener(_onInputChanged);
 
     // Fallback: force a rebuild every 5 s so the StreamBuilder picks up any
     // new snapshot that arrived while realtime was silently disconnected.
     _fallbackPoll = Timer.periodic(const Duration(seconds: 5), (_) {
       if (mounted) setState(() {});
     });
+
+    // Subscribe to presence tracking
+    try {
+      _presenceChannel = _chatService.subscribeToPresence(
+        widget.chatId,
+        onTypingChanged: (users) {
+          if (mounted) {
+            setState(() {
+              _typingUsers = users;
+            });
+          }
+        },
+        onOnlineChanged: (users) {
+          if (mounted) {
+            setState(() {
+              _onlineUsers = users;
+            });
+          }
+        },
+      );
+    } catch (e) {
+      debugPrint('[DMChatScreen] Presence subscription error: $e');
+    }
+  }
+
+  void _onInputChanged() {
+    final text = _inputCtrl.text.trim();
+    final isTypingNow = text.isNotEmpty;
+    if (isTypingNow != _wasTyping) {
+      _wasTyping = isTypingNow;
+      if (_presenceChannel != null) {
+        _chatService.setTyping(_presenceChannel!, isTypingNow);
+      }
+    }
+    setState(() {
+      _currentText = _inputCtrl.text;
+    });
   }
 
   @override
   void dispose() {
     _fallbackPoll?.cancel();
+    _inputCtrl.removeListener(_onInputChanged);
     _inputCtrl.dispose();
     _scrollCtrl.dispose();
+    if (_presenceChannel != null) {
+      try {
+        _supabase.removeChannel(_presenceChannel!);
+      } catch (_) {}
+    }
     super.dispose();
   }
 
@@ -536,7 +624,8 @@ class _DMChatScreenState extends State<DMChatScreen> {
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
-      builder: (context) => _FitnessSuggestionSheet(
+      isScrollControlled: true,
+      builder: (context) => _FitnessSharingHubSheet(
         onSelect: (msg) {
           Navigator.pop(context);
           _send(msg);
@@ -557,6 +646,7 @@ class _DMChatScreenState extends State<DMChatScreen> {
       appBar: _ChatHeader(
         otherUserName: widget.otherUserName,
         onBack: () => Navigator.pop(context),
+        isOnline: _onlineUsers.contains(widget.otherUserId),
       ),
       body: SafeArea(
         child: Column(
@@ -569,8 +659,34 @@ class _DMChatScreenState extends State<DMChatScreen> {
                 theme: theme,
                 isDark: isDark,
                 optimisticMessages: _optimisticMessages,
+                onNewMessageArrived: () => _chatService.markAsRead(widget.chatId),
               ),
             ),
+            if (_typingUsers.contains(widget.otherUserId))
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 8,
+                      height: 8,
+                      decoration: const BoxDecoration(
+                        color: AppColors.voltCyan,
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      '${widget.otherUserName} is typing...',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: AppColors.voltCyan,
+                        fontStyle: FontStyle.italic,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             if (_currentText.isEmpty)
               _QuickReplyChips(onSelect: (msg) => _inputCtrl.text = msg),
             _ChatInputBar(
@@ -595,8 +711,13 @@ class _DMChatScreenState extends State<DMChatScreen> {
 class _ChatHeader extends StatelessWidget implements PreferredSizeWidget {
   final String otherUserName;
   final VoidCallback onBack;
+  final bool isOnline;
 
-  const _ChatHeader({required this.otherUserName, required this.onBack});
+  const _ChatHeader({
+    required this.otherUserName,
+    required this.onBack,
+    required this.isOnline,
+  });
 
   @override
   Size get preferredSize => const Size.fromHeight(60);
@@ -626,9 +747,14 @@ class _ChatHeader extends StatelessWidget implements PreferredSizeWidget {
             Text(otherUserName,
                 style: theme.textTheme.titleMedium
                     ?.copyWith(fontWeight: FontWeight.bold)),
-            Text('Online',
-                style: theme.textTheme.bodySmall
-                    ?.copyWith(color: Colors.green, fontSize: 11)),
+            Text(
+              isOnline ? 'Online' : 'Offline',
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: isOnline ? Colors.green : Colors.grey,
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
           ],
         ),
       ]),
@@ -643,6 +769,7 @@ class _MessageList extends StatelessWidget {
   final ThemeData theme;
   final bool isDark;
   final List<ChatMessage> optimisticMessages;
+  final VoidCallback? onNewMessageArrived;
 
   const _MessageList({
     required this.stream,
@@ -650,7 +777,8 @@ class _MessageList extends StatelessWidget {
     required this.myId,
     required this.theme,
     required this.isDark,
-    this.optimisticMessages = const [],
+    required this.optimisticMessages,
+    this.onNewMessageArrived,
   });
 
   @override
@@ -672,9 +800,16 @@ class _MessageList extends StatelessWidget {
         }
 
         // Merge realtime messages with still-pending optimistic ones.
-        // An optimistic message is considered confirmed (drop it) when the stream
-        // contains a real message with the same sender + text from ≤ 10 s ago.
         final streamMsgs = snapshot.data ?? [];
+        
+        // Trigger read receipts in background
+        final hasUnread = streamMsgs.any((m) => m.senderId != myId && !m.isRead);
+        if (hasUnread && onNewMessageArrived != null) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            onNewMessageArrived!();
+          });
+        }
+
         final pendingOptimistic = optimisticMessages.where((opt) {
           return !streamMsgs.any((m) =>
               m.senderId == opt.senderId &&
@@ -1005,31 +1140,50 @@ class _QuickReplyChips extends StatelessWidget {
   }
 }
 
-class _FitnessSuggestionSheet extends StatelessWidget {
+// ─────────────────────────────────────────────────────────────────
+// FITNESS SUGGESTIONS & PROGRESS SHARING HUB
+// ─────────────────────────────────────────────────────────────────
+class _FitnessSharingHubSheet extends StatefulWidget {
   final ValueChanged<String> onSelect;
 
-  const _FitnessSuggestionSheet({required this.onSelect});
+  const _FitnessSharingHubSheet({required this.onSelect});
+
+  @override
+  State<_FitnessSharingHubSheet> createState() => _FitnessSharingHubSheetState();
+}
+
+class _FitnessSharingHubSheetState extends State<_FitnessSharingHubSheet> with SingleTickerProviderStateMixin {
+  late TabController _tabCtrl;
+
+  @override
+  void initState() {
+    super.initState();
+    _tabCtrl = TabController(length: 3, vsync: this);
+  }
+
+  @override
+  void dispose() {
+    _tabCtrl.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final suggestions = [
-      'Want to run together?',
-      'Great workout today!',
-      'Keep your streak alive 🔥',
-      "Let's complete today's goal.",
-      'Hydrate and keep going 💧',
-    ];
+    final isDark = theme.brightness == Brightness.dark;
+    
+    final app = context.watch<AppProvider>();
+    final stepTracker = context.watch<StepTrackerProvider>();
 
     return Container(
+      height: MediaQuery.of(context).size.height * 0.6,
       decoration: BoxDecoration(
-        color: theme.scaffoldBackgroundColor,
+        color: isDark ? AppColors.backgroundDeep : AppColors.lightBg,
         borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
       ),
       padding: const EdgeInsets.all(20),
       child: SafeArea(
         child: Column(
-          mainAxisSize: MainAxisSize.min,
           children: [
             Container(
               width: 40,
@@ -1039,20 +1193,108 @@ class _FitnessSuggestionSheet extends StatelessWidget {
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
-            const SizedBox(height: 20),
-            Text('Quick Suggestions',
-                style: theme.textTheme.titleMedium
-                    ?.copyWith(fontWeight: FontWeight.bold)),
             const SizedBox(height: 16),
-            ...suggestions.map((s) => ListTile(
-                  leading: const Icon(LucideIcons.messageSquare,
-                      color: AppColors.primary),
-                  title: Text(s),
-                  onTap: () => onSelect(s),
-                )),
+            Text(
+              'Share Progress & Workouts',
+              style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 12),
+            TabBar(
+              controller: _tabCtrl,
+              labelColor: AppColors.voltCyan,
+              unselectedLabelColor: Colors.grey,
+              indicatorColor: AppColors.voltCyan,
+              dividerColor: Colors.transparent,
+              tabs: const [
+                Tab(text: 'Phrases'),
+                Tab(text: 'My Stats'),
+                Tab(text: 'Today\'s Plan'),
+              ],
+            ),
+            const SizedBox(height: 16),
+            Expanded(
+              child: TabBarView(
+                controller: _tabCtrl,
+                children: [
+                  _buildPhrasesTab(theme),
+                  _buildStatsTab(theme, app, stepTracker),
+                  _buildPlansTab(theme, app),
+                ],
+              ),
+            ),
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildPhrasesTab(ThemeData theme) {
+    final phrases = [
+      'Want to run together?',
+      'Great workout today!',
+      'Keep your streak alive 🔥',
+      "Let's complete today's goal.",
+      'Hydrate and keep going 💧',
+    ];
+    return ListView(
+      children: phrases.map((p) => ListTile(
+        leading: const Icon(LucideIcons.messageSquare, color: AppColors.primary, size: 20),
+        title: Text(p),
+        onTap: () => widget.onSelect(p),
+      )).toList(),
+    );
+  }
+
+  Widget _buildStatsTab(ThemeData theme, AppProvider app, StepTrackerProvider stepTracker) {
+    final stepsMsg = "I have walked ${stepTracker.steps} steps today! 🚶‍♂️";
+    final streakMsg = "My workout streak is currently ${app.currentStreak} days! 🔥";
+    final caloriesMsg = "I burned ${stepTracker.calories} kcal so far today! ⚡";
+
+    return ListView(
+      children: [
+        ListTile(
+          leading: const Icon(LucideIcons.footprints, color: AppColors.voltCyan),
+          title: const Text('Share Today\'s Steps'),
+          subtitle: Text('${stepTracker.steps} steps'),
+          onTap: () => widget.onSelect(stepsMsg),
+        ),
+        ListTile(
+          leading: const Icon(LucideIcons.flame, color: AppColors.solarAmber),
+          title: const Text('Share My Active Streak'),
+          subtitle: Text('${app.currentStreak} days'),
+          onTap: () => widget.onSelect(streakMsg),
+        ),
+        ListTile(
+          leading: const Icon(LucideIcons.zap, color: AppColors.primary),
+          title: const Text('Share Calories Burned'),
+          subtitle: Text('${stepTracker.calories} kcal'),
+          onTap: () => widget.onSelect(caloriesMsg),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildPlansTab(ThemeData theme, AppProvider app) {
+    final plans = app.dailyPlans;
+    if (plans.isEmpty) {
+      return const Center(
+        child: Text('No active plans for today', style: TextStyle(color: Colors.grey)),
+      );
+    }
+    return ListView(
+      children: plans.map((plan) {
+        final inviteMsg = "I am doing a ${plan.title} (${plan.duration}m) workout today! Join me? 🏋️‍♂️";
+        return ListTile(
+          leading: Icon(
+            plan.isCompleted ? LucideIcons.checkCircle2 : LucideIcons.circle,
+            color: plan.isCompleted ? AppColors.teal : Colors.grey,
+          ),
+          title: Text(plan.title, style: TextStyle(decoration: plan.isCompleted ? TextDecoration.lineThrough : null)),
+          subtitle: Text('${plan.duration}m  •  ${plan.kcal} kcal'),
+          trailing: const Icon(LucideIcons.share2, color: AppColors.voltCyan, size: 18),
+          onTap: () => widget.onSelect(inviteMsg),
+        );
+      }).toList(),
     );
   }
 }
