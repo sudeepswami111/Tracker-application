@@ -41,6 +41,58 @@ class CommunityService {
     }
   }
 
+  Future<void> updatePost({
+    required String postId,
+    required String content,
+    String? activityType,
+  }) async {
+    try {
+      final uid = _client.auth.currentUser?.id;
+      if (uid == null) return;
+
+      await _client.from('community_posts').update({
+        'content': content,
+        if (activityType != null) 'activity_type': activityType,
+      }).eq('id', postId).eq('user_id', uid);
+    } catch (e) {
+      debugPrint('Error updating post: $e');
+      rethrow;
+    }
+  }
+
+  Future<void> deletePost(String postId) async {
+    try {
+      final uid = _client.auth.currentUser?.id;
+      if (uid == null) return;
+
+      await _client.from('community_posts').delete().eq('id', postId).eq('user_id', uid);
+    } catch (e) {
+      debugPrint('Error deleting post: $e');
+      rethrow;
+    }
+  }
+
+  Future<void> reportPost({
+    required String postId,
+    required String reason,
+    String? details,
+  }) async {
+    try {
+      final uid = _client.auth.currentUser?.id;
+      if (uid == null) return;
+
+      await _client.from('post_reports').insert({
+        'post_id': postId,
+        'reporter_id': uid,
+        'reason': reason,
+        if (details != null) 'details': details,
+      });
+    } catch (e) {
+      debugPrint('Error reporting post: $e');
+      rethrow;
+    }
+  }
+
   // ====================================================
   // REPLIES
   // ====================================================
