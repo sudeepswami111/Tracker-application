@@ -15,6 +15,9 @@ import '../widgets/profile_avatar.dart';
 import '../models/community_reply.dart';
 import '../models/community_reaction.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:share_plus/share_plus.dart';
+import '../widgets/community_post_options.dart';
 // ====================================================
 // PREMIUM COMMUNITY FEED
 // Inspired by modern social fitness apps
@@ -34,9 +37,23 @@ class _CommunityScreenState extends State<CommunityScreen> with SingleTickerProv
   late AnimationController _fabPulseCtrl;
   late Animation<double> _fabPulseAnim;
 
+  List<String> _hiddenPostIds = [];
+  String? _pinnedPostId;
+
+  Future<void> _loadLocalSettings() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (mounted) {
+      setState(() {
+        _hiddenPostIds = prefs.getStringList('hidden_posts') ?? [];
+        _pinnedPostId = prefs.getString('pinned_post_id');
+      });
+    }
+  }
+
   @override
   void initState() {
     super.initState();
+    _loadLocalSettings();
     // Glowing pulse animation for FAB
     _fabPulseCtrl = AnimationController(vsync: this, duration: const Duration(seconds: 2))..repeat(reverse: true);
     _fabPulseAnim = Tween<double>(begin: 0.8, end: 1.2).animate(CurvedAnimation(parent: _fabPulseCtrl, curve: Curves.easeInOut));
@@ -227,7 +244,18 @@ class _CommunityScreenState extends State<CommunityScreen> with SingleTickerProv
                       child: Center(child: CircularProgressIndicator()),
                     );
                   }
-                  final posts = snapshot.data ?? [];
+                  var posts = snapshot.data ?? [];
+                  // Filter out hidden posts
+                  posts = posts.where((post) => !_hiddenPostIds.contains(post['id'])).toList();
+                  // Sort pinned post to the top (index 0) if it exists in the list
+                  if (_pinnedPostId != null) {
+                    final pinnedIndex = posts.indexWhere((p) => p['id'] == _pinnedPostId);
+                    if (pinnedIndex != -1) {
+                      final pinnedPost = posts.removeAt(pinnedIndex);
+                      posts.insert(0, pinnedPost);
+                    }
+                  }
+
                   if (posts.isEmpty) {
                     return SliverToBoxAdapter(
                       child: Center(
@@ -245,7 +273,24 @@ class _CommunityScreenState extends State<CommunityScreen> with SingleTickerProv
                         (context, index) {
                           return Padding(
                             padding: const EdgeInsets.only(bottom: 20),
-                            child: _PremiumFeedCard(post: posts[index], index: index, isDark: isDark, theme: theme),
+                            child: _PremiumFeedCard(
+                              post: posts[index],
+                              index: index,
+                              isDark: isDark,
+                              theme: theme,
+                              pinnedPostId: _pinnedPostId,
+                              onPinToggle: (newPinnedId) {
+                                setState(() {
+                                  _pinnedPostId = newPinnedId;
+                                });
+                              },
+                              onHide: () {
+                                _loadLocalSettings();
+                              },
+                              onRefresh: () {
+                                setState(() {});
+                              },
+                            ),
                           );
                         },
                         childCount: posts.length,
@@ -416,8 +461,21 @@ class _PremiumFeedCard extends StatefulWidget {
   final int index;
   final bool isDark;
   final ThemeData theme;
+  final String? pinnedPostId;
+  final Function(String?) onPinToggle;
+  final VoidCallback onHide;
+  final VoidCallback onRefresh;
 
-  const _PremiumFeedCard({required this.post, required this.index, required this.isDark, required this.theme});
+  const _PremiumFeedCard({
+    required this.post,
+    required this.index,
+    required this.isDark,
+    required this.theme,
+    required this.pinnedPostId,
+    required this.onPinToggle,
+    required this.onHide,
+    required this.onRefresh,
+  });
 
   @override
   State<_PremiumFeedCard> createState() => _PremiumFeedCardState();
@@ -680,7 +738,43 @@ class _PremiumFeedCardState extends State<_PremiumFeedCard> with SingleTickerPro
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    Text((widget.post['author']?['full_name'] as String?) ?? 'Anonymous', style: widget.theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold)),
+                                    Row(
+                                      children: [
+                                        Flexible(
+                                          child: Text(
+                                            (widget.post['author']?['full_name'] as String?) ?? 'Anonymous',
+                                            style: widget.theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold),
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                        ),
+                                        if (widget.pinnedPostId == widget.post['id']) ...[
+                                          const SizedBox(width: 8),
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                            decoration: BoxDecoration(
+                                              color: AppColors.teal.withValues(alpha: 0.15),
+                                              borderRadius: BorderRadius.circular(6),
+                                              border: Border.all(color: AppColors.teal.withValues(alpha: 0.3)),
+                                            ),
+                                            child: const Row(
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                Icon(LucideIcons.pin, size: 10, color: AppColors.teal),
+                                                const SizedBox(width: 2),
+                                                Text(
+                                                  'Pinned',
+                                                  style: TextStyle(
+                                                    color: AppColors.teal,
+                                                    fontSize: 10,
+                                                    fontWeight: FontWeight.bold,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                        ],
+                                      ],
+                                    ),
                                     Text('${_formatTime(widget.post['created_at'])} • ${widget.post['activity_type'] ?? 'Update'}', style: widget.theme.textTheme.bodySmall?.copyWith(color: AppColors.textSecondary, fontWeight: FontWeight.w500)),
                                   ],
                                 ),
@@ -692,7 +786,21 @@ class _PremiumFeedCardState extends State<_PremiumFeedCard> with SingleTickerPro
                       IconButton(
                         icon: const Icon(LucideIcons.moreHorizontal, size: 20),
                         color: AppColors.textSecondary,
-                        onPressed: () {},
+                        onPressed: () {
+                          HapticFeedback.lightImpact();
+                          showModalBottomSheet(
+                            context: context,
+                            isScrollControlled: true,
+                            backgroundColor: Colors.transparent,
+                            builder: (context) => CommunityPostOptionsSheet(
+                              post: widget.post,
+                              onRefresh: widget.onRefresh,
+                              onHide: widget.onHide,
+                              pinnedPostId: widget.pinnedPostId,
+                              onPinToggle: widget.onPinToggle,
+                            ),
+                          );
+                        },
                       ),
                     ],
                   ),
@@ -910,8 +1018,16 @@ class _PremiumFeedCardState extends State<_PremiumFeedCard> with SingleTickerPro
                       const Spacer(),
                       // Share Button
                       GestureDetector(
-                        onTap: () {
+                        onTap: () async {
                           HapticFeedback.lightImpact();
+                          String textToShare = widget.post['content'] ?? '';
+                          final authorName = widget.post['author']?['full_name'] ?? 'Someone';
+                          final type = widget.post['activity_type'] ?? 'Workout';
+                          
+                          await Share.share(
+                            '$authorName shared a $type update:\n\n"$textToShare"\n\nShared via LifePulse',
+                            subject: 'LifePulse Social Fitness Update',
+                          );
                         },
                         behavior: HitTestBehavior.opaque,
                         child: const Padding(
