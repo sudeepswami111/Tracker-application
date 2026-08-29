@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class AuthProvider extends ChangeNotifier {
@@ -10,16 +10,28 @@ class AuthProvider extends ChangeNotifier {
 
   AuthProvider() {
     _user = _supabase.auth.currentUser;
-    _supabase.auth.onAuthStateChange.listen((data) {
-      final AuthChangeEvent event = data.event;
-      if (event == AuthChangeEvent.signedIn || event == AuthChangeEvent.tokenRefreshed) {
-        _user = data.session?.user;
-        notifyListeners();
-      } else if (event == AuthChangeEvent.signedOut) {
-        _user = null;
-        notifyListeners();
-      }
-    });
+    _supabase.auth.onAuthStateChange.listen(
+      (data) {
+        final AuthChangeEvent event = data.event;
+        if (event == AuthChangeEvent.signedIn ||
+            event == AuthChangeEvent.tokenRefreshed) {
+          _user = data.session?.user;
+          notifyListeners();
+        } else if (event == AuthChangeEvent.signedOut) {
+          _user = null;
+          notifyListeners();
+        } else if (event == AuthChangeEvent.tokenRefreshFailure) {
+          // Network unavailable — Supabase will retry automatically.
+          // User stays authenticated with the cached session; no action needed.
+          debugPrint('⚠️ Token refresh failed (no internet). Will retry when online.');
+        }
+      },
+      onError: (Object error, StackTrace stack) {
+        // Swallow AuthRetryableFetchException thrown by _autoRefreshTokenTick
+        // when the device has no internet, preventing an unhandled exception crash.
+        debugPrint('⚠️ Auth stream error (likely offline): $error');
+      },
+    );
   }
 
   Future<void> signInWithGoogle() async {
