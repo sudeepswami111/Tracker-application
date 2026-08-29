@@ -20,10 +20,6 @@ class AuthProvider extends ChangeNotifier {
         } else if (event == AuthChangeEvent.signedOut) {
           _user = null;
           notifyListeners();
-        } else if (event == AuthChangeEvent.tokenRefreshFailure) {
-          // Network unavailable — Supabase will retry automatically.
-          // User stays authenticated with the cached session; no action needed.
-          debugPrint('⚠️ Token refresh failed (no internet). Will retry when online.');
         }
       },
       onError: (Object error, StackTrace stack) {
