@@ -5,12 +5,12 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:provider/provider.dart';
 import 'package:confetti/confetti.dart';
 
-import '../providers/app_provider.dart';
-import '../providers/step_tracker_provider.dart';
-import '../models/workout_phase.dart';
-import '../theme/app_colors.dart';
-import '../services/audio_coach_service.dart';
-import '../providers/workout_session_provider.dart';
+import '../../providers/app_provider.dart';
+import '../../providers/step_tracker_provider.dart';
+import '../../models/workout_phase.dart';
+import '../../theme/app_colors.dart';
+import '../../services/audio_coach_service.dart';
+import '../../providers/workout_session_provider.dart';
 
 class GuidedWorkoutSessionScreen extends StatefulWidget {
   final DailyPlan plan;

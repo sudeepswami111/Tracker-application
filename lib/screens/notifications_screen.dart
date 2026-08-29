@@ -9,7 +9,7 @@ import '../providers/app_provider.dart';
 import '../screens/profile_screen.dart';
 import '../screens/challenge_screen.dart';
 import '../screens/history_screen.dart';
-import '../screens/dm_chat_screen.dart';
+import '../screens/chat/dm_chat_screen.dart';
 import '../widgets/profile_avatar.dart';
 import '../services/chat_service.dart';
 import 'package:flutter/foundation.dart';

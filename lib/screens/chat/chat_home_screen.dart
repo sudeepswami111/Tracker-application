@@ -4,16 +4,16 @@ import 'package:flutter/services.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import '../theme/app_colors.dart';
-import '../theme/app_spacing.dart';
-import '../services/chat_service.dart';
-import '../models/chat_models.dart';
-import '../providers/app_provider.dart';
-import '../widgets/chat/chat_segmented_control.dart';
-import '../widgets/chat/chats_tab.dart';
-import '../widgets/chat/community_tab.dart';
-import '../widgets/create_post_sheet.dart';
-import '../widgets/community_search_delegate.dart';
+import '../../theme/app_colors.dart';
+import '../../theme/app_spacing.dart';
+import '../../services/chat_service.dart';
+import '../../models/chat_models.dart';
+import '../../providers/app_provider.dart';
+import '../../widgets/chat/chat_segmented_control.dart';
+import '../../widgets/chat/chats_tab.dart';
+import '../../widgets/chat/community_tab.dart';
+import '../../widgets/create_post_sheet.dart';
+import '../../widgets/community_search_delegate.dart';
 import 'new_message_screen.dart';
 
 class ChatHomeScreen extends StatefulWidget {

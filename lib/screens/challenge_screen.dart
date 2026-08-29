@@ -6,8 +6,8 @@ import 'package:share_plus/share_plus.dart';
 import '../theme/app_colors.dart';
 import '../widgets/create_challenge_sheet.dart';
 import '../services/challenge_service.dart';
-import 'running_screen.dart';
-import 'fitness_screen.dart';
+import 'running/running_screen.dart';
+import 'workout/fitness_screen.dart';
 import 'study_screen.dart';
 
 class ChallengeScreen extends StatefulWidget {

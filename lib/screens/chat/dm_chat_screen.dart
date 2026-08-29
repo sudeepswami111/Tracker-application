@@ -2,15 +2,15 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import '../models/chat_models.dart';
-import '../services/chat_service.dart';
-import '../theme/app_colors.dart';
-import '../widgets/chat/chat_header.dart';
-import '../widgets/chat/message_list.dart';
-import '../widgets/chat/chat_input_bar.dart';
-import '../widgets/chat/quick_reply_chips.dart';
-import '../widgets/chat/fitness_suggestion_sheet.dart';
-import '../widgets/chat/chats_tab.dart';
+import '../../models/chat_models.dart';
+import '../../services/chat_service.dart';
+import '../../theme/app_colors.dart';
+import '../../widgets/chat/chat_header.dart';
+import '../../widgets/chat/message_list.dart';
+import '../../widgets/chat/chat_input_bar.dart';
+import '../../widgets/chat/quick_reply_chips.dart';
+import '../../widgets/chat/fitness_suggestion_sheet.dart';
+import '../../widgets/chat/chats_tab.dart';
 import 'new_message_screen.dart';
 
 // ─────────────────────────────────────────────────────────────────

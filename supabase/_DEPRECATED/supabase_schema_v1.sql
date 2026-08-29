@@ -1,3 +1,7 @@
+-- ⚠️  DEPRECATED — This is the old v1 schema file. DO NOT RUN THIS ON A NEW DATABASE.
+-- Use supabase/schema/00_master_schema.sql instead.
+-- Kept for historical reference only.
+
 -- ==============================================================================
 -- 🚀 LIFEPULSE SOCIAL FITNESS SYSTEM — DATABASE SCHEMA
 -- Run this completely in the Supabase SQL Editor (supabase.com → SQL Editor).

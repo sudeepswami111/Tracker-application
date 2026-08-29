@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
-import '../theme/app_colors.dart';
-import '../theme/app_spacing.dart';
-import '../widgets/profile_avatar.dart';
-import '../services/chat_service.dart';
-import '../services/follow_service.dart';
+import '../../theme/app_colors.dart';
+import '../../theme/app_spacing.dart';
+import '../../widgets/profile_avatar.dart';
+import '../../services/chat_service.dart';
+import '../../services/follow_service.dart';
 import 'dm_chat_screen.dart';
 
 class NewMessageScreen extends StatefulWidget {

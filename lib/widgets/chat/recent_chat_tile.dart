@@ -3,7 +3,7 @@ import '../../models/chat_models.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/app_spacing.dart';
 import '../../widgets/profile_avatar.dart';
-import '../../screens/dm_chat_screen.dart';
+import '../../screens/chat/dm_chat_screen.dart';
 import '../../screens/profile_screen.dart';
 
 class RecentChatTile extends StatelessWidget {

@@ -8,7 +8,7 @@ import '../providers/watch_metrics_provider.dart';
 import '../theme/app_colors.dart';
 import '../widgets/glass_card.dart';
 import '../services/follow_service.dart';
-import 'dm_chat_screen.dart';
+import 'chat/dm_chat_screen.dart';
 
 import 'package:image_picker/image_picker.dart';
 import 'package:image_cropper/image_cropper.dart';

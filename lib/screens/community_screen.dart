@@ -8,7 +8,7 @@ import '../widgets/create_post_sheet.dart';
 import '../widgets/community_search_delegate.dart';
 import '../services/community_service.dart';
 import '../services/challenge_service.dart';
-import 'dm_chat_screen.dart';
+import 'chat/dm_chat_screen.dart';
 import 'profile_screen.dart';
 import '../widgets/profile_avatar.dart';
 

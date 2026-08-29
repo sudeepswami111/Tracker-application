@@ -1,14 +1,14 @@
 import 'dart:async';
 import 'dart:io';
 import 'package:geocoding/geocoding.dart';
-import '../services/geocoding_service.dart';
-import '../services/route_service.dart';
-import '../services/exceptions.dart';
-import '../models/route_result.dart';
-import '../models/route_option.dart';
-import '../models/location_suggestion.dart';
-import '../widgets/location_input_field.dart';
-import '../services/audio_coach_service.dart';
+import '../../services/geocoding_service.dart';
+import '../../services/route_service.dart';
+import '../../services/exceptions.dart';
+import '../../models/route_result.dart';
+import '../../models/route_option.dart';
+import '../../models/location_suggestion.dart';
+import '../../widgets/location_input_field.dart';
+import '../../services/audio_coach_service.dart';
 
 import 'dart:ui';
 import 'package:flutter/material.dart';
@@ -18,22 +18,22 @@ import 'package:latlong2/latlong.dart';
 import 'package:geolocator/geolocator.dart';
 
 import 'package:lucide_icons_flutter/lucide_icons.dart';
-import '../theme/app_colors.dart';
-import '../theme/app_spacing.dart';
-import '../widgets/live_run_metric_panel.dart';
-import '../services/watch_connection_manager.dart';
-import '../widgets/glass_card.dart';
+import '../../theme/app_colors.dart';
+import '../../theme/app_spacing.dart';
+import '../../widgets/live_run_metric_panel.dart';
+import '../../services/watch_connection_manager.dart';
+import '../../widgets/glass_card.dart';
 import 'package:provider/provider.dart';
-import '../providers/app_provider.dart';
-import '../providers/weather_provider.dart';
+import '../../providers/app_provider.dart';
+import '../../providers/weather_provider.dart';
 import 'package:intl/intl.dart';
-import '../constants/activity_types.dart' hide ActivityType;
-import 'fitness_screen.dart';
-import '../services/challenge_service.dart';
+import '../../constants/activity_types.dart' hide ActivityType;
+import '../workout/fitness_screen.dart';
+import '../../services/challenge_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import '../services/notification_service.dart';
-import '../models/workout_phase.dart';
-import '../providers/step_tracker_provider.dart';
+import '../../services/notification_service.dart';
+import '../../models/workout_phase.dart';
+import '../../providers/step_tracker_provider.dart';
 
 enum RunState { planning, countdown, running, paused, finished }
 

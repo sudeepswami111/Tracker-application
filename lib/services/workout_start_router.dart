@@ -3,8 +3,8 @@ import 'package:provider/provider.dart';
 import '../models/workout_phase.dart';
 import '../providers/app_provider.dart'; // for DailyPlan
 import '../providers/workout_session_provider.dart';
-import '../screens/running_screen.dart';
-import '../screens/guided_workout_session_screen.dart';
+import '../screens/running/running_screen.dart';
+import '../screens/workout/guided_workout_session_screen.dart';
 
 class WorkoutStartRouter {
   static bool isGpsActivity(String type) {

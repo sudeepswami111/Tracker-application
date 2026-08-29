@@ -1,10 +1,10 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
-import '../providers/app_provider.dart';
-import '../widgets/glass_card.dart';
-import '../widgets/progress_ring.dart';
-import '../theme/app_colors.dart';
+import '../../providers/app_provider.dart';
+import '../../widgets/glass_card.dart';
+import '../../widgets/progress_ring.dart';
+import '../../theme/app_colors.dart';
 
 class FitnessScreen extends StatelessWidget {
   const FitnessScreen({super.key});

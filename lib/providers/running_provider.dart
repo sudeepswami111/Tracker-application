@@ -1,4 +1,7 @@
-﻿import 'dart:async';
+// TODO: This provider duplicates GPS logic from running_screen.dart.
+// Consolidate in a future refactor. RunningProvider is registered in main.dart
+// but running_screen.dart manages its own position stream independently.
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import '../services/notification_service.dart';
