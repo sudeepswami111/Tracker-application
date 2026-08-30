@@ -694,9 +694,6 @@ class AppProvider extends ChangeNotifier with WidgetsBindingObserver {
       debugPrint("Error syncing profile with Supabase: $e");
     }
   }
-      debugPrint("Error syncing profile: \$e");
-    }
-  }
 
   Future<void> uploadProfileImage(File file) async {
     final user = Supabase.instance.client.auth.currentUser;
