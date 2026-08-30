@@ -14,7 +14,8 @@ class HistoryService {
           .select()
           .eq('user_id', uid)
           .order('created_at', ascending: false)
-          .limit(50);
+          .limit(50)
+          .timeout(const Duration(seconds: 3));
           
       final runs = (runsResponse as List).map((r) => {
             ...r as Map<String, dynamic>,

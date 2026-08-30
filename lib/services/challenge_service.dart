@@ -13,7 +13,8 @@ class ChallengeService {
           .select('current_value, rank, joined_at, challenge:challenges(*)')
           .eq('user_id', uid)
           .isFilter('completed_at', null)
-          .order('joined_at', ascending: false);
+          .order('joined_at', ascending: false)
+          .timeout(const Duration(seconds: 3));
       return (data as List).cast<Map<String, dynamic>>();
     } catch (e) {
       return [];
@@ -30,7 +31,8 @@ class ChallengeService {
           .select('rank, completed_at, challenge:challenges(*)')
           .eq('user_id', uid)
           .not('completed_at', 'is', null)
-          .order('completed_at', ascending: false);
+          .order('completed_at', ascending: false)
+          .timeout(const Duration(seconds: 3));
       return (data as List).cast<Map<String, dynamic>>();
     } catch (e) {
       return [];
@@ -46,7 +48,8 @@ class ChallengeService {
       final joined = await _client
           .from('challenge_participants')
           .select('challenge_id')
-          .eq('user_id', uid);
+          .eq('user_id', uid)
+          .timeout(const Duration(seconds: 3));
       final joinedIds = (joined as List).map((e) => e['challenge_id'] as String).toList();
 
       List<Map<String, dynamic>> data;
@@ -57,7 +60,8 @@ class ChallengeService {
               .select()
               .eq('is_public', true)
               .not('id', 'in', '(${joinedIds.map((id) => '"$id"').join(',')})')
-              .order('participants_count', ascending: false),
+              .order('participants_count', ascending: false)
+              .timeout(const Duration(seconds: 3)),
         );
       } else {
         data = List<Map<String, dynamic>>.from(
@@ -65,7 +69,8 @@ class ChallengeService {
               .from('challenges')
               .select()
               .eq('is_public', true)
-              .order('participants_count', ascending: false),
+              .order('participants_count', ascending: false)
+              .timeout(const Duration(seconds: 3)),
         );
       }
 

@@ -72,89 +72,113 @@ class _ProfileScreenState extends State<ProfileScreen>
       vsync: this,
       duration: const Duration(seconds: 2),
     )..repeat();
+
+    final user = _supabase.auth.currentUser;
+    if (_isOwnProfile) {
+      _profile = {
+        'full_name': (user?.userMetadata?['full_name'] as String?) ?? 'User',
+        'username': user?.email?.split('@').first ?? 'user',
+        'email': user?.email,
+        'avatar_url': user?.userMetadata?['avatar_url'] as String?,
+        'bio': '',
+        'followers_count': 0,
+        'following_count': 0,
+      };
+      _loading = false;
+    }
+
     _loadProfile();
   }
 
   Future<void> _loadProfile() async {
-    setState(() => _loading = true);
+    if (_userId.isEmpty) {
+      if (mounted) setState(() => _loading = false);
+      return;
+    }
+
     try {
+      // 1. Fetch main profile row with fast timeout
       final data = await _supabase
           .from('profiles')
           .select()
           .eq('id', _userId)
-          .single();
+          .maybeSingle()
+          .timeout(const Duration(seconds: 3));
+
       if (mounted) {
         setState(() {
-          _profile = data;
+          if (data != null) {
+            _profile = {...?_profile, ...data};
+          }
           _loading = false;
         });
       }
 
-      if (!_isOwnProfile) {
-        final status = await _followService.getFollowStatus(_userId);
-        if (mounted) setState(() => _followStatus = status);
+      // 2. Fetch all secondary stats in parallel
+      final futures = <Future<void>>[];
 
-        // Fetch chat ID if a chat exists
+      if (!_isOwnProfile) {
+        futures.add(_followService.getFollowStatus(_userId).then((status) {
+          if (mounted) setState(() => _followStatus = status);
+        }).catchError((_) {}));
+
         final me = _supabase.auth.currentUser?.id ?? '';
         if (me.isNotEmpty) {
           final u1 = me.compareTo(_userId) < 0 ? me : _userId;
           final u2 = me.compareTo(_userId) < 0 ? _userId : me;
-          try {
-            final chatRes = await _supabase
-                .from('chats')
-                .select('id')
-                .eq('user1_id', u1)
-                .eq('user2_id', u2)
-                .maybeSingle();
-            if (mounted) {
-              setState(() {
-                _chatId = chatRes?['id'] as String?;
-              });
-            }
-          } catch (_) {}
+          futures.add(_supabase
+              .from('chats')
+              .select('id')
+              .eq('user1_id', u1)
+              .eq('user2_id', u2)
+              .maybeSingle()
+              .timeout(const Duration(seconds: 3))
+              .then((chatRes) {
+            if (mounted) setState(() => _chatId = chatRes?['id'] as String?);
+          }).catchError((_) {}));
         }
       }
 
-
-      // Fetch extra statistics from Supabase
-      // Fetch runs count
-      try {
-        final runsRes = await _supabase
-            .from('running_activities')
-            .select('id')
-            .eq('user_id', _userId);
+      // Runs count
+      futures.add(_supabase
+          .from('running_activities')
+          .select('id')
+          .eq('user_id', _userId)
+          .timeout(const Duration(seconds: 3))
+          .then((runsRes) {
         if (mounted) setState(() => _runsCount = (runsRes as List).length);
-      } catch (e) {
+      }).catchError((e) {
         debugPrint('Error fetching runs count: $e');
-      }
+      }));
 
-      // Fetch posts count
-      try {
-        final postsRes = await _supabase
-            .from('community_posts')
-            .select('id')
-            .eq('user_id', _userId);
+      // Posts count
+      futures.add(_supabase
+          .from('community_posts')
+          .select('id')
+          .eq('user_id', _userId)
+          .timeout(const Duration(seconds: 3))
+          .then((postsRes) {
         if (mounted) setState(() => _postsCount = (postsRes as List).length);
-      } catch (e) {
+      }).catchError((e) {
         debugPrint('Error fetching posts count: $e');
-      }
+      }));
 
-      // Fetch nutrition average calories (7 days)
-      try {
-        final sevenDaysAgo = DateTime.now().subtract(const Duration(days: 7)).toUtc().toIso8601String();
-        final nutritionRes = await _supabase
-            .from('nutrition_logs')
-            .select('calories, protein_g, carbs_g, fat_g')
-            .eq('user_id', _userId)
-            .gte('logged_at', sevenDaysAgo);
-
+      // Nutrition stats
+      final sevenDaysAgo = DateTime.now().subtract(const Duration(days: 7)).toUtc().toIso8601String();
+      futures.add(_supabase
+          .from('nutrition_logs')
+          .select('calories, protein_g, carbs_g, fat_g')
+          .eq('user_id', _userId)
+          .gte('logged_at', sevenDaysAgo)
+          .timeout(const Duration(seconds: 3))
+          .then((nutritionRes) {
         if (nutritionRes != null && (nutritionRes as List).isNotEmpty) {
           final logs = nutritionRes as List;
           final validLogs = logs.where((e) => e['calories'] != null).toList();
           if (validLogs.isNotEmpty) {
             final totalCal = validLogs.map((e) => (e['calories'] as num).toInt()).reduce((a, b) => a + b);
             final avgCal = totalCal ~/ validLogs.length;
-            
+
             double adherenceTotal = 0;
             for (final log in validLogs) {
               final p = (log['protein_g'] as num?)?.toDouble() ?? 0.0;
@@ -176,17 +200,22 @@ class _ProfileScreenState extends State<ProfileScreen>
             }
           }
         }
-      } catch (e) {
+      }).catchError((e) {
         debugPrint('Error fetching nutrition logs: $e');
-      }
+      }));
+
+      await Future.wait(futures);
 
       // Realtime updates for follower/following counts
-      _profileChannel = _followService.subscribeToProfile(
-        _userId,
-        onUpdate: (row) {
-          if (mounted) setState(() => _profile = {...?_profile, ...row});
-        },
-      );
+      try {
+        _profileChannel?.unsubscribe();
+        _profileChannel = _followService.subscribeToProfile(
+          _userId,
+          onUpdate: (row) {
+            if (mounted) setState(() => _profile = {...?_profile, ...row});
+          },
+        );
+      } catch (_) {}
     } catch (e) {
       if (mounted) setState(() => _loading = false);
     }
@@ -432,9 +461,13 @@ class _ProfileScreenState extends State<ProfileScreen>
 
     return Scaffold(
       backgroundColor: isDark ? AppColors.backgroundDeep : AppColors.lightBg,
-      body: CustomScrollView(
-        controller: _scroll,
-        slivers: [
+      body: RefreshIndicator(
+        color: AppColors.voltCyan,
+        onRefresh: _loadProfile,
+        child: CustomScrollView(
+          controller: _scroll,
+          physics: const AlwaysScrollableScrollPhysics(),
+          slivers: [
           // ΓöÇΓöÇ 1. HERO SECTION ΓöÇΓöÇ
           SliverAppBar(
             systemOverlayStyle: SystemUiOverlayStyle(

@@ -34,10 +34,17 @@ class _HistoryScreenState extends State<HistoryScreen> with SingleTickerProvider
   }
 
   Future<void> _loadHistory() async {
-    setState(() => _isLoading = true);
-    final data = await HistoryService().getHistory();
-    _rawActivities = data;
-    _applyFilter();
+    try {
+      final data = await HistoryService().getHistory();
+      if (mounted) {
+        _rawActivities = data;
+        _applyFilter();
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
   }
 
   void _applyFilter() {
@@ -315,9 +322,13 @@ class _HistoryScreenState extends State<HistoryScreen> with SingleTickerProvider
             const SizedBox(height: 16),
 
             Expanded(
-              child: ListView(
-                padding: const EdgeInsets.symmetric(horizontal: 24),
-                children: [
+              child: RefreshIndicator(
+                color: AppColors.voltCyan,
+                onRefresh: _loadHistory,
+                child: ListView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  padding: const EdgeInsets.symmetric(horizontal: 24),
+                  children: [
                   // 4. MONTHLY SUMMARY CARD
                   GlassCard(
                     padding: const EdgeInsets.all(16),

@@ -76,25 +76,35 @@ class _ChallengeScreenState extends State<ChallengeScreen> with SingleTickerProv
     super.initState();
     _confetti = ConfettiController(duration: const Duration(seconds: 2));
     _glowController = AnimationController(vsync: this, duration: const Duration(milliseconds: 1500))..repeat(reverse: true);
+    _discoverData = _localDiscoverData;
+    _isLoading = false;
     _loadData();
   }
 
   Future<void> _loadData() async {
-    setState(() => _isLoading = true);
-    final results = await Future.wait([
-      _service.getActiveChallenges(),
-      _service.getCompletedChallenges(),
-      _service.getDiscoverChallenges(),
-    ]);
-    if (mounted) {
-      setState(() {
-        _activeChallenges = results[0] as List<Map<String, dynamic>>;
-        _completedChallenges = results[1] as List<Map<String, dynamic>>;
-        final remoteDiscover = results[2] as Map<String, List<Map<String, dynamic>>>;
-        // Fall back to local discover data if Supabase table is empty
-        _discoverData = remoteDiscover.isNotEmpty ? remoteDiscover : _localDiscoverData;
-        _isLoading = false;
-      });
+    try {
+      final results = await Future.wait([
+        _service.getActiveChallenges(),
+        _service.getCompletedChallenges(),
+        _service.getDiscoverChallenges(),
+      ]);
+      if (mounted) {
+        setState(() {
+          _activeChallenges = results[0] as List<Map<String, dynamic>>;
+          _completedChallenges = results[1] as List<Map<String, dynamic>>;
+          final remoteDiscover = results[2] as Map<String, List<Map<String, dynamic>>>;
+          // Fall back to local discover data if Supabase table is empty
+          _discoverData = remoteDiscover.isNotEmpty ? remoteDiscover : _localDiscoverData;
+          _isLoading = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          if (_discoverData.isEmpty) _discoverData = _localDiscoverData;
+          _isLoading = false;
+        });
+      }
     }
   }
 
@@ -274,13 +284,15 @@ class _ChallengeScreenState extends State<ChallengeScreen> with SingleTickerProv
                 ),
                 const SizedBox(height: 24),
                 Expanded(
-                  child: _isLoading
-                      ? const Center(child: CircularProgressIndicator())
-                      : _selectedTab == 0
-                          ? _buildActiveTab(theme, isDark)
-                          : _selectedTab == 1
-                              ? _buildDiscoverTab(theme, isDark)
-                              : _buildCompletedTab(theme, isDark),
+                  child: RefreshIndicator(
+                    color: AppColors.voltCyan,
+                    onRefresh: _loadData,
+                    child: _selectedTab == 0
+                        ? _buildActiveTab(theme, isDark)
+                        : _selectedTab == 1
+                            ? _buildDiscoverTab(theme, isDark)
+                            : _buildCompletedTab(theme, isDark),
+                  ),
                 ),
               ],
             ),
