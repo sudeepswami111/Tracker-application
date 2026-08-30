@@ -484,7 +484,9 @@ class _ProfileScreenState extends State<ProfileScreen>
       );
     }
 
-    final fullName = _profile?['full_name'] as String? ?? 'User';
+    final fullName = _isOwnProfile
+        ? (app.userName.isNotEmpty ? app.userName : (_profile?['full_name'] as String? ?? 'User'))
+        : (_profile?['full_name'] as String? ?? 'User');
     final username = _profile?['username'] as String? ?? '';
     final bio = _profile?['bio'] as String? ?? '';
     final avatarUrl = _profile?['avatar_url'] as String?;
