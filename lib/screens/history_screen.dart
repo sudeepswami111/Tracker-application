@@ -477,8 +477,9 @@ class _HistoryScreenState extends State<HistoryScreen> with SingleTickerProvider
           ),
         ],
       ),
-    );
-  }
+    ),
+  );
+}
 
   Widget _summaryPill(String value, String label) {
     return Column(

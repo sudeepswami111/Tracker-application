@@ -940,8 +940,9 @@ class _ProfileScreenState extends State<ProfileScreen>
           ),
         ],
       ),
-    );
-  }
+    ),
+  );
+}
 
   Widget _statPill(
     IconData icon,
