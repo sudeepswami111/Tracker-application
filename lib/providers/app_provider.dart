@@ -629,20 +629,29 @@ class AppProvider extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   void updateUserName(String newName) async {
-    userName = newName;
+    final trimmed = newName.trim();
+    if (trimmed.isEmpty) return;
+    userName = trimmed;
     _saveData();
     notifyListeners();
 
     final user = Supabase.instance.client.auth.currentUser;
     if (user != null) {
       try {
-        // Try to update, if it fails maybe row doesn't exist, but we assume it does via sync
         await Supabase.instance.client
             .from('profiles')
-            .update({'name': newName})
-            .eq('id', user.id);
+            .upsert({
+              'id': user.id,
+              'full_name': userName,
+              'updated_at': DateTime.now().toIso8601String(),
+            })
+            .timeout(const Duration(seconds: 4));
+
+        await Supabase.instance.client.auth.updateUser(
+          UserAttributes(data: {'full_name': userName}),
+        ).timeout(const Duration(seconds: 4));
       } catch (e) {
-        debugPrint("Error updating profile: \$e");
+        debugPrint("Error updating profile in Supabase: $e");
       }
     }
   }
@@ -656,28 +665,35 @@ class AppProvider extends ChangeNotifier with WidgetsBindingObserver {
           .from('profiles')
           .select()
           .eq('id', user.id)
-          .maybeSingle();
+          .maybeSingle()
+          .timeout(const Duration(seconds: 4));
 
       if (data != null) {
-        if (data['name'] != null) {
-          userName = data['name'] as String;
-        } else if (data['full_name'] != null) {
-          userName = data['full_name'] as String;
+        if (data['full_name'] != null && (data['full_name'] as String).trim().isNotEmpty) {
+          userName = (data['full_name'] as String).trim();
+        } else if (data['name'] != null && (data['name'] as String).trim().isNotEmpty) {
+          userName = (data['name'] as String).trim();
+        } else if (user.userMetadata?['full_name'] != null) {
+          userName = (user.userMetadata!['full_name'] as String).trim();
         }
-        if (data['avatar_url'] != null) {
+
+        if (data['avatar_url'] != null && (data['avatar_url'] as String).isNotEmpty) {
           avatarUrl = data['avatar_url'] as String;
         }
       } else {
         // Insert initial data if row doesn't exist
         await Supabase.instance.client.from('profiles').insert({
           'id': user.id,
-          'name': userName,
-        });
+          'full_name': userName,
+        }).timeout(const Duration(seconds: 4));
       }
       email = user.email ?? email;
       _saveData();
       notifyListeners();
     } catch (e) {
+      debugPrint("Error syncing profile with Supabase: $e");
+    }
+  }
       debugPrint("Error syncing profile: \$e");
     }
   }

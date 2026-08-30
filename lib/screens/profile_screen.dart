@@ -342,9 +342,10 @@ class _ProfileScreenState extends State<ProfileScreen>
 
   // ── Edit profile sheet ────────────────────────────────────────
   void _showEditProfile(AppProvider app) {
-    final nameCtrl = TextEditingController(
-      text: _profile?['full_name'] as String? ?? '',
-    );
+    final initialName = (_profile?['full_name'] as String?)?.isNotEmpty == true
+        ? _profile!['full_name'] as String
+        : app.userName;
+    final nameCtrl = TextEditingController(text: initialName);
     final bioCtrl = TextEditingController(
       text: _profile?['bio'] as String? ?? '',
     );
@@ -380,6 +381,7 @@ class _ProfileScreenState extends State<ProfileScreen>
               const SizedBox(height: 20),
               TextField(
                 controller: nameCtrl,
+                textCapitalization: TextCapitalization.words,
                 decoration: InputDecoration(
                   labelText: 'Full Name',
                   border: OutlineInputBorder(
@@ -403,16 +405,46 @@ class _ProfileScreenState extends State<ProfileScreen>
                 width: double.infinity,
                 child: ElevatedButton(
                   onPressed: () async {
-                    await _supabase
-                        .from('profiles')
-                        .update({
-                          'full_name': nameCtrl.text.trim(),
-                          'bio': bioCtrl.text.trim(),
-                        })
-                        .eq('id', _userId);
-                    await _loadProfile();
-                    app.updateUserName(nameCtrl.text.trim());
+                    final newName = nameCtrl.text.trim();
+                    final newBio = bioCtrl.text.trim();
+                    if (newName.isEmpty) return;
+
+                    // 1. Immediately update AppProvider (updates Home, Profile, Header instantly)
+                    app.updateUserName(newName);
+
+                    // 2. Update local state
+                    if (mounted) {
+                      setState(() {
+                        _profile = {
+                          ...?_profile,
+                          'full_name': newName,
+                          'bio': newBio,
+                        };
+                      });
+                    }
+
+                    // 3. Close modal and show feedback
                     if (ctx.mounted) Navigator.pop(ctx);
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Profile updated successfully! 🎉'),
+                          duration: Duration(seconds: 2),
+                        ),
+                      );
+                    }
+
+                    // 4. Save to Supabase in background
+                    try {
+                      await _supabase.from('profiles').upsert({
+                        'id': _userId,
+                        'full_name': newName,
+                        'bio': newBio,
+                        'updated_at': DateTime.now().toIso8601String(),
+                      }).timeout(const Duration(seconds: 4));
+                    } catch (e) {
+                      debugPrint('Error saving profile to Supabase: $e');
+                    }
                   },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.voltCyan,
