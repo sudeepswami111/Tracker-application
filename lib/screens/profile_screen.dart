@@ -74,12 +74,17 @@ class _ProfileScreenState extends State<ProfileScreen>
     )..repeat();
 
     final user = _supabase.auth.currentUser;
+    final app = context.read<AppProvider>();
     if (_isOwnProfile) {
       _profile = {
-        'full_name': (user?.userMetadata?['full_name'] as String?) ?? 'User',
+        'full_name': app.userName.isNotEmpty
+            ? app.userName
+            : ((user?.userMetadata?['full_name'] as String?) ?? 'User'),
         'username': user?.email?.split('@').first ?? 'user',
         'email': user?.email,
-        'avatar_url': user?.userMetadata?['avatar_url'] as String?,
+        'avatar_url': app.avatarUrl.isNotEmpty
+            ? app.avatarUrl
+            : (user?.userMetadata?['avatar_url'] as String?),
         'bio': '',
         'followers_count': 0,
         'following_count': 0,
