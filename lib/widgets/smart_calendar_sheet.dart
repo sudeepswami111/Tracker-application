@@ -479,7 +479,7 @@ class _SmartCalendarSheetState extends State<SmartCalendarSheet>
                             labelStyle: TextStyle(
                               fontSize: 11,
                               fontWeight: FontWeight.w600,
-                              color: isDark ? Colors.white87 : Colors.black87,
+                              color: isDark ? Colors.white : Colors.black87,
                             ),
                             backgroundColor: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.black.withValues(alpha: 0.05),
                             side: BorderSide(
