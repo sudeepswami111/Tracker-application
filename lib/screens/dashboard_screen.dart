@@ -76,14 +76,21 @@ class DashboardScreen extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-              // 1. Streak Row
+              // 1. Streak & Calendar — Daily motivation hook
               AnimatedCardEnter(
                 index: 0,
                 child: _buildStreakRow(theme, app, context),
               ),
               const SizedBox(height: AppSpacing.xl),
 
-              // 2. Primary Hero Card (Unified Activity)
+              // 2. Today's Plan — Set intent before showing progress
+              AnimatedCardEnter(
+                index: 1,
+                child: _buildTodaysPlan(theme, isDark, app, context),
+              ),
+              const SizedBox(height: AppSpacing.xl),
+
+              // 3. Activity Hero Card — Progress on today's plan (steps, HR, sleep)
               AnimatedCardEnter(
                 index: 2,
                 child: Consumer2<StepTrackerProvider, WatchMetricsProvider>(
@@ -101,40 +108,32 @@ class DashboardScreen extends StatelessWidget {
               ),
               const SizedBox(height: AppSpacing.xl),
 
-              // 3. Weather Integration (DashboardWeatherSection)
+              // 4. Hydration Hub — Wellness companion to activity
               AnimatedCardEnter(
                 index: 3,
+                child: const HydrationHubCard(),
+              ),
+              const SizedBox(height: AppSpacing.xl),
+
+              // 5. Weather — Environmental context for outdoor workouts
+              AnimatedCardEnter(
+                index: 4,
                 child: const DashboardWeatherSection(),
               ),
               const SizedBox(height: AppSpacing.xl),
 
-              // 4. Today's Plan
-              AnimatedCardEnter(
-                index: 4,
-                child: _buildTodaysPlan(theme, isDark, app, context),
-              ),
-              const SizedBox(height: AppSpacing.xl),
-
-              // 5. People You May Know
+              // 6. People You May Know — Social discovery
               AnimatedCardEnter(
                 index: 5,
                 child: const PeopleSuggestionSection(),
               ),
               const SizedBox(height: AppSpacing.xl),
 
-              // 6. Community Teaser
+              // 7. Community Teaser — Broader community engagement
               AnimatedCardEnter(
                 index: 6,
                 child: const DashboardCommunitySection(),
               ),
-              const SizedBox(height: AppSpacing.xl),
-
-              // 7. Hydration Hub (Bottom of Home Page)
-              AnimatedCardEnter(
-                index: 7,
-                child: const HydrationHubCard(),
-              ),
-              const SizedBox(height: AppSpacing.xl),
             ],
           ),
         ),
