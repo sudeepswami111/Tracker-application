@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import '../providers/app_provider.dart';
@@ -88,20 +88,10 @@ class _HealthScreenState extends State<HealthScreen> {
   // ── Connected: Show full dashboard with live health metrics ──
   Widget _buildConnectedView(WatchMetricsProvider watch, AppProvider app,
       ThemeData theme, bool isDark) {
-    return Column(
-      key: const ValueKey('connected_view'),
+    return const Column(
+      key: ValueKey('connected_view'),
       children: [
-        const WatchDashboard(),
-
-        const SizedBox(height: 16),
-
-        // Water intake card (always available regardless of watch)
-        WaterIntakeBar(
-          current: app.waterGlasses,
-          goal: app.waterGlassGoal,
-          onAdd: app.addWater,
-          onRemove: app.removeWater,
-        ),
+        WatchDashboard(),
       ],
     );
   }

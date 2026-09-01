@@ -25,6 +25,7 @@ import '../widgets/streak_details_sheet.dart';
 import '../widgets/smart_calendar_sheet.dart';
 import '../widgets/smart_today_plan_card.dart';
 import '../widgets/dashboard_community_section.dart';
+import '../widgets/health_components.dart';
 
 class DashboardScreen extends StatelessWidget {
   const DashboardScreen({super.key});
@@ -95,6 +96,18 @@ class DashboardScreen extends StatelessWidget {
                       showHealthMetrics: watchProvider.isConnected,
                     );
                   },
+                ),
+              ),
+              const SizedBox(height: AppSpacing.xl),
+
+              // 3. Water Intake (Direct Home Access)
+              AnimatedCardEnter(
+                index: 3,
+                child: WaterIntakeBar(
+                  current: app.waterGlasses,
+                  goal: app.waterGlassGoal,
+                  onAdd: app.addWater,
+                  onRemove: app.removeWater,
                 ),
               ),
               const SizedBox(height: AppSpacing.xl),
