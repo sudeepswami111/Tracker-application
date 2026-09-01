@@ -419,7 +419,7 @@ class _HydrationHubCardState extends State<HydrationHubCard>
                       ),
                     );
                   },
-                  icon: const Icon(LucideIcons.bottleDroplet, size: 16, color: AppColors.voltCyan),
+                  icon: const Icon(LucideIcons.droplets, size: 16, color: AppColors.voltCyan),
                   label: const Text(
                     '+ 500ml',
                     style: TextStyle(
