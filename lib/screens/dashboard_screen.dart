@@ -129,8 +129,9 @@ class DashboardScreen extends StatelessWidget {
           ),
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 
   Widget _buildStreakRow(ThemeData theme, AppProvider app, BuildContext context) {
     return Row(
