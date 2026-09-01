@@ -138,9 +138,11 @@ class _ChatHomeScreenState extends State<ChatHomeScreen> with SingleTickerProvid
                       shape: BoxShape.circle,
                       boxShadow: [
                         BoxShadow(
-                          color: AppColors.irisViolet.withValues(alpha: 0.4 * (_fabPulseAnim.value - 0.8)),
-                          blurRadius: 20 * _fabPulseAnim.value,
-                          spreadRadius: 10 * _fabPulseAnim.value,
+                          color: AppColors.irisViolet.withValues(
+                            alpha: (0.4 * (_fabPulseAnim.value - 0.8)).clamp(0.0, 1.0),
+                          ),
+                          blurRadius: (20 * _fabPulseAnim.value).clamp(0.0, 40.0),
+                          spreadRadius: (10 * _fabPulseAnim.value).clamp(0.0, 20.0),
                         ),
                       ],
                     ),
