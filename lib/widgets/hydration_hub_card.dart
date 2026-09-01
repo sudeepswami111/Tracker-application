@@ -332,7 +332,7 @@ class _HydrationHubCardState extends State<HydrationHubCard>
                   child: Text(
                     _getMotivationalMessage(fillPercent),
                     style: theme.textTheme.bodySmall?.copyWith(
-                      color: isDark ? Colors.white70 : Colors.black85,
+                      color: isDark ? Colors.white70 : Colors.black87,
                       fontWeight: FontWeight.w500,
                       fontSize: 12,
                     ),
