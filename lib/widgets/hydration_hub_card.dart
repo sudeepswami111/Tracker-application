@@ -293,9 +293,11 @@ class _HydrationHubCardState extends State<HydrationHubCard>
                             ),
                             child: Center(
                               child: Icon(
-                                isFilled ? LucideIcons.check : LucideIcons.glassWater,
-                                size: 14,
-                                color: isFilled ? Colors.black : theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
+                                isFilled ? LucideIcons.check : LucideIcons.droplets,
+                                size: 13,
+                                color: isFilled
+                                    ? Colors.black
+                                    : theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.4),
                               ),
                             ),
                           ),
@@ -359,7 +361,7 @@ class _HydrationHubCardState extends State<HydrationHubCard>
                       SnackBar(
                         content: Row(
                           children: [
-                            const Icon(LucideIcons.droplet, color: AppColors.voltCyan, size: 18),
+                            const Icon(LucideIcons.droplets, color: AppColors.voltCyan, size: 18),
                             const SizedBox(width: 8),
                             Text(
                               '+250ml Logged! (${app.waterGlasses} of $goalGlasses glasses)',
