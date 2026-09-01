@@ -101,16 +101,9 @@ class DashboardScreen extends StatelessWidget {
               ),
               const SizedBox(height: AppSpacing.xl),
 
-              // 3. Hydration Hub (Direct Home Access)
+              // 3. Weather Integration (DashboardWeatherSection)
               AnimatedCardEnter(
                 index: 3,
-                child: const HydrationHubCard(),
-              ),
-              const SizedBox(height: AppSpacing.xl),
-
-              // 3.5 Weather Integration (DashboardWeatherSection)
-              AnimatedCardEnter(
-                index: 4,
                 child: const DashboardWeatherSection(),
               ),
               const SizedBox(height: AppSpacing.xl),
@@ -134,6 +127,14 @@ class DashboardScreen extends StatelessWidget {
                 index: 6,
                 child: const DashboardCommunitySection(),
               ),
+              const SizedBox(height: AppSpacing.xl),
+
+              // 7. Hydration Hub (Bottom of Home Page)
+              AnimatedCardEnter(
+                index: 7,
+                child: const HydrationHubCard(),
+              ),
+              const SizedBox(height: AppSpacing.xl),
             ],
           ),
         ),
