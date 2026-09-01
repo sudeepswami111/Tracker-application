@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:intl/intl.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:provider/provider.dart';
 
@@ -163,19 +165,46 @@ class DashboardScreen extends StatelessWidget {
               },
             ),
             const SizedBox(width: AppSpacing.sm),
-            StreakBadge(
-              count: DateTime.now().day,
-              isActive: true,
-              icon: LucideIcons.calendarCheck,
-              activeColor: AppColors.voltCyan,
-              onTap: () {
-                showModalBottomSheet(
-                  context: context,
-                  isScrollControlled: true,
-                  backgroundColor: Colors.transparent,
-                  builder: (context) => const SmartCalendarSheet(),
-                );
-              },
+            Material(
+              color: Colors.transparent,
+              child: InkWell(
+                borderRadius: BorderRadius.circular(20),
+                onTap: () {
+                  HapticFeedback.selectionClick();
+                  showModalBottomSheet(
+                    context: context,
+                    isScrollControlled: true,
+                    backgroundColor: Colors.transparent,
+                    builder: (context) => const SmartCalendarSheet(),
+                  );
+                },
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: AppColors.voltCyan.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(
+                      color: AppColors.voltCyan.withValues(alpha: 0.3),
+                      width: 1.5,
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(LucideIcons.calendarCheck, size: 15, color: AppColors.voltCyan),
+                      const SizedBox(width: 6),
+                      Text(
+                        DateFormat('MMM d').format(DateTime.now()),
+                        style: theme.textTheme.labelLarge?.copyWith(
+                          color: AppColors.voltCyan,
+                          fontWeight: FontWeight.w800,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
             ),
           ],
         ),
