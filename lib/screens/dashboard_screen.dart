@@ -26,6 +26,7 @@ import '../widgets/smart_calendar_sheet.dart';
 import '../widgets/smart_today_plan_card.dart';
 import '../widgets/dashboard_community_section.dart';
 import '../widgets/health_components.dart';
+import '../widgets/hydration_hub_card.dart';
 
 class DashboardScreen extends StatelessWidget {
   const DashboardScreen({super.key});
@@ -100,15 +101,10 @@ class DashboardScreen extends StatelessWidget {
               ),
               const SizedBox(height: AppSpacing.xl),
 
-              // 3. Water Intake (Direct Home Access)
+              // 3. Hydration Hub (Direct Home Access)
               AnimatedCardEnter(
                 index: 3,
-                child: WaterIntakeBar(
-                  current: app.waterGlasses,
-                  goal: app.waterGlassGoal,
-                  onAdd: app.addWater,
-                  onRemove: app.removeWater,
-                ),
+                child: const HydrationHubCard(),
               ),
               const SizedBox(height: AppSpacing.xl),
 
