@@ -764,7 +764,7 @@ class _SmartCalendarSheetState extends State<SmartCalendarSheet>
               GestureDetector(
                 onTap: () {
                   HapticFeedback.selectionClick();
-                  app.togglePlanCompleted(plan.id);
+                  app.togglePlanComplete(plan.id);
                 },
                 child: Container(
                   width: 22,
@@ -793,7 +793,7 @@ class _SmartCalendarSheetState extends State<SmartCalendarSheet>
                 ),
               ),
               Text(
-                plan.time,
+                plan.duration,
                 style: TextStyle(fontSize: 10, color: theme.colorScheme.onSurfaceVariant),
               ),
             ],
