@@ -67,6 +67,12 @@ class HealthStepService {
     try {
       await _health.configure();
       _isConfigured = true;
+      try {
+        final status = await _health.getHealthConnectSdkStatus();
+        _isHealthConnectAvailable = (status == HealthConnectSdkStatus.sdkAvailable);
+      } catch (_) {
+        _isHealthConnectAvailable = true;
+      }
     } catch (e) {
       debugPrint('[HealthStepService] Configure error: $e');
     }
@@ -78,6 +84,11 @@ class HealthStepService {
     try {
       final types = [HealthDataType.STEPS];
       final permissions = [HealthDataAccess.READ];
+
+      // Check if already granted first to avoid unnecessary intent launch
+      final hasPerm = await _health.hasPermissions(types, permissions: permissions);
+      if (hasPerm == true) return true;
+
       final granted = await _health.requestAuthorization(types, permissions: permissions);
       return granted;
     } catch (e) {
