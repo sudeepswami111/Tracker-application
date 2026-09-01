@@ -522,100 +522,101 @@ class _SmartCalendarSheetState extends State<SmartCalendarSheet>
 
   // ── Tab 0: Vibe & Notes (Compact & Structured) ──
   Widget _buildVibeAndNoteTab(ThemeData theme, bool isDark) {
-    return Column(
+    return SingleChildScrollView(
       key: const ValueKey('tab_vibe'),
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // 5 Mood Emojis
-        Row(
-          children: _moodOptions.map((opt) {
-            final isSelected = _selectedMood == opt['label'];
-            return Expanded(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 2.5),
-                child: GestureDetector(
-                  onTap: () {
-                    HapticFeedback.selectionClick();
-                    setState(() {
-                      _selectedMood = isSelected ? null : opt['label'];
-                    });
-                  },
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 200),
-                    padding: const EdgeInsets.symmetric(vertical: 6),
-                    decoration: BoxDecoration(
-                      color: isSelected
-                          ? (opt['color'] as Color).withValues(alpha: 0.2)
-                          : (isDark ? Colors.white.withValues(alpha: 0.04) : Colors.black.withValues(alpha: 0.04)),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(
+      physics: const ClampingScrollPhysics(),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // 5 Mood Emojis
+          Row(
+            children: _moodOptions.map((opt) {
+              final isSelected = _selectedMood == opt['label'];
+              return Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 2.5),
+                  child: GestureDetector(
+                    onTap: () {
+                      HapticFeedback.selectionClick();
+                      setState(() {
+                        _selectedMood = isSelected ? null : opt['label'];
+                      });
+                    },
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 200),
+                      padding: const EdgeInsets.symmetric(vertical: 6),
+                      decoration: BoxDecoration(
                         color: isSelected
-                            ? (opt['color'] as Color)
-                            : (isDark ? Colors.white.withValues(alpha: 0.08) : Colors.black.withValues(alpha: 0.06)),
-                        width: isSelected ? 1.4 : 1,
+                            ? (opt['color'] as Color).withValues(alpha: 0.2)
+                            : (isDark ? Colors.white.withValues(alpha: 0.04) : Colors.black.withValues(alpha: 0.04)),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: isSelected
+                              ? (opt['color'] as Color)
+                              : (isDark ? Colors.white.withValues(alpha: 0.08) : Colors.black.withValues(alpha: 0.06)),
+                          width: isSelected ? 1.4 : 1,
+                        ),
+                      ),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(opt['emoji'] as String, style: const TextStyle(fontSize: 16)),
+                          const SizedBox(height: 2),
+                          Text(
+                            opt['label'] as String,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: 9,
+                              fontWeight: isSelected ? FontWeight.w800 : FontWeight.w500,
+                              color: isSelected ? (opt['color'] as Color) : theme.colorScheme.onSurfaceVariant,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(opt['emoji'] as String, style: const TextStyle(fontSize: 16)),
-                        const SizedBox(height: 2),
-                        Text(
-                          opt['label'] as String,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            fontSize: 9,
-                            fontWeight: isSelected ? FontWeight.w800 : FontWeight.w500,
-                            color: isSelected ? (opt['color'] as Color) : theme.colorScheme.onSurfaceVariant,
-                          ),
-                        ),
-                      ],
-                    ),
                   ),
-                ),
-              ),
-            );
-          }).toList(),
-        ),
-
-        const SizedBox(height: 8),
-
-        // Quick Activity Tags
-        SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          child: Row(
-            children: _quickTags.map((tag) {
-              return Padding(
-                padding: const EdgeInsets.only(right: 5),
-                child: ActionChip(
-                  label: Text(tag),
-                  padding: const EdgeInsets.symmetric(horizontal: 4),
-                  labelStyle: TextStyle(
-                    fontSize: 10,
-                    fontWeight: FontWeight.w600,
-                    color: isDark ? Colors.white : Colors.black87,
-                  ),
-                  backgroundColor: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.black.withValues(alpha: 0.05),
-                  side: BorderSide(
-                    color: isDark ? Colors.white.withValues(alpha: 0.08) : Colors.black.withValues(alpha: 0.08),
-                  ),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  onPressed: () => _addTagToNote(tag),
                 ),
               );
             }).toList(),
           ),
-        ),
 
-        const SizedBox(height: 8),
+          const SizedBox(height: 8),
 
-        // Compact Note Input
-        Expanded(
-          child: TextField(
+          // Quick Activity Tags
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: _quickTags.map((tag) {
+                return Padding(
+                  padding: const EdgeInsets.only(right: 5),
+                  child: ActionChip(
+                    label: Text(tag),
+                    padding: const EdgeInsets.symmetric(horizontal: 4),
+                    labelStyle: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w600,
+                      color: isDark ? Colors.white : Colors.black87,
+                    ),
+                    backgroundColor: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.black.withValues(alpha: 0.05),
+                    side: BorderSide(
+                      color: isDark ? Colors.white.withValues(alpha: 0.08) : Colors.black.withValues(alpha: 0.08),
+                    ),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    onPressed: () => _addTagToNote(tag),
+                  ),
+                );
+              }).toList(),
+            ),
+          ),
+
+          const SizedBox(height: 8),
+
+          // Compact Note Input with Safe Scroll
+          TextField(
             controller: _noteController,
-            maxLines: null,
-            expands: true,
+            minLines: 3,
+            maxLines: 5,
             textAlignVertical: TextAlignVertical.top,
             style: TextStyle(
               fontSize: 13,
@@ -640,8 +641,9 @@ class _SmartCalendarSheetState extends State<SmartCalendarSheet>
               ),
             ),
           ),
-        ),
-      ],
+          const SizedBox(height: 6),
+        ],
+      ),
     );
   }
 
