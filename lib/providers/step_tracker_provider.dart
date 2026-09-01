@@ -6,16 +6,15 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'app_provider.dart';
 import '../services/challenge_service.dart';
+import '../services/health_step_service.dart';
 
 class StepTrackerProvider extends ChangeNotifier with WidgetsBindingObserver {
-  static const int _streakStepThreshold = 1000; // Change this value if needed
+  static const int _streakStepThreshold = 1000;
   bool _streakRecordedToday = false;
   AppProvider? _appProvider;
 
   void setAppProvider(AppProvider appProvider) {
     _appProvider = appProvider;
-    // Defer to post-frame because this is called from ProxyProvider.update()
-    // which runs during build — calling notifyListeners() here would crash.
     if (_steps >= 0 && _appProvider?.steps != _steps) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         _appProvider?.updateSteps(_steps);
@@ -29,25 +28,28 @@ class StepTrackerProvider extends ChangeNotifier with WidgetsBindingObserver {
   StreamSubscription<PedestrianStatus>? _pedestrianStatusSub;
 
   int _steps = 0;
-
   String _status = 'stopped';
   bool _isAvailable = false;
   bool _permissionGranted = false;
   bool _isLoading = true;
   String _error = '';
 
-  // Use UNIQUE pref keys to avoid collision with AppProvider's 'lastSavedDate'
+  // Pref keys
   static const String _prefKeyInitialSteps = 'step_tracker_initialSteps';
   static const String _prefKeyLastKnownDeviceSteps = 'step_tracker_lastKnownDeviceSteps';
   static const String _prefKeyLastSavedDate = 'step_tracker_lastSavedDate';
+  static const String _prefKeyCachedSteps = 'step_tracker_cachedSteps';
 
   int _initialStepsForDay = -1;
   int _lastKnownDeviceSteps = -1;
   String _lastSavedDate = '';
-  // I2: Rate-limit challenge updates — only update every 500 steps
   int _lastChallengeUpdateSteps = 0;
-  // Throttle UI notifications to at most once per second
   DateTime _lastNotifyTime = DateTime(2000);
+
+  // Health Connect integration state
+  final HealthStepService _healthService = HealthStepService();
+  int? _lastHealthConnectSteps;
+  int _pedometerBaseHardwareSteps = -1;
 
   int get steps => _steps;
   int get dailyGoal => _appProvider?.stepsGoal ?? 10000;
@@ -73,7 +75,6 @@ class StepTrackerProvider extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   void _startMidnightTimer() {
-    // Safety net: check every 30 seconds
     _midnightTimer = Timer.periodic(const Duration(seconds: 30), (_) => _checkDayReset());
   }
 
@@ -88,7 +89,6 @@ class StepTrackerProvider extends ChangeNotifier with WidgetsBindingObserver {
         print('[StepTracker] Exact midnight timer fired!');
       }
       _checkDayReset();
-      // Re-arm for next midnight
       _scheduleExactMidnightReset();
     });
 
@@ -101,45 +101,39 @@ class StepTrackerProvider extends ChangeNotifier with WidgetsBindingObserver {
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
       _checkDayReset();
+      refreshSteps(); // Sync background steps when returning to app
     }
   }
 
-  /// Returns today's date as "yyyy-MM-dd"
   String _todayStr() {
     return DateTime.now().toIso8601String().substring(0, 10);
   }
 
-  /// Called periodically and on app resume to detect day boundary crossings.
   void _checkDayReset() async {
     final todayStr = _todayStr();
     if (_lastSavedDate.isNotEmpty && _lastSavedDate != todayStr) {
       if (kDebugMode) {
         print('[StepTracker] Day changed: $_lastSavedDate -> $todayStr');
-        print('[StepTracker] Setting baseline to lastKnownDeviceSteps=$_lastKnownDeviceSteps');
       }
 
       final prefs = await SharedPreferences.getInstance();
-
-      // Force the baseline to -1. This ensures that the FIRST step event received
-      // today will be used as the exact 0-point baseline, perfectly resetting steps to 0.
       _initialStepsForDay = -1;
-
+      _pedometerBaseHardwareSteps = -1;
+      _lastHealthConnectSteps = null;
       _lastSavedDate = todayStr;
       _streakRecordedToday = false;
       _steps = 0;
 
       await prefs.setString(_prefKeyLastSavedDate, _lastSavedDate);
       await prefs.setInt(_prefKeyInitialSteps, _initialStepsForDay);
+      await prefs.setInt(_prefKeyCachedSteps, 0);
 
       if (_appProvider != null) {
         _appProvider!.updateSteps(0);
       }
 
-      if (kDebugMode) {
-        print('[StepTracker] Reset complete. steps=$_steps, baseline=$_initialStepsForDay');
-      }
-
       _safeNotifyListeners();
+      refreshSteps();
     }
   }
 
@@ -154,104 +148,95 @@ class StepTrackerProvider extends ChangeNotifier with WidgetsBindingObserver {
     _safeNotifyListeners();
 
     try {
-      // 1. Request Permission
+      // 1. Request Activity Recognition permission
       PermissionStatus perm = await Permission.activityRecognition.request();
-      if (perm.isGranted) {
-        _permissionGranted = true;
+      _permissionGranted = perm.isGranted;
 
-        // 2. Load cached values using UNIQUE pref keys
-        final prefs = await SharedPreferences.getInstance();
+      // 2. Load cached values
+      final prefs = await SharedPreferences.getInstance();
+      _initialStepsForDay = prefs.getInt(_prefKeyInitialSteps) ?? -1;
+      _lastKnownDeviceSteps = prefs.getInt(_prefKeyLastKnownDeviceSteps) ?? -1;
+      _lastSavedDate = prefs.getString(_prefKeyLastSavedDate) ?? '';
+      _steps = prefs.getInt(_prefKeyCachedSteps) ?? 0;
 
-        // ── One-time FORCE RESET (v2) ──
-        // Wipe all stale step data so baseline is recalculated fresh.
-        // This runs once, then sets a flag so it never runs again.
-        const resetFlag = 'step_tracker_reset_v2';
-        if (!prefs.containsKey(resetFlag)) {
-          // Clear ALL step tracker keys (old and new)
-          await prefs.remove('initialSteps');
-          await prefs.remove('lastKnownDeviceSteps');
-          await prefs.remove(_prefKeyInitialSteps);
-          await prefs.remove(_prefKeyLastKnownDeviceSteps);
-          await prefs.remove(_prefKeyLastSavedDate);
-          await prefs.setBool(resetFlag, true);
-          if (kDebugMode) {
-            print('[StepTracker] Force reset v2: cleared all stale step data');
-          }
+      final todayStr = _todayStr();
+      if (_lastSavedDate.isNotEmpty && _lastSavedDate != todayStr) {
+        _initialStepsForDay = -1;
+        _pedometerBaseHardwareSteps = -1;
+        _lastSavedDate = todayStr;
+        _steps = 0;
+        _streakRecordedToday = false;
+        await prefs.setString(_prefKeyLastSavedDate, _lastSavedDate);
+        await prefs.setInt(_prefKeyInitialSteps, _initialStepsForDay);
+        await prefs.setInt(_prefKeyCachedSteps, 0);
+      } else if (_lastSavedDate.isEmpty) {
+        _lastSavedDate = todayStr;
+        await prefs.setString(_prefKeyLastSavedDate, _lastSavedDate);
+      }
+
+      // 3. Query Health Connect for today's authoritative steps
+      await _syncWithHealthConnect();
+
+      // 4. Subscribe to Hardware Sensors as live fallback/ticker
+      if (_permissionGranted) {
+        try {
+          _pedestrianStatusStream = Pedometer.pedestrianStatusStream;
+          _pedestrianStatusSub = _pedestrianStatusStream.listen(
+            onPedestrianStatusChanged,
+            onError: onPedestrianStatusError,
+          );
+
+          _stepCountStream = Pedometer.stepCountStream;
+          _stepCountSub = _stepCountStream.listen(
+            onStepCount,
+            onError: onStepCountError,
+          );
+          _isAvailable = true;
+        } catch (e) {
+          if (kDebugMode) print('[StepTracker] Hardware pedometer subscription error: $e');
         }
-
-        _initialStepsForDay = prefs.getInt(_prefKeyInitialSteps) ?? -1;
-        _lastKnownDeviceSteps = prefs.getInt(_prefKeyLastKnownDeviceSteps) ?? -1;
-        _lastSavedDate = prefs.getString(_prefKeyLastSavedDate) ?? '';
-
-        if (kDebugMode) {
-          print('[StepTracker] Init: lastSavedDate=$_lastSavedDate, '
-              'initialSteps=$_initialStepsForDay, '
-              'lastKnownDeviceSteps=$_lastKnownDeviceSteps');
-        }
-
-        final todayStr = _todayStr();
-
-        if (_lastSavedDate.isNotEmpty && _lastSavedDate != todayStr) {
-          // Day changed while app was closed.
-          // Force baseline to -1 so that the very next step event sets the 0-point.
-          // This prevents massive step inflation (e.g. 27000 steps) from stale yesterday data.
-          _initialStepsForDay = -1;
-          _lastSavedDate = todayStr;
-          _steps = 0;
-          _streakRecordedToday = false;
-          await prefs.setString(_prefKeyLastSavedDate, _lastSavedDate);
-          await prefs.setInt(_prefKeyInitialSteps, _initialStepsForDay);
-
-          if (_appProvider != null) {
-            _appProvider!.updateSteps(0);
-          }
-
-          if (kDebugMode) {
-            print('[StepTracker] Day changed during offline. Reset steps to 0, '
-                'new baseline=$_initialStepsForDay');
-          }
-        } else if (_lastSavedDate == todayStr) {
-          // Same day — reconstruct today's step count from saved state
-          if (_initialStepsForDay >= 0 && _lastKnownDeviceSteps >= 0) {
-            _steps = (_lastKnownDeviceSteps - _initialStepsForDay).clamp(0, 999999);
-          }
-          if (kDebugMode) {
-            print('[StepTracker] Same day resume. '
-                'steps=$_steps (=$_lastKnownDeviceSteps - $_initialStepsForDay)');
-          }
-        } else {
-          // First launch ever — _lastSavedDate is empty
-          _lastSavedDate = todayStr;
-          await prefs.setString(_prefKeyLastSavedDate, _lastSavedDate);
-          if (kDebugMode) {
-            print('[StepTracker] First launch. Will set baseline on first step event.');
-          }
-        }
-
-        // 3. Subscribe to Sensors
-        _pedestrianStatusStream = Pedometer.pedestrianStatusStream;
-        _pedestrianStatusSub = _pedestrianStatusStream.listen(
-          onPedestrianStatusChanged,
-          onError: onPedestrianStatusError,
-        );
-
-        _stepCountStream = Pedometer.stepCountStream;
-        _stepCountSub = _stepCountStream.listen(
-          onStepCount,
-          onError: onStepCountError,
-        );
-        _isAvailable = true;
-      } else {
-        _permissionGranted = false;
-        _error = "Permission denied";
       }
     } catch (e) {
       _isAvailable = false;
-      _error = "Step tracking not supported on this device";
-      if (kDebugMode) print("Pedometer error: $e");
+      _error = "Step tracking error: $e";
+      if (kDebugMode) print("[StepTracker] Error: $e");
     }
 
     _isLoading = false;
+    _safeNotifyListeners();
+  }
+
+  /// Syncs with Health Connect to get the authoritative aggregated step count.
+  Future<void> _syncWithHealthConnect() async {
+    try {
+      final hcSteps = await _healthService.fetchTodayAggregatedSteps();
+      if (hcSteps != null && hcSteps >= 0) {
+        _lastHealthConnectSteps = hcSteps;
+        if (hcSteps >= _steps) {
+          _steps = hcSteps;
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.setInt(_prefKeyCachedSteps, _steps);
+          if (_appProvider != null) {
+            _appProvider!.updateSteps(_steps);
+          }
+        }
+      }
+
+      // Run full audit log for debug comparison
+      await _healthService.auditTodaySteps(
+        hardwarePedometerSteps: (_lastKnownDeviceSteps >= 0 && _initialStepsForDay >= 0)
+            ? (_lastKnownDeviceSteps - _initialStepsForDay).clamp(0, 999999)
+            : 0,
+        displayedSteps: _steps,
+      );
+    } catch (e) {
+      if (kDebugMode) print('[StepTracker] Health Connect sync error: $e');
+    }
+  }
+
+  /// Public refresh method called on pull-to-refresh or screen resume
+  Future<void> refreshSteps() async {
+    await _syncWithHealthConnect();
     _safeNotifyListeners();
   }
 
@@ -259,49 +244,57 @@ class StepTrackerProvider extends ChangeNotifier with WidgetsBindingObserver {
     final todayStr = _todayStr();
     final prefs = await SharedPreferences.getInstance();
 
-    // ─── Day boundary check (redundant safety net) ───
+    // Day boundary check
     if (_lastSavedDate != todayStr) {
-      if (kDebugMode) {
-        print('[StepTracker] onStepCount detected day change: $_lastSavedDate -> $todayStr');
-      }
-      // Force the baseline to the CURRENT event's steps. 
-      // This immediately zeroes out the current steps for the new day.
       _initialStepsForDay = event.steps;
+      _pedometerBaseHardwareSteps = event.steps;
+      _lastHealthConnectSteps = null;
       _lastSavedDate = todayStr;
       _streakRecordedToday = false;
       await prefs.setInt(_prefKeyInitialSteps, _initialStepsForDay);
       await prefs.setString(_prefKeyLastSavedDate, _lastSavedDate);
+      _steps = 0;
     } else if (_initialStepsForDay == -1) {
-      // First step event ever for this day — set baseline
       _initialStepsForDay = event.steps;
+      _pedometerBaseHardwareSteps = event.steps;
       _lastSavedDate = todayStr;
       await prefs.setInt(_prefKeyInitialSteps, _initialStepsForDay);
       await prefs.setString(_prefKeyLastSavedDate, _lastSavedDate);
-      if (kDebugMode) {
-        print('[StepTracker] First event baseline set: $_initialStepsForDay');
-      }
     }
 
-    // ─── Always update last known device steps ───
     _lastKnownDeviceSteps = event.steps;
     await prefs.setInt(_prefKeyLastKnownDeviceSteps, _lastKnownDeviceSteps);
 
-    // ─── Calculate today's steps ───
-    int currentSteps = event.steps - _initialStepsForDay;
-    if (currentSteps < 0) {
-      // Device rebooted — hardware counter reset to near-zero
-      _initialStepsForDay = 0;
-      currentSteps = event.steps;
-      await prefs.setInt(_prefKeyInitialSteps, 0);
-      if (kDebugMode) {
-        print('[StepTracker] Device reboot detected. Reset baseline to 0.');
+    // Compute hardware steps delta since app baseline
+    if (_pedometerBaseHardwareSteps == -1) {
+      _pedometerBaseHardwareSteps = event.steps;
+    }
+    int hardwareDelta = event.steps - _pedometerBaseHardwareSteps;
+    if (hardwareDelta < 0) {
+      // Device rebooted
+      _pedometerBaseHardwareSteps = event.steps;
+      hardwareDelta = 0;
+    }
+
+    // Determine final steps:
+    // If Health Connect provided an authoritative base, add live hardware delta
+    int calculatedSteps;
+    if (_lastHealthConnectSteps != null && _lastHealthConnectSteps! > 0) {
+      calculatedSteps = _lastHealthConnectSteps! + hardwareDelta;
+    } else {
+      calculatedSteps = event.steps - _initialStepsForDay;
+      if (calculatedSteps < 0) {
+        _initialStepsForDay = 0;
+        calculatedSteps = event.steps;
       }
     }
 
-    _steps = currentSteps;
+    if (calculatedSteps > _steps) {
+      _steps = calculatedSteps;
+      await prefs.setInt(_prefKeyCachedSteps, _steps);
+    }
 
-    // Throttle UI updates to max 1 per second to avoid
-    // "setState() called during build" floods
+    // Throttle UI notifications to max 1 per second
     final now = DateTime.now();
     if (now.difference(_lastNotifyTime).inMilliseconds >= 1000) {
       _lastNotifyTime = now;
@@ -309,23 +302,22 @@ class StepTrackerProvider extends ChangeNotifier with WidgetsBindingObserver {
         _appProvider!.updateSteps(_steps);
       }
 
-      // I2: Rate-limited Steps challenge update (every 500 steps)
+      // Challenge update (every 500 steps)
       if (_steps - _lastChallengeUpdateSteps >= 500) {
         _lastChallengeUpdateSteps = _steps;
         ChallengeService().updateStepsChallenges(_steps);
       }
 
-      // Auto-validate streak when step threshold is crossed
+      // Auto-record streak
       if (!_streakRecordedToday && _steps >= _streakStepThreshold && _appProvider != null) {
         _streakRecordedToday = true;
         _appProvider!.recordActivity();
-        if (kDebugMode) print('[StepTracker] Streak recorded via steps: $_steps');
       }
 
       _safeNotifyListeners();
 
       if (kDebugMode) {
-        print('[StepTracker] Steps: $_steps (event=${event.steps}, baseline=$_initialStepsForDay)');
+        print('[StepTracker] Steps: $_steps (HC=${_lastHealthConnectSteps ?? 0}, HWDelta=$hardwareDelta, Event=${event.steps})');
       }
     }
   }
@@ -337,6 +329,7 @@ class StepTrackerProvider extends ChangeNotifier with WidgetsBindingObserver {
     }
     final prefs = await SharedPreferences.getInstance();
     await prefs.setInt(_prefKeyInitialSteps, _initialStepsForDay);
+    await prefs.setInt(_prefKeyCachedSteps, _steps);
     if (_appProvider != null) {
       _appProvider!.updateSteps(_steps);
     }

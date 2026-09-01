@@ -55,16 +55,25 @@ class DashboardScreen extends StatelessWidget {
       backgroundColor: theme.scaffoldBackgroundColor,
       body: SafeArea(
         bottom: false,
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.only(
-            left: AppSpacing.screenMargin,
-            right: AppSpacing.screenMargin,
-            top: AppSpacing.xl,
-            bottom: 150, // Enough padding to prevent bottom nav overlap
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
+        child: RefreshIndicator(
+          color: AppColors.voltCyan,
+          onRefresh: () async {
+            await Future.wait([
+              context.read<StepTrackerProvider>().refreshSteps(),
+              context.read<WatchMetricsProvider>().refresh(),
+            ]);
+          },
+          child: SingleChildScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: const EdgeInsets.only(
+              left: AppSpacing.screenMargin,
+              right: AppSpacing.screenMargin,
+              top: AppSpacing.xl,
+              bottom: 150, // Enough padding to prevent bottom nav overlap
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
               // 1. Streak Row
               AnimatedCardEnter(
                 index: 0,
