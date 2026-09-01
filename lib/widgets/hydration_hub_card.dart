@@ -263,7 +263,7 @@ class _HydrationHubCardState extends State<HydrationHubCard>
                           },
                           child: AnimatedContainer(
                             duration: const Duration(milliseconds: 300),
-                            curve: Curves.easeOutBack,
+                            curve: Curves.easeOut,
                             width: 28,
                             height: 28,
                             decoration: BoxDecoration(
@@ -281,23 +281,19 @@ class _HydrationHubCardState extends State<HydrationHubCard>
                                         : Colors.black.withValues(alpha: 0.1)),
                                 width: 1.2,
                               ),
-                              boxShadow: isFilled
-                                  ? [
-                                      BoxShadow(
-                                        color: AppColors.voltCyan.withValues(alpha: 0.4),
-                                        blurRadius: 6,
-                                        offset: const Offset(0, 2),
-                                      ),
-                                    ]
-                                  : null,
+                              boxShadow: [
+                                BoxShadow(
+                                  color: AppColors.voltCyan.withValues(alpha: isFilled ? 0.4 : 0.0),
+                                  blurRadius: isFilled ? 6.0 : 0.0,
+                                  offset: const Offset(0, 2),
+                                ),
+                              ],
                             ),
                             child: Center(
                               child: Icon(
-                                isFilled ? LucideIcons.check : LucideIcons.droplets,
-                                size: 13,
-                                color: isFilled
-                                    ? Colors.black
-                                    : theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.4),
+                                isFilled ? LucideIcons.check : LucideIcons.glassWater,
+                                size: 14,
+                                color: isFilled ? Colors.black : theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
                               ),
                             ),
                           ),
@@ -361,7 +357,7 @@ class _HydrationHubCardState extends State<HydrationHubCard>
                       SnackBar(
                         content: Row(
                           children: [
-                            const Icon(LucideIcons.droplets, color: AppColors.voltCyan, size: 18),
+                            const Icon(LucideIcons.droplet, color: AppColors.voltCyan, size: 18),
                             const SizedBox(width: 8),
                             Text(
                               '+250ml Logged! (${app.waterGlasses} of $goalGlasses glasses)',
