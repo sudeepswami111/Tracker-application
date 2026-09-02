@@ -70,10 +70,12 @@ class HealthStepService {
       try {
         final status = await _health.getHealthConnectSdkStatus();
         debugPrint('[HealthStepService] HC SDK status: $status');
-        // On Android 14+ HC is built-in — sdkAvailable or sdkNotSupported are both valid outcomes.
-        // We treat anything except sdkUnavailable as "available enough to try".
+        // health 11.1.1 has 3 values: sdkAvailable, sdkUnavailableProviderUpdateRequired, sdkUnavailable.
+        // On Android 14+ HC is built-in and returns sdkAvailable directly.
+        // sdkUnavailableProviderUpdateRequired means HC needs updating but is still present — allow attempt.
+        // Only sdkUnavailable (HC not present at all) means we truly cannot proceed.
         _isHealthConnectAvailable =
-            status != HealthConnectSdkStatus.sdkNotSupported;
+            status != HealthConnectSdkStatus.sdkUnavailable;
       } catch (e) {
         // If the SDK status API itself fails (e.g. on very old Android), assume available and let
         // the permission request determine the real outcome.
