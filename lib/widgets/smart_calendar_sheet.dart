@@ -389,7 +389,7 @@ class _SmartCalendarSheetState extends State<SmartCalendarSheet> {
                                     fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
                                     color: isSelected
                                         ? (vibe['color'] as Color)
-                                        : (isDark ? Colors.white80 : Colors.black87),
+                                        : (isDark ? Colors.white70 : Colors.black87),
                                   ),
                                 ),
                               ),
