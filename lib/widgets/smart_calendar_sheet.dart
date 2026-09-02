@@ -8,7 +8,6 @@ import 'package:table_calendar/table_calendar.dart';
 import '../providers/app_provider.dart';
 import '../services/dashboard_interaction_storage_service.dart';
 import '../theme/app_colors.dart';
-import '../theme/app_spacing.dart';
 
 class SmartCalendarSheet extends StatefulWidget {
   const SmartCalendarSheet({super.key});
@@ -17,32 +16,17 @@ class SmartCalendarSheet extends StatefulWidget {
   State<SmartCalendarSheet> createState() => _SmartCalendarSheetState();
 }
 
-class _SmartCalendarSheetState extends State<SmartCalendarSheet>
-    with SingleTickerProviderStateMixin {
+class _SmartCalendarSheetState extends State<SmartCalendarSheet> {
   DateTime _focusedDay = DateTime.now();
   DateTime _selectedDay = DateTime.now();
   final TextEditingController _noteController = TextEditingController();
   bool _isSaving = false;
   String? _selectedMood;
-  CalendarFormat _calendarFormat = CalendarFormat.week; // Default: Compact week strip
-  int _activeTab = 0; // 0: Log, 1: Metrics, 2: Habits
 
-  final List<String> _quickTags = [
-    '#MorningRun',
-    '#LegDay',
-    '#UpperBody',
-    '#HIIT',
-    '#Recovery',
-    '#Hydrated',
-    '#RestDay',
-  ];
-
-  final List<Map<String, dynamic>> _moodOptions = [
-    {'emoji': '⚡', 'label': 'Unstoppable', 'color': AppColors.voltCyan},
-    {'emoji': '🔥', 'label': 'Energized', 'color': AppColors.solarAmber},
-    {'emoji': '💪', 'label': 'Strong', 'color': const Color(0xFF00E599)},
-    {'emoji': '😌', 'label': 'Rested', 'color': const Color(0xFF00B4D8)},
-    {'emoji': '🥱', 'label': 'Fatigued', 'color': AppColors.coral},
+  final List<Map<String, dynamic>> _vibeOptions = [
+    {'label': 'Crushed It', 'emoji': '🔥', 'color': AppColors.solarAmber},
+    {'label': 'On Track', 'emoji': '⚡', 'color': AppColors.voltCyan},
+    {'label': 'Rest & Recovery', 'emoji': '🌿', 'color': const Color(0xFF00E599)},
   ];
 
   @override
@@ -63,7 +47,7 @@ class _SmartCalendarSheetState extends State<SmartCalendarSheet>
     }
   }
 
-  Future<void> _saveNoteAndMood() async {
+  Future<void> _saveDayLog() async {
     setState(() => _isSaving = true);
     HapticFeedback.mediumImpact();
 
@@ -89,30 +73,16 @@ class _SmartCalendarSheetState extends State<SmartCalendarSheet>
             children: const [
               Icon(LucideIcons.check, color: AppColors.voltCyan, size: 18),
               SizedBox(width: 8),
-              Text(
-                'Saved to Smart Calendar!',
-                style: TextStyle(fontWeight: FontWeight.w600),
-              ),
+              Text('Day updated successfully!', style: TextStyle(fontWeight: FontWeight.w600)),
             ],
           ),
           backgroundColor: const Color(0xFF161F2E),
           behavior: SnackBarBehavior.floating,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          duration: const Duration(seconds: 1),
+          duration: const Duration(milliseconds: 1200),
         ),
       );
     }
-  }
-
-  void _addTagToNote(String tag) {
-    HapticFeedback.selectionClick();
-    final current = _noteController.text;
-    if (current.contains(tag)) return;
-    final separator = current.isEmpty || current.endsWith(' ') ? '' : ' ';
-    _noteController.text = '$current$separator$tag ';
-    _noteController.selection = TextSelection.fromPosition(
-      TextPosition(offset: _noteController.text.length),
-    );
   }
 
   @override
@@ -127,6 +97,11 @@ class _SmartCalendarSheetState extends State<SmartCalendarSheet>
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
     final isToday = isSameDay(_selectedDay, DateTime.now());
+
+    // Calculate daily progress ratio
+    final stepRatio = app.stepsGoal > 0 ? (app.steps / app.stepsGoal).clamp(0.0, 1.0) : 0.0;
+    final waterRatio = app.waterGlassGoal > 0 ? (app.waterGlasses / app.waterGlassGoal).clamp(0.0, 1.0) : 0.0;
+    final overallScore = (((stepRatio + waterRatio) / 2) * 100).toInt();
 
     return Container(
       decoration: BoxDecoration(
@@ -143,11 +118,12 @@ class _SmartCalendarSheetState extends State<SmartCalendarSheet>
         top: false,
         child: SingleChildScrollView(
           physics: const BouncingScrollPhysics(),
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
           child: Column(
             mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // ── Drag Handle ──
-              const SizedBox(height: 10),
+              // ── Top Handle ──
               Center(
                 child: Container(
                   width: 36,
@@ -158,121 +134,45 @@ class _SmartCalendarSheetState extends State<SmartCalendarSheet>
                   ),
                 ),
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 12),
 
-              // ── Compact Header Bar ──
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(7),
-                          decoration: BoxDecoration(
-                            color: AppColors.voltCyan.withValues(alpha: 0.15),
-                            shape: BoxShape.circle,
-                            border: Border.all(
-                              color: AppColors.voltCyan.withValues(alpha: 0.3),
-                              width: 1.2,
-                            ),
-                          ),
-                          child: const Icon(
-                            LucideIcons.calendarCheck,
-                            color: AppColors.voltCyan,
-                            size: 18,
-                          ),
+              // ── Header Row ──
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Smart Calendar',
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: -0.3,
                         ),
-                        const SizedBox(width: 10),
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Smart Calendar',
-                              style: theme.textTheme.titleMedium?.copyWith(
-                                fontWeight: FontWeight.w800,
-                                letterSpacing: -0.2,
-                              ),
-                            ),
-                            Text(
-                              DateFormat('MMMM yyyy').format(_focusedDay),
-                              style: theme.textTheme.bodySmall?.copyWith(
-                                color: theme.colorScheme.onSurfaceVariant,
-                                fontSize: 11,
-                              ),
-                            ),
-                          ],
+                      ),
+                      Text(
+                        DateFormat('MMMM yyyy').format(_focusedDay),
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: isDark ? Colors.white54 : Colors.black54,
+                          fontWeight: FontWeight.w500,
                         ),
-                      ],
-                    ),
-                    Row(
-                      children: [
-                        // Format Toggle Pill (Week ⟷ Month)
-                        Material(
-                          color: Colors.transparent,
-                          child: InkWell(
-                            borderRadius: BorderRadius.circular(20),
-                            onTap: () {
-                              HapticFeedback.selectionClick();
-                              setState(() {
-                                _calendarFormat = _calendarFormat == CalendarFormat.week
-                                    ? CalendarFormat.month
-                                    : CalendarFormat.week;
-                              });
-                            },
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                              decoration: BoxDecoration(
-                                color: isDark
-                                    ? Colors.white.withValues(alpha: 0.06)
-                                    : Colors.black.withValues(alpha: 0.05),
-                                borderRadius: BorderRadius.circular(20),
-                                border: Border.all(
-                                  color: AppColors.voltCyan.withValues(alpha: 0.3),
-                                ),
-                              ),
-                              child: Row(
-                                children: [
-                                  Icon(
-                                    _calendarFormat == CalendarFormat.week
-                                        ? LucideIcons.layoutGrid
-                                        : LucideIcons.calendar,
-                                    size: 13,
-                                    color: AppColors.voltCyan,
-                                  ),
-                                  const SizedBox(width: 5),
-                                  Text(
-                                    _calendarFormat == CalendarFormat.week ? 'Month' : 'Week',
-                                    style: const TextStyle(
-                                      color: AppColors.voltCyan,
-                                      fontWeight: FontWeight.w800,
-                                      fontSize: 11,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 6),
-                        IconButton(
-                          icon: const Icon(LucideIcons.x, size: 18),
-                          padding: EdgeInsets.zero,
-                          constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-                          onPressed: () => Navigator.pop(context),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
+                      ),
+                    ],
+                  ),
+                  IconButton(
+                    icon: const Icon(LucideIcons.x, size: 20),
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                    onPressed: () => Navigator.pop(context),
+                  ),
+                ],
               ),
 
-              const SizedBox(height: 8),
+              const SizedBox(height: 14),
 
-              // ── Table Calendar Container (Dynamic Week/Month Mode) ──
+              // ── Clean 7-Day Horizon Strip ──
               Container(
-                margin: const EdgeInsets.symmetric(horizontal: 16),
                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
                 decoration: BoxDecoration(
                   color: isDark ? const Color(0xFF141D2B) : const Color(0xFFF1F5F9),
@@ -285,7 +185,7 @@ class _SmartCalendarSheetState extends State<SmartCalendarSheet>
                   firstDay: DateTime.utc(2023, 1, 1),
                   lastDay: DateTime.utc(2030, 12, 31),
                   focusedDay: _focusedDay,
-                  calendarFormat: _calendarFormat,
+                  calendarFormat: CalendarFormat.week,
                   availableGestures: AvailableGestures.horizontalSwipe,
                   selectedDayPredicate: (day) => isSameDay(_selectedDay, day),
                   onDaySelected: (selectedDay, focusedDay) {
@@ -297,9 +197,7 @@ class _SmartCalendarSheetState extends State<SmartCalendarSheet>
                     _loadDayData(selectedDay);
                   },
                   onPageChanged: (focusedDay) {
-                    setState(() {
-                      _focusedDay = focusedDay;
-                    });
+                    setState(() => _focusedDay = focusedDay);
                   },
                   rowHeight: 44,
                   daysOfWeekHeight: 18,
@@ -358,55 +256,111 @@ class _SmartCalendarSheetState extends State<SmartCalendarSheet>
                 ),
               ),
 
-              const SizedBox(height: 12),
+              const SizedBox(height: 16),
 
-              // ── Selected Day Banner & Interactive Segmented Switcher ──
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
+              // ── Unique "Day Snapshot" Card ──
+              Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: isDark
+                        ? [const Color(0xFF162133), const Color(0xFF111824)]
+                        : [const Color(0xFFFFFFFF), const Color(0xFFF1F5F9)],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(
+                    color: isDark ? Colors.white.withValues(alpha: 0.08) : Colors.black.withValues(alpha: 0.06),
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.04),
+                      blurRadius: 10,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
                 child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Row(
+                    // Circular Mini-Ring Indicator
+                    Stack(
+                      alignment: Alignment.center,
                       children: [
-                        Text(
-                          DateFormat('EEE, d MMM').format(_selectedDay),
-                          style: theme.textTheme.titleSmall?.copyWith(
-                            fontWeight: FontWeight.w800,
-                            letterSpacing: -0.2,
+                        SizedBox(
+                          width: 52,
+                          height: 52,
+                          child: CircularProgressIndicator(
+                            value: isToday ? (overallScore / 100.0) : 0.75,
+                            strokeWidth: 5,
+                            backgroundColor: isDark ? Colors.white.withValues(alpha: 0.08) : Colors.black.withValues(alpha: 0.06),
+                            valueColor: const AlwaysStoppedAnimation<Color>(AppColors.voltCyan),
+                            strokeCap: StrokeCap.round,
                           ),
                         ),
-                        if (isToday) ...[
-                          const SizedBox(width: 6),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: AppColors.voltCyan.withValues(alpha: 0.2),
-                              borderRadius: BorderRadius.circular(6),
-                            ),
-                            child: const Text(
-                              'TODAY',
-                              style: TextStyle(
-                                color: AppColors.voltCyan,
-                                fontWeight: FontWeight.w900,
-                                fontSize: 9,
-                              ),
-                            ),
+                        Text(
+                          isToday ? '$overallScore%' : '--',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w900,
+                            color: isDark ? Colors.white : Colors.black87,
                           ),
-                        ],
+                        ),
                       ],
                     ),
-                    // 3-Segment Deck Switcher
-                    Container(
-                      padding: const EdgeInsets.all(2.5),
-                      decoration: BoxDecoration(
-                        color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.black.withValues(alpha: 0.05),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Row(
+                    const SizedBox(width: 14),
+
+                    // Daily Metrics Summary
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          _buildTabButton(0, 'Log', LucideIcons.penLine, isDark),
-                          _buildTabButton(1, 'Metrics', LucideIcons.activity, isDark),
-                          _buildTabButton(2, 'Habits', LucideIcons.checkSquare, isDark),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                DateFormat('EEEE, d MMMM').format(_selectedDay),
+                                style: const TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w800,
+                                ),
+                              ),
+                              if (isToday)
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                  decoration: BoxDecoration(
+                                    color: AppColors.voltCyan.withValues(alpha: 0.15),
+                                    borderRadius: BorderRadius.circular(6),
+                                  ),
+                                  child: const Text(
+                                    'TODAY',
+                                    style: TextStyle(
+                                      color: AppColors.voltCyan,
+                                      fontWeight: FontWeight.w900,
+                                      fontSize: 9,
+                                    ),
+                                  ),
+                                ),
+                            ],
+                          ),
+                          const SizedBox(height: 6),
+                          Row(
+                            children: [
+                              _buildMetricPill(
+                                icon: LucideIcons.footprints,
+                                label: isToday ? '${app.steps} steps' : 'Log active',
+                                color: AppColors.voltCyan,
+                                isDark: isDark,
+                              ),
+                              const SizedBox(width: 8),
+                              _buildMetricPill(
+                                icon: LucideIcons.droplets,
+                                label: isToday ? '${app.waterGlasses}/8 cups' : 'Hydrated',
+                                color: const Color(0xFF00B4D8),
+                                isDark: isDark,
+                              ),
+                            ],
+                          ),
                         ],
                       ),
                     ),
@@ -414,443 +368,162 @@ class _SmartCalendarSheetState extends State<SmartCalendarSheet>
                 ),
               ),
 
-              const SizedBox(height: 10),
-
-              // ── Zero-Gap Dynamic Tab Content ──
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: AnimatedSwitcher(
-                  duration: const Duration(milliseconds: 250),
-                  child: _buildCurrentTabContent(app, theme, isDark, isToday),
-                ),
-              ),
-
-              const SizedBox(height: 12),
-
-              // ── Fixed Action Bottom Bar ──
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton.icon(
-                    onPressed: _isSaving ? null : _saveNoteAndMood,
-                    icon: _isSaving
-                        ? const SizedBox(
-                            height: 14,
-                            width: 14,
-                            child: CircularProgressIndicator(strokeWidth: 2, color: Colors.black),
-                          )
-                        : const Icon(LucideIcons.save, size: 16),
-                    label: Text(
-                      _isSaving ? 'Saving...' : 'Save for ${DateFormat('MMM d').format(_selectedDay)}',
-                      style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13),
-                    ),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.voltCyan,
-                      foregroundColor: Colors.black,
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                      elevation: 0,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(14),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
               const SizedBox(height: 16),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
 
-  // ── Tab Pill Switcher Helper ──
-  Widget _buildTabButton(int index, String label, IconData icon, bool isDark) {
-    final isSelected = _activeTab == index;
-    return GestureDetector(
-      onTap: () {
-        HapticFeedback.selectionClick();
-        setState(() => _activeTab = index);
-      },
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 180),
-        padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
-        decoration: BoxDecoration(
-          color: isSelected ? AppColors.voltCyan : Colors.transparent,
-          borderRadius: BorderRadius.circular(9),
-        ),
-        child: Row(
-          children: [
-            Icon(
-              icon,
-              size: 12,
-              color: isSelected
-                  ? Colors.black
-                  : (isDark ? Colors.white60 : Colors.black54),
-            ),
-            const SizedBox(width: 4),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 11,
-                fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
-                color: isSelected
-                    ? Colors.black
-                    : (isDark ? Colors.white60 : Colors.black54),
+              // ── Simple 3-Vibe Selector ──
+              Text(
+                'Day Vibe',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                  color: isDark ? Colors.white70 : Colors.black87,
+                ),
               ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  // ── Deck Switcher Content ──
-  Widget _buildCurrentTabContent(AppProvider app, ThemeData theme, bool isDark, bool isToday) {
-    switch (_activeTab) {
-      case 1:
-        return _buildMetricsTab(app, theme, isDark, isToday);
-      case 2:
-        return _buildHabitsTab(app, theme, isDark);
-      case 0:
-      default:
-        return _buildVibeAndNoteTab(theme, isDark);
-    }
-  }
-
-  // ── Tab 0: Vibe & Notes (Tight & Connected) ──
-  Widget _buildVibeAndNoteTab(ThemeData theme, bool isDark) {
-    return Column(
-      key: const ValueKey('tab_vibe'),
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // 5 Mood Emojis
-        Row(
-          children: _moodOptions.map((opt) {
-            final isSelected = _selectedMood == opt['label'];
-            return Expanded(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 2.5),
-                child: GestureDetector(
-                  onTap: () {
-                    HapticFeedback.selectionClick();
-                    setState(() {
-                      _selectedMood = isSelected ? null : opt['label'];
-                    });
-                  },
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 200),
-                    padding: const EdgeInsets.symmetric(vertical: 6),
-                    decoration: BoxDecoration(
-                      color: isSelected
-                          ? (opt['color'] as Color).withValues(alpha: 0.2)
-                          : (isDark ? Colors.white.withValues(alpha: 0.04) : Colors.black.withValues(alpha: 0.04)),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(
-                        color: isSelected
-                            ? (opt['color'] as Color)
-                            : (isDark ? Colors.white.withValues(alpha: 0.08) : Colors.black.withValues(alpha: 0.06)),
-                        width: isSelected ? 1.4 : 1,
-                      ),
-                    ),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(opt['emoji'] as String, style: const TextStyle(fontSize: 16)),
-                        const SizedBox(height: 2),
-                        Text(
-                          opt['label'] as String,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            fontSize: 9,
-                            fontWeight: isSelected ? FontWeight.w800 : FontWeight.w500,
-                            color: isSelected ? (opt['color'] as Color) : theme.colorScheme.onSurfaceVariant,
+              const SizedBox(height: 8),
+              Row(
+                children: _vibeOptions.map((vibe) {
+                  final isSelected = _selectedMood == vibe['label'];
+                  return Expanded(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 3),
+                      child: GestureDetector(
+                        onTap: () {
+                          HapticFeedback.selectionClick();
+                          setState(() {
+                            _selectedMood = isSelected ? null : vibe['label'];
+                          });
+                        },
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 180),
+                          padding: const EdgeInsets.symmetric(vertical: 8),
+                          decoration: BoxDecoration(
+                            color: isSelected
+                                ? (vibe['color'] as Color).withValues(alpha: 0.2)
+                                : (isDark ? Colors.white.withValues(alpha: 0.04) : Colors.black.withValues(alpha: 0.04)),
+                            borderRadius: BorderRadius.circular(14),
+                            border: Border.all(
+                              color: isSelected
+                                  ? (vibe['color'] as Color)
+                                  : (isDark ? Colors.white.withValues(alpha: 0.08) : Colors.black.withValues(alpha: 0.06)),
+                              width: isSelected ? 1.5 : 1,
+                            ),
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Text(vibe['emoji'] as String, style: const TextStyle(fontSize: 14)),
+                              const SizedBox(width: 5),
+                              Text(
+                                vibe['label'] as String,
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
+                                  color: isSelected ? (vibe['color'] as Color) : (isDark ? Colors.white70 : Colors.black87),
+                                ),
+                              ),
+                            ],
                           ),
                         ),
-                      ],
+                      ),
                     ),
-                  ),
-                ),
+                  );
+                }).toList(),
               ),
-            );
-          }).toList(),
-        ),
 
-        const SizedBox(height: 8),
+              const SizedBox(height: 14),
 
-        // Quick Activity Tags
-        SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          child: Row(
-            children: _quickTags.map((tag) {
-              return Padding(
-                padding: const EdgeInsets.only(right: 5),
-                child: ActionChip(
-                  label: Text(tag),
-                  padding: const EdgeInsets.symmetric(horizontal: 4),
-                  labelStyle: TextStyle(
-                    fontSize: 10,
-                    fontWeight: FontWeight.w600,
-                    color: isDark ? Colors.white : Colors.black87,
-                  ),
-                  backgroundColor: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.black.withValues(alpha: 0.05),
-                  side: BorderSide(
-                    color: isDark ? Colors.white.withValues(alpha: 0.08) : Colors.black.withValues(alpha: 0.08),
-                  ),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  onPressed: () => _addTagToNote(tag),
+              // ── Minimalist Note Box ──
+              TextField(
+                controller: _noteController,
+                minLines: 2,
+                maxLines: 4,
+                style: TextStyle(
+                  fontSize: 13,
+                  color: isDark ? Colors.white : Colors.black87,
                 ),
-              );
-            }).toList(),
-          ),
-        ),
-
-        const SizedBox(height: 8),
-
-        // Compact Note Input
-        TextField(
-          controller: _noteController,
-          minLines: 3,
-          maxLines: 4,
-          textAlignVertical: TextAlignVertical.top,
-          style: TextStyle(
-            fontSize: 13,
-            color: isDark ? Colors.white : Colors.black87,
-          ),
-          decoration: InputDecoration(
-            hintText: 'Record PRs, splits, reflections, or reminders...',
-            hintStyle: TextStyle(
-              fontSize: 12,
-              color: isDark ? Colors.white38 : Colors.black38,
-            ),
-            filled: true,
-            fillColor: isDark ? const Color(0xFF141D2B) : const Color(0xFFF1F5F9),
-            contentPadding: const EdgeInsets.all(12),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(14),
-              borderSide: BorderSide.none,
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(14),
-              borderSide: const BorderSide(color: AppColors.voltCyan, width: 1.2),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  // ── Tab 1: Day Metrics Snapshot ──
-  Widget _buildMetricsTab(AppProvider app, ThemeData theme, bool isDark, bool isToday) {
-    return Column(
-      key: const ValueKey('tab_metrics'),
-      children: [
-        Row(
-          children: [
-            _buildMiniMetricCard(
-              icon: LucideIcons.footprints,
-              title: isToday ? '${app.steps}' : '--',
-              subtitle: 'Steps Walked',
-              color: AppColors.voltCyan,
-              isDark: isDark,
-            ),
-            const SizedBox(width: 8),
-            _buildMiniMetricCard(
-              icon: LucideIcons.flame,
-              title: isToday ? '${app.calories} kcal' : '--',
-              subtitle: 'Burned',
-              color: AppColors.solarAmber,
-              isDark: isDark,
-            ),
-          ],
-        ),
-        const SizedBox(height: 8),
-        Row(
-          children: [
-            _buildMiniMetricCard(
-              icon: LucideIcons.droplets,
-              title: isToday ? '${app.waterGlasses} Cups' : '--',
-              subtitle: 'Water Logged',
-              color: const Color(0xFF00B4D8),
-              isDark: isDark,
-            ),
-            const SizedBox(width: 8),
-            _buildMiniMetricCard(
-              icon: LucideIcons.moon,
-              title: isToday ? '${app.sleepHours.toStringAsFixed(1)}h' : '--',
-              subtitle: 'Sleep Quality',
-              color: AppColors.irisViolet,
-              isDark: isDark,
-            ),
-          ],
-        ),
-        const SizedBox(height: 8),
-        Container(
-          width: double.infinity,
-          padding: const EdgeInsets.all(10),
-          decoration: BoxDecoration(
-            color: isDark ? const Color(0xFF141D2B) : const Color(0xFFF1F5F9),
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: Row(
-            children: [
-              const Icon(LucideIcons.sparkles, size: 14, color: AppColors.voltCyan),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  isToday
-                      ? 'Current Streak: ${app.currentStreak} days active!'
-                      : 'Past log record for ${DateFormat('MMMM d').format(_selectedDay)}',
-                  style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
-                    color: isDark ? Colors.white70 : Colors.black87,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-
-  // ── Tab 2: Routine & Habits Checklist ──
-  Widget _buildHabitsTab(AppProvider app, ThemeData theme, bool isDark) {
-    final plans = app.dailyPlans;
-    if (plans.isEmpty) {
-      return Container(
-        key: const ValueKey('tab_habits_empty'),
-        padding: const EdgeInsets.symmetric(vertical: 20),
-        alignment: Alignment.center,
-        child: Column(
-          children: [
-            Icon(LucideIcons.calendarCheck, size: 24, color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.4)),
-            const SizedBox(height: 6),
-            Text(
-              'No custom plans for this day',
-              style: TextStyle(fontSize: 12, color: theme.colorScheme.onSurfaceVariant),
-            ),
-          ],
-        ),
-      );
-    }
-
-    return Column(
-      key: const ValueKey('tab_habits_list'),
-      children: plans.map((plan) {
-        final isDone = plan.isCompleted;
-        return Container(
-          margin: const EdgeInsets.only(bottom: 6),
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-          decoration: BoxDecoration(
-            color: isDark ? const Color(0xFF141D2B) : const Color(0xFFF1F5F9),
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(
-              color: isDone
-                  ? AppColors.voltCyan.withValues(alpha: 0.3)
-                  : (isDark ? Colors.white.withValues(alpha: 0.05) : Colors.black.withValues(alpha: 0.04)),
-            ),
-          ),
-          child: Row(
-            children: [
-              GestureDetector(
-                onTap: () {
-                  HapticFeedback.selectionClick();
-                  app.togglePlanComplete(plan.id);
-                },
-                child: Container(
-                  width: 22,
-                  height: 22,
-                  decoration: BoxDecoration(
-                    color: isDone ? AppColors.voltCyan : Colors.transparent,
-                    borderRadius: BorderRadius.circular(6),
-                    border: Border.all(
-                      color: isDone ? AppColors.voltCyan : theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.4),
-                      width: 1.4,
-                    ),
-                  ),
-                  child: isDone ? const Icon(LucideIcons.check, size: 14, color: Colors.black) : null,
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  plan.title,
-                  style: TextStyle(
+                decoration: InputDecoration(
+                  hintText: 'Add a quick note or reflection for this day...',
+                  hintStyle: TextStyle(
                     fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                    decoration: isDone ? TextDecoration.lineThrough : null,
-                    color: isDone ? theme.colorScheme.onSurfaceVariant : (isDark ? Colors.white : Colors.black87),
+                    color: isDark ? Colors.white38 : Colors.black38,
+                  ),
+                  filled: true,
+                  fillColor: isDark ? const Color(0xFF141D2B) : const Color(0xFFF1F5F9),
+                  contentPadding: const EdgeInsets.all(12),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(16),
+                    borderSide: BorderSide.none,
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(16),
+                    borderSide: const BorderSide(color: AppColors.voltCyan, width: 1.2),
                   ),
                 ),
               ),
-              Text(
-                plan.duration,
-                style: TextStyle(fontSize: 10, color: theme.colorScheme.onSurfaceVariant),
+
+              const SizedBox(height: 14),
+
+              // ── Save Button ──
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: _isSaving ? null : _saveDayLog,
+                  icon: _isSaving
+                      ? const SizedBox(
+                          height: 14,
+                          width: 14,
+                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.black),
+                        )
+                      : const Icon(LucideIcons.check, size: 16),
+                  label: Text(
+                    _isSaving ? 'Saving...' : 'Save for ${DateFormat('MMM d').format(_selectedDay)}',
+                    style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.voltCyan,
+                    foregroundColor: Colors.black,
+                    padding: const EdgeInsets.symmetric(vertical: 13),
+                    elevation: 0,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                  ),
+                ),
               ),
+              const SizedBox(height: 8),
             ],
           ),
-        );
-      }).toList(),
+        ),
+      ),
     );
   }
 
-  // ── Mini Metric Card Helper ──
-  Widget _buildMiniMetricCard({
+  Widget _buildMetricPill({
     required IconData icon,
-    required String title,
-    required String subtitle,
+    required String label,
     required Color color,
     required bool isDark,
   }) {
-    return Expanded(
-      child: Container(
-        padding: const EdgeInsets.all(10),
-        decoration: BoxDecoration(
-          color: isDark ? const Color(0xFF141D2B) : const Color(0xFFF1F5F9),
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(
-            color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.black.withValues(alpha: 0.05),
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 11, color: color),
+          const SizedBox(width: 4),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 10.5,
+              fontWeight: FontWeight.w700,
+              color: color,
+            ),
           ),
-        ),
-        child: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(6),
-              decoration: BoxDecoration(
-                color: color.withValues(alpha: 0.15),
-                shape: BoxShape.circle,
-              ),
-              child: Icon(icon, size: 14, color: color),
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w800,
-                      color: isDark ? Colors.white : Colors.black87,
-                    ),
-                  ),
-                  Text(
-                    subtitle,
-                    style: TextStyle(
-                      fontSize: 10,
-                      color: isDark ? Colors.white54 : Colors.black54,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
+        ],
       ),
     );
   }
