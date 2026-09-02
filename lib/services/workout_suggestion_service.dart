@@ -34,7 +34,7 @@ class WorkoutPlanSuggestionService {
         optimalWindow: '06:00 AM – 07:30 AM',
         secondaryWindow: '07:00 PM – 08:30 PM',
         scienceReason: 'Avoid peak solar radiation & heat exhaustion (>30°C)',
-        quickTip: 'Early morning or post-sunset provides the safest thermoregulation',
+        quickTip: 'Early morning or post-sunset avoids peak heat & UV stress',
         icon: LucideIcons.sunMedium,
       );
     }
@@ -44,7 +44,7 @@ class WorkoutPlanSuggestionService {
         optimalWindow: '05:30 PM – 07:30 PM',
         secondaryWindow: '06:00 AM – 08:00 AM',
         scienceReason: 'Core body temperature & lung capacity peak in late afternoon for max speed',
-        quickTip: '05:30 PM – 07:30 PM: Lowest perceived exertion & highest VO2 efficiency',
+        quickTip: 'Peak core temperature & lung capacity for speed and endurance',
         icon: LucideIcons.flame,
       );
     } else if (normalized.contains('gym') || normalized.contains('strength') || normalized.contains('hiit') || normalized.contains('workout')) {
@@ -52,7 +52,7 @@ class WorkoutPlanSuggestionService {
         optimalWindow: '04:00 PM – 07:00 PM',
         secondaryWindow: '08:30 AM – 10:30 AM',
         scienceReason: 'Optimal testosterone/cortisol ratio and highest peak muscle torque',
-        quickTip: 'Late afternoon sessions generate 5–10% higher maximal lifting strength',
+        quickTip: 'Peak testosterone ratio & maximum muscle torque for lifting',
         icon: LucideIcons.dumbbell,
       );
     } else if (normalized.contains('yoga') || normalized.contains('stretch') || normalized.contains('meditat')) {
@@ -60,7 +60,7 @@ class WorkoutPlanSuggestionService {
         optimalWindow: '06:00 AM – 07:30 AM',
         secondaryWindow: '08:30 PM – 10:00 PM',
         scienceReason: 'Enhances parasympathetic tone, morning mobility, and nighttime deep sleep',
-        quickTip: 'Sunrise releases overnight joint stiffness; evening lowers cortisol before bed',
+        quickTip: 'Enhances joint mobility & lowers cortisol before rest',
         icon: LucideIcons.sparkles,
       );
     } else if (normalized.contains('walk')) {
@@ -68,7 +68,7 @@ class WorkoutPlanSuggestionService {
         optimalWindow: '06:30 AM – 08:30 AM',
         secondaryWindow: '06:00 PM – 08:00 PM',
         scienceReason: 'Aids metabolic circadian sync and accelerates post-meal glucose clearing',
-        quickTip: 'Post-dinner walk prevents blood sugar spikes and aids digestion',
+        quickTip: 'Post-meal walking accelerates glucose clearing & aids digestion',
         icon: LucideIcons.footprints,
       );
     } else if (normalized.contains('cycle') || normalized.contains('bike')) {
@@ -76,7 +76,7 @@ class WorkoutPlanSuggestionService {
         optimalWindow: '06:00 AM – 08:30 AM',
         secondaryWindow: '05:00 PM – 07:00 PM',
         scienceReason: 'Optimal cardiovascular output with cooler ambient air and lower traffic',
-        quickTip: 'Early morning offers cleaner air quality and safer road conditions',
+        quickTip: 'Cooler air, lower traffic, and peak aerobic endurance',
         icon: LucideIcons.bike,
       );
     } else if (normalized.contains('swim')) {
@@ -84,7 +84,7 @@ class WorkoutPlanSuggestionService {
         optimalWindow: '07:00 AM – 09:30 AM',
         secondaryWindow: '05:30 PM – 07:30 PM',
         scienceReason: 'Low-impact cardiovascular activation and optimal pulmonary expansion',
-        quickTip: 'Mid-morning or early evening provides ideal water temperature and muscle warm-up',
+        quickTip: 'Ideal pool temperature and full-body low-impact cardio',
         icon: LucideIcons.waves,
       );
     }
@@ -93,7 +93,7 @@ class WorkoutPlanSuggestionService {
       optimalWindow: '07:00 AM – 09:00 AM',
       secondaryWindow: '05:30 PM – 07:30 PM',
       scienceReason: 'Aligns with human circadian alertness and core muscle flexibility',
-      quickTip: 'Consistent timing every day produces the fastest physiological adaptations',
+      quickTip: 'Peak daily alertness and balanced physical readiness',
       icon: LucideIcons.clock,
     );
   }
