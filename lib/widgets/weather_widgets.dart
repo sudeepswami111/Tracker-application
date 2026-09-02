@@ -182,7 +182,7 @@ class _DashboardWeatherSectionState extends State<DashboardWeatherSection>
                 ),
                 const SizedBox(width: 8),
                 Text(
-                  "7-Day Forecast",
+                  "7-Day Biomet Forecast",
                   style: GoogleFonts.inter(
                     fontSize: 16,
                     fontWeight: FontWeight.w800,
@@ -205,7 +205,7 @@ class _DashboardWeatherSectionState extends State<DashboardWeatherSection>
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
-                    'View All',
+                    'Full Deck',
                     style: GoogleFonts.inter(
                       color: AppColors.voltCyan,
                       fontSize: 12,
@@ -220,7 +220,7 @@ class _DashboardWeatherSectionState extends State<DashboardWeatherSection>
           ],
         ),
         const SizedBox(height: AppSpacing.sm),
-        _buildForecastList(weather, theme, isDark),
+        _buildForecastRunway(context, weather, theme, isDark),
       ],
     );
   }
@@ -319,7 +319,7 @@ class _DashboardWeatherSectionState extends State<DashboardWeatherSection>
     );
   }
 
-  IconData _getIcon(String cond, {bool isDay = true}) {
+  static IconData getConditionIcon(String cond, {bool isDay = true}) {
     final c = cond.toLowerCase();
     if (c.contains('thunder') || c.contains('lightning')) return LucideIcons.cloudLightning;
     if (c.contains('blizzard') || c.contains('sleet') || c.contains('ice pellet')) return LucideIcons.snowflake;
@@ -526,7 +526,7 @@ class _DashboardWeatherSectionState extends State<DashboardWeatherSection>
                                       shape: BoxShape.circle,
                                     ),
                                     child: Icon(
-                                      _getIcon(weather.condition, isDay: weather.isDay),
+                                      getConditionIcon(weather.condition, isDay: weather.isDay),
                                       size: 22,
                                       color: AppColors.voltCyan,
                                     ),
@@ -994,118 +994,433 @@ class _DashboardWeatherSectionState extends State<DashboardWeatherSection>
     );
   }
 
-  Widget _buildForecastList(WeatherModel weather, ThemeData theme, bool isDark) {
+  // ── Redesigned Interactive 7-Day Forecast Runway ──
+  Widget _buildForecastRunway(BuildContext context, WeatherModel weather, ThemeData theme, bool isDark) {
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
-      clipBehavior: Clip.hardEdge,
+      physics: const BouncingScrollPhysics(),
       child: Row(
-        children: weather.daily.take(4).map((day) {
+        children: weather.daily.asMap().entries.map((entry) {
+          final index = entry.key;
+          final day = entry.value;
+          final isToday = index == 0;
+          final isTomorrow = index == 1;
+
           String fitnessPlan = WeatherFitnessService.getDailyFitnessPlan(day);
-          Color badgeColor = AppColors.primary;
+          Color badgeColor;
+          IconData planIcon;
+
           if (fitnessPlan == 'Avoid Outdoor') {
             badgeColor = const Color(0xFFFF4D6D);
+            planIcon = LucideIcons.shieldAlert;
           } else if (fitnessPlan == 'Indoor Strength' || fitnessPlan == 'Recovery Day') {
             badgeColor = const Color(0xFFF59E0B);
+            planIcon = LucideIcons.dumbbell;
           } else if (fitnessPlan == 'Best for Run' || fitnessPlan == 'Swim Day') {
             badgeColor = AppColors.voltCyan;
+            planIcon = fitnessPlan == 'Swim Day' ? LucideIcons.waves : LucideIcons.zap;
           } else {
             badgeColor = const Color(0xFF22C55E);
+            planIcon = LucideIcons.activity;
           }
 
-          return Container(
-            width: 108,
-            margin: const EdgeInsets.only(right: AppSpacing.sm),
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
-            decoration: BoxDecoration(
-              color: isDark ? const Color(0xFF0F1729) : Colors.white,
-              borderRadius: BorderRadius.circular(18),
-              border: Border.all(
-                color: isDark ? Colors.white.withValues(alpha: 0.06) : Colors.black.withValues(alpha: 0.06),
-                width: 1,
+          final dayLabel = isToday
+              ? 'TODAY'
+              : (isTomorrow ? 'TMRW' : DateFormat('EEE').format(day.date).toUpperCase());
+          final dateNumber = DateFormat('d MMM').format(day.date);
+
+          return GestureDetector(
+            onTap: () => _showDayDetailSheet(context, day, fitnessPlan, badgeColor, isDark),
+            child: Container(
+              width: 122,
+              margin: const EdgeInsets.only(right: 12, top: 4, bottom: 6),
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(22),
+                gradient: isDark
+                    ? LinearGradient(
+                        colors: isToday
+                            ? [const Color(0xFF131F3A), const Color(0xFF0C1426)]
+                            : [const Color(0xFF0F1729), const Color(0xFF0A0F1D)],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      )
+                    : LinearGradient(
+                        colors: isToday
+                            ? [const Color(0xFFEFF6FF), const Color(0xFFDBEAFE)]
+                            : [Colors.white, const Color(0xFFF8FAFC)],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                border: Border.all(
+                  color: isToday
+                      ? AppColors.voltCyan.withValues(alpha: 0.5)
+                      : (isDark ? Colors.white.withValues(alpha: 0.07) : Colors.black.withValues(alpha: 0.07)),
+                  width: isToday ? 1.5 : 1.0,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: isToday
+                        ? AppColors.voltCyan.withValues(alpha: isDark ? 0.12 : 0.18)
+                        : Colors.black.withValues(alpha: isDark ? 0.1 : 0.04),
+                    blurRadius: isToday ? 14 : 6,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
               ),
-              boxShadow: isDark
-                  ? []
-                  : [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.03),
-                        blurRadius: 6,
-                        offset: const Offset(0, 3),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // 1. Day Tag & Date
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        dayLabel,
+                        style: GoogleFonts.inter(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: 1.0,
+                          color: isToday ? AppColors.voltCyan : (isDark ? Colors.white70 : Colors.black87),
+                        ),
+                      ),
+                      Text(
+                        dateNumber,
+                        style: GoogleFonts.inter(
+                          fontSize: 9,
+                          fontWeight: FontWeight.w600,
+                          color: isDark ? Colors.white38 : Colors.black45,
+                        ),
                       ),
                     ],
+                  ),
+
+                  const SizedBox(height: 10),
+
+                  // 2. Glowing Weather Icon
+                  Container(
+                    width: 44,
+                    height: 44,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: badgeColor.withValues(alpha: 0.12),
+                      border: Border.all(
+                        color: badgeColor.withValues(alpha: 0.25),
+                        width: 1,
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: badgeColor.withValues(alpha: 0.2),
+                          blurRadius: 10,
+                        ),
+                      ],
+                    ),
+                    child: Icon(
+                      getConditionIcon(day.condition),
+                      size: 22,
+                      color: badgeColor,
+                    ),
+                  ),
+
+                  const SizedBox(height: 10),
+
+                  // 3. Thermal Bar & Range
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(
+                        '${day.maxTemp.round()}°',
+                        style: GoogleFonts.inter(
+                          fontWeight: FontWeight.w900,
+                          fontSize: 14,
+                          color: isDark ? Colors.white : Colors.black87,
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        '/',
+                        style: TextStyle(
+                          color: isDark ? Colors.white30 : Colors.black26,
+                          fontSize: 11,
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        '${day.minTemp.round()}°',
+                        style: GoogleFonts.inter(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 12,
+                          color: isDark ? Colors.white54 : Colors.black54,
+                        ),
+                      ),
+                    ],
+                  ),
+
+                  const SizedBox(height: 6),
+
+                  // Thermal gradient visual micro-bar
+                  Container(
+                    height: 4,
+                    width: double.infinity,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(2),
+                      gradient: LinearGradient(
+                        colors: [
+                          const Color(0xFF38BDF8),
+                          badgeColor,
+                        ],
+                      ),
+                    ),
+                  ),
+
+                  const SizedBox(height: 8),
+
+                  // 4. Precipitation Risk Pill
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: isDark ? Colors.white.withValues(alpha: 0.04) : Colors.black.withValues(alpha: 0.03),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(LucideIcons.droplets, size: 10, color: AppColors.voltCyan),
+                        const SizedBox(width: 4),
+                        Text(
+                          '${day.precipitationProbabilityMax.round()}% Rain',
+                          style: GoogleFonts.inter(
+                            color: AppColors.voltCyan,
+                            fontSize: 9,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  const SizedBox(height: 10),
+
+                  // 5. Athletic Protocol Pill
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 5),
+                    width: double.infinity,
+                    decoration: BoxDecoration(
+                      color: badgeColor.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: badgeColor.withValues(alpha: 0.35)),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(planIcon, size: 10, color: badgeColor),
+                        const SizedBox(width: 4),
+                        Flexible(
+                          child: Text(
+                            fitnessPlan,
+                            style: GoogleFonts.inter(
+                              color: badgeColor,
+                              fontSize: 9,
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: 0.3,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
             ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  DateFormat('EEE').format(day.date).toUpperCase(),
-                  style: GoogleFonts.inter(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: 1.0,
-                    color: isDark ? Colors.white70 : Colors.black87,
+          );
+        }).toList(),
+      ),
+    );
+  }
+
+  void _showDayDetailSheet(BuildContext context, DailyForecast day, String fitnessPlan, Color badgeColor, bool isDark) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: isDark ? const Color(0xFF0F1729) : Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+      ),
+      builder: (context) {
+        return Padding(
+          padding: const EdgeInsets.all(AppSpacing.xl),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        DateFormat('EEEE, MMMM d').format(day.date),
+                        style: GoogleFonts.inter(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w800,
+                          color: isDark ? Colors.white : Colors.black87,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        day.condition,
+                        style: GoogleFonts.inter(
+                          fontSize: 13,
+                          color: isDark ? Colors.white60 : Colors.black54,
+                        ),
+                      ),
+                    ],
                   ),
-                ),
-                const SizedBox(height: 8),
-                Container(
-                  padding: const EdgeInsets.all(7),
-                  decoration: BoxDecoration(
-                    color: badgeColor.withValues(alpha: 0.12),
-                    shape: BoxShape.circle,
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: badgeColor.withValues(alpha: 0.15),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(getConditionIcon(day.condition), size: 24, color: badgeColor),
                   ),
-                  child: Icon(_getIcon(day.condition), size: 18, color: badgeColor),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  '${day.maxTemp.round()}° / ${day.minTemp.round()}°',
-                  style: GoogleFonts.inter(
-                    fontWeight: FontWeight.w700,
-                    fontSize: 12,
-                    color: isDark ? Colors.white : Colors.black87,
+                ],
+              ),
+
+              const SizedBox(height: 18),
+
+              // Metric HUD matrix
+              Row(
+                children: [
+                  Expanded(
+                    child: _buildDetailTile(
+                      'HIGH / LOW',
+                      '${day.maxTemp.round()}° / ${day.minTemp.round()}°',
+                      LucideIcons.thermometer,
+                      AppColors.solarAmber,
+                      isDark,
+                    ),
                   ),
-                  maxLines: 1,
-                ),
-                const SizedBox(height: 3),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const Icon(LucideIcons.droplets, size: 10, color: AppColors.voltCyan),
-                    const SizedBox(width: 3),
-                    Text(
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: _buildDetailTile(
+                      'PRECIPITATION',
                       '${day.precipitationProbabilityMax.round()}%',
-                      style: GoogleFonts.inter(
-                        color: AppColors.voltCyan,
-                        fontSize: 10,
-                        fontWeight: FontWeight.w700,
+                      LucideIcons.cloudRain,
+                      AppColors.voltCyan,
+                      isDark,
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: _buildDetailTile(
+                      'UV INDEX',
+                      '${day.uvIndexMax.round()}',
+                      LucideIcons.sun,
+                      const Color(0xFFF59E0B),
+                      isDark,
+                    ),
+                  ),
+                ],
+              ),
+
+              const SizedBox(height: 16),
+
+              Text(
+                'AI ATHLETIC RECOMMENDATION',
+                style: GoogleFonts.inter(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 1.2,
+                  color: isDark ? Colors.white38 : Colors.black45,
+                ),
+              ),
+              const SizedBox(height: 6),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: badgeColor.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: badgeColor.withValues(alpha: 0.3)),
+                ),
+                child: Row(
+                  children: [
+                    Icon(LucideIcons.sparkles, size: 16, color: badgeColor),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        '$fitnessPlan — Optimal conditions for this day\'s training window.',
+                        style: GoogleFonts.inter(
+                          color: badgeColor,
+                          fontWeight: FontWeight.w700,
+                          fontSize: 12,
+                        ),
                       ),
                     ),
                   ],
                 ),
-                const SizedBox(height: 10),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
-                  width: double.infinity,
-                  decoration: BoxDecoration(
-                    color: badgeColor.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(6),
-                    border: Border.all(color: badgeColor.withValues(alpha: 0.3)),
+              ),
+
+              const SizedBox(height: 24),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: () => Navigator.pop(context),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.voltCyan,
+                    foregroundColor: Colors.black,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                   ),
-                  alignment: Alignment.center,
                   child: Text(
-                    fitnessPlan,
-                    style: GoogleFonts.inter(
-                      color: badgeColor,
-                      fontSize: 8,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: 0.4,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
+                    'CLOSE PROTOCOL',
+                    style: GoogleFonts.inter(fontWeight: FontWeight.w800, fontSize: 13),
                   ),
                 ),
-              ],
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildDetailTile(String label, String value, IconData icon, Color color, bool isDark) {
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 10),
+      decoration: BoxDecoration(
+        color: isDark ? Colors.white.withValues(alpha: 0.04) : Colors.black.withValues(alpha: 0.03),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: isDark ? Colors.white.withValues(alpha: 0.06) : Colors.black.withValues(alpha: 0.06),
+        ),
+      ),
+      child: Column(
+        children: [
+          Icon(icon, size: 16, color: color),
+          const SizedBox(height: 6),
+          Text(
+            value,
+            style: GoogleFonts.inter(
+              fontWeight: FontWeight.w800,
+              fontSize: 13,
+              color: isDark ? Colors.white : Colors.black87,
             ),
-          );
-        }).toList(),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            label,
+            style: GoogleFonts.inter(
+              fontSize: 8,
+              fontWeight: FontWeight.w700,
+              color: isDark ? Colors.white38 : Colors.black45,
+            ),
+          ),
+        ],
       ),
     );
   }
