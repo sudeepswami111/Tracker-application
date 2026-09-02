@@ -11,7 +11,7 @@ import '../providers/app_provider.dart';
 import '../providers/workout_session_provider.dart';
 import '../services/plan_readiness_service.dart';
 import '../services/plan_recommendation_service.dart';
-import '../services/workout_plan_suggestion_service.dart';
+import '../services/workout_suggestion_service.dart';
 import '../services/workout_start_router.dart';
 import '../theme/app_colors.dart';
 import 'workout_phase_details_sheet.dart';
