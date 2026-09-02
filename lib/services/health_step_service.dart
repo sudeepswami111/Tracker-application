@@ -69,8 +69,15 @@ class HealthStepService {
       _isConfigured = true;
       try {
         final status = await _health.getHealthConnectSdkStatus();
-        _isHealthConnectAvailable = (status == HealthConnectSdkStatus.sdkAvailable);
-      } catch (_) {
+        debugPrint('[HealthStepService] HC SDK status: $status');
+        // On Android 14+ HC is built-in — sdkAvailable or sdkNotSupported are both valid outcomes.
+        // We treat anything except sdkUnavailable as "available enough to try".
+        _isHealthConnectAvailable =
+            status != HealthConnectSdkStatus.sdkNotSupported;
+      } catch (e) {
+        // If the SDK status API itself fails (e.g. on very old Android), assume available and let
+        // the permission request determine the real outcome.
+        debugPrint('[HealthStepService] HC SDK status check error (treating as available): $e');
         _isHealthConnectAvailable = true;
       }
     } catch (e) {
