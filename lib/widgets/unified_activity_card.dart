@@ -270,6 +270,7 @@ class _UnifiedActivityCardState extends State<UnifiedActivityCard>
                               ),
                             ),
                             const SizedBox(height: 4),
+                            // Odometer-style rolling number
                             AnimatedBuilder(
                               animation: _shimmerAnim,
                               builder: (context, _) {
@@ -286,14 +287,11 @@ class _UnifiedActivityCardState extends State<UnifiedActivityCard>
                                       (_shimmerAnim.value + 0.3).clamp(0.0, 1.0),
                                     ],
                                   ).createShader(bounds),
-                                  child: Text(
-                                    widget.steps.toString(),
-                                    style: GoogleFonts.inter(
-                                      fontSize: 36,
-                                      fontWeight: FontWeight.w900,
-                                      color: Colors.white,
-                                      height: 1,
-                                    ),
+                                  child: _RollingNumber(
+                                    value: widget.steps,
+                                    fontSize: 36,
+                                    fontWeight: FontWeight.w900,
+                                    color: Colors.white,
                                   ),
                                 );
                               },
@@ -643,4 +641,147 @@ class _OrbitalRingPainter extends CustomPainter {
       oldDelegate.progress != progress ||
       oldDelegate.pulse != pulse ||
       oldDelegate.isDark != isDark;
+}
+
+// ── Odometer-style rolling number ──────────────────────────────────────────
+
+/// Renders each digit in a vertically scrolling column, like a slot machine.
+/// Only the digits that change animate; stable digits stay still.
+class _RollingNumber extends StatelessWidget {
+  final int value;
+  final double fontSize;
+  final FontWeight fontWeight;
+  final Color color;
+
+  const _RollingNumber({
+    required this.value,
+    required this.fontSize,
+    required this.fontWeight,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final digits = value.toString().split('');
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.end,
+      children: digits.map((d) {
+        return _RollingDigit(
+          digit: int.parse(d),
+          fontSize: fontSize,
+          fontWeight: fontWeight,
+          color: color,
+        );
+      }).toList(),
+    );
+  }
+}
+
+/// A single digit that animates vertically between 0–9 like an odometer.
+class _RollingDigit extends StatefulWidget {
+  final int digit;
+  final double fontSize;
+  final FontWeight fontWeight;
+  final Color color;
+
+  const _RollingDigit({
+    required this.digit,
+    required this.fontSize,
+    required this.fontWeight,
+    required this.color,
+  });
+
+  @override
+  State<_RollingDigit> createState() => _RollingDigitState();
+}
+
+class _RollingDigitState extends State<_RollingDigit>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _ctrl;
+  late Animation<double> _anim;
+  int _oldDigit = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _oldDigit = widget.digit;
+    _ctrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 400),
+    );
+    _anim = CurvedAnimation(parent: _ctrl, curve: Curves.easeOutCubic);
+  }
+
+  @override
+  void didUpdateWidget(_RollingDigit old) {
+    super.didUpdateWidget(old);
+    if (old.digit != widget.digit) {
+      _oldDigit = old.digit;
+      _ctrl.forward(from: 0);
+    }
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final h = widget.fontSize * 1.15;
+    return SizedBox(
+      height: h,
+      child: ClipRect(
+        child: AnimatedBuilder(
+          animation: _anim,
+          builder: (context, _) {
+            // Animate from _oldDigit to widget.digit by sliding up
+            final t = _anim.value;
+            // offset: 0 = showing oldDigit, 1 = showing newDigit
+            // We shift upward: negative dy means move up
+            final dy = -t * h;
+
+            return Stack(
+              clipBehavior: Clip.hardEdge,
+              children: [
+                // Old digit sliding out (moving up)
+                Transform.translate(
+                  offset: Offset(0, dy),
+                  child: SizedBox(
+                    height: h,
+                    child: _digitText(_oldDigit, h),
+                  ),
+                ),
+                // New digit sliding in (comes from below)
+                Transform.translate(
+                  offset: Offset(0, h + dy),
+                  child: SizedBox(
+                    height: h,
+                    child: _digitText(widget.digit, h),
+                  ),
+                ),
+              ],
+            );
+          },
+        ),
+      ),
+    );
+  }
+
+  Widget _digitText(int d, double h) {
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: Text(
+        '$d',
+        style: GoogleFonts.inter(
+          fontSize: widget.fontSize,
+          fontWeight: widget.fontWeight,
+          color: widget.color,
+          height: 1.15,
+        ),
+      ),
+    );
+  }
 }
