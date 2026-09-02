@@ -1,4 +1,4 @@
-﻿import 'dart:io';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
@@ -9,6 +9,7 @@ import '../providers/app_provider.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_spacing.dart';
 import '../constants/activity_types.dart';
+import '../services/workout_suggestion_service.dart';
 
 class AddPlanSheet extends StatefulWidget {
   const AddPlanSheet({super.key});
@@ -326,6 +327,80 @@ class _AddPlanSheetState extends State<AddPlanSheet> {
                   );
                 }).toList(),
               ),
+            ),
+            const SizedBox(height: 12),
+
+            // ── AI Coach Best Time Suggestion Banner ──
+            Builder(
+              builder: (context) {
+                final timeRec = WorkoutPlanSuggestionService.getOptimalTimeRecommendation(_selectedActivity);
+                final isDark = theme.brightness == Brightness.dark;
+                return Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: isDark ? const Color(0xFF131D2D) : const Color(0xFFF0F9FF),
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(
+                      color: AppColors.voltCyan.withValues(alpha: 0.25),
+                      width: 1,
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(7),
+                        decoration: BoxDecoration(
+                          color: AppColors.voltCyan.withValues(alpha: 0.15),
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(timeRec.icon, color: AppColors.voltCyan, size: 15),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                const Text(
+                                  'BEST TIME WINDOW: ',
+                                  style: TextStyle(
+                                    fontSize: 9.5,
+                                    fontWeight: FontWeight.w900,
+                                    color: AppColors.voltCyan,
+                                    letterSpacing: 0.5,
+                                  ),
+                                ),
+                                Expanded(
+                                  child: Text(
+                                    timeRec.optimalWindow,
+                                    style: TextStyle(
+                                      fontSize: 11.5,
+                                      fontWeight: FontWeight.w800,
+                                      color: isDark ? Colors.white : Colors.black87,
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              timeRec.quickTip,
+                              style: TextStyle(
+                                fontSize: 10,
+                                color: isDark ? Colors.white70 : Colors.black87,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              },
             ),
             const SizedBox(height: AppSpacing.md),
 

@@ -412,8 +412,89 @@ class SmartTodayPlanCard extends StatelessWidget {
                     ),
                   ),
 
+                  // ── 3.5. Smart Optimal Time Window Capsule ──
+                  if (!isCompleted) ...[
+                    const SizedBox(height: 12),
+                    Builder(
+                      builder: (context) {
+                        final timeRec = WorkoutPlanSuggestionService.getOptimalTimeRecommendation(
+                          plan.type,
+                          currentTemp: weather?.currentTemp,
+                          isRainy: weather?.condition.toLowerCase().contains('rain') ?? false,
+                        );
+                        return Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+                          decoration: BoxDecoration(
+                            color: isDark ? const Color(0xFF131D2D) : const Color(0xFFF0F9FF),
+                            borderRadius: BorderRadius.circular(14),
+                            border: Border.all(
+                              color: AppColors.voltCyan.withValues(alpha: 0.25),
+                              width: 1,
+                            ),
+                          ),
+                          child: Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(6),
+                                decoration: BoxDecoration(
+                                  color: AppColors.voltCyan.withValues(alpha: 0.15),
+                                  shape: BoxShape.circle,
+                                ),
+                                child: Icon(timeRec.icon, size: 14, color: AppColors.voltCyan),
+                              ),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Row(
+                                      children: [
+                                        const Text(
+                                          'OPTIMAL TIME: ',
+                                          style: TextStyle(
+                                            fontSize: 9.5,
+                                            fontWeight: FontWeight.w900,
+                                            letterSpacing: 0.5,
+                                            color: AppColors.voltCyan,
+                                          ),
+                                        ),
+                                        Expanded(
+                                          child: Text(
+                                            timeRec.optimalWindow,
+                                            style: TextStyle(
+                                              fontSize: 11,
+                                              fontWeight: FontWeight.w800,
+                                              color: isDark ? Colors.white : Colors.black87,
+                                            ),
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      timeRec.quickTip,
+                                      style: TextStyle(
+                                        fontSize: 10,
+                                        color: isDark ? Colors.white60 : Colors.black54,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
+                  ],
+
                   if (!isCompleted && phases.length >= 3) ...[
-                    const SizedBox(height: 14),
+                    const SizedBox(height: 12),
 
                     // ── 4. Unified Phase Stepper Runway ──
                     Container(
