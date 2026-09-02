@@ -316,16 +316,20 @@ class _SmartCalendarSheetState extends State<SmartCalendarSheet> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              Text(
-                                DateFormat('EEEE, d MMMM').format(_selectedDay),
-                                style: const TextStyle(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w800,
+                              Expanded(
+                                child: Text(
+                                  DateFormat('EEE, d MMMM').format(_selectedDay),
+                                  style: const TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w800,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
                                 ),
                               ),
-                              if (isToday)
+                              if (isToday) ...[
+                                const SizedBox(width: 6),
                                 Container(
                                   padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                                   decoration: BoxDecoration(
@@ -341,25 +345,30 @@ class _SmartCalendarSheetState extends State<SmartCalendarSheet> {
                                     ),
                                   ),
                                 ),
+                              ],
                             ],
                           ),
                           const SizedBox(height: 6),
-                          Row(
-                            children: [
-                              _buildMetricPill(
-                                icon: LucideIcons.footprints,
-                                label: isToday ? '${app.steps} steps' : 'Log active',
-                                color: AppColors.voltCyan,
-                                isDark: isDark,
-                              ),
-                              const SizedBox(width: 8),
-                              _buildMetricPill(
-                                icon: LucideIcons.droplets,
-                                label: isToday ? '${app.waterGlasses}/8 cups' : 'Hydrated',
-                                color: const Color(0xFF00B4D8),
-                                isDark: isDark,
-                              ),
-                            ],
+                          SingleChildScrollView(
+                            scrollDirection: Axis.horizontal,
+                            physics: const BouncingScrollPhysics(),
+                            child: Row(
+                              children: [
+                                _buildMetricPill(
+                                  icon: LucideIcons.footprints,
+                                  label: isToday ? '${app.steps} steps' : 'Log active',
+                                  color: AppColors.voltCyan,
+                                  isDark: isDark,
+                                ),
+                                const SizedBox(width: 6),
+                                _buildMetricPill(
+                                  icon: LucideIcons.droplets,
+                                  label: isToday ? '${app.waterGlasses}/8 cups' : 'Hydrated',
+                                  color: const Color(0xFF00B4D8),
+                                  isDark: isDark,
+                                ),
+                              ],
+                            ),
                           ),
                         ],
                       ),
