@@ -14,6 +14,23 @@ import '../theme/app_spacing.dart';
 class DashboardWeatherSection extends StatefulWidget {
   const DashboardWeatherSection({super.key});
 
+  static IconData getConditionIcon(String cond, {bool isDay = true}) {
+    final c = cond.toLowerCase();
+    if (c.contains('thunder') || c.contains('lightning')) return LucideIcons.cloudLightning;
+    if (c.contains('blizzard') || c.contains('sleet') || c.contains('ice pellet')) return LucideIcons.snowflake;
+    if (c.contains('snow') || c.contains('flurr')) return LucideIcons.snowflake;
+    if (c.contains('drizzle')) return LucideIcons.cloudDrizzle;
+    if (c.contains('shower') || c.contains('rain')) return LucideIcons.cloudRain;
+    if (c.contains('fog') || c.contains('mist') || c.contains('freezing fog')) return LucideIcons.cloudFog;
+    if (c.contains('haz') || c.contains('smoke') || c.contains('dust') || c.contains('sand')) return LucideIcons.cloudFog;
+    if (c.contains('overcast')) return LucideIcons.cloud;
+    if (c.contains('cloud') || c.contains('partly') || c.contains('mostly')) {
+      return isDay ? LucideIcons.cloudSun : LucideIcons.cloudMoon;
+    }
+    if (c.contains('clear') || c.contains('sunny')) return isDay ? LucideIcons.sun : LucideIcons.moon;
+    return isDay ? LucideIcons.sun : LucideIcons.moon;
+  }
+
   @override
   State<DashboardWeatherSection> createState() => _DashboardWeatherSectionState();
 }
@@ -319,23 +336,6 @@ class _DashboardWeatherSectionState extends State<DashboardWeatherSection>
     );
   }
 
-  static IconData getConditionIcon(String cond, {bool isDay = true}) {
-    final c = cond.toLowerCase();
-    if (c.contains('thunder') || c.contains('lightning')) return LucideIcons.cloudLightning;
-    if (c.contains('blizzard') || c.contains('sleet') || c.contains('ice pellet')) return LucideIcons.snowflake;
-    if (c.contains('snow') || c.contains('flurr')) return LucideIcons.snowflake;
-    if (c.contains('drizzle')) return LucideIcons.cloudDrizzle;
-    if (c.contains('shower') || c.contains('rain')) return LucideIcons.cloudRain;
-    if (c.contains('fog') || c.contains('mist') || c.contains('freezing fog')) return LucideIcons.cloudFog;
-    if (c.contains('haz') || c.contains('smoke') || c.contains('dust') || c.contains('sand')) return LucideIcons.cloudFog;
-    if (c.contains('overcast')) return LucideIcons.cloud;
-    if (c.contains('cloud') || c.contains('partly') || c.contains('mostly')) {
-      return isDay ? LucideIcons.cloudSun : LucideIcons.cloudMoon;
-    }
-    if (c.contains('clear') || c.contains('sunny')) return isDay ? LucideIcons.sun : LucideIcons.moon;
-    return isDay ? LucideIcons.sun : LucideIcons.moon;
-  }
-
   Widget _buildWeatherInsightCard(BuildContext context, WeatherModel weather, ThemeData theme, bool isDark) {
     final fitnessScore = WeatherFitnessService.calculateReadiness(weather);
     final bestWindow = WeatherFitnessService.getBestWorkoutWindow(weather.hourly);
@@ -526,7 +526,7 @@ class _DashboardWeatherSectionState extends State<DashboardWeatherSection>
                                       shape: BoxShape.circle,
                                     ),
                                     child: Icon(
-                                      getConditionIcon(weather.condition, isDay: weather.isDay),
+                                      DashboardWeatherSection.getConditionIcon(weather.condition, isDay: weather.isDay),
                                       size: 22,
                                       color: AppColors.voltCyan,
                                     ),
@@ -1116,7 +1116,7 @@ class _DashboardWeatherSectionState extends State<DashboardWeatherSection>
                       ],
                     ),
                     child: Icon(
-                      getConditionIcon(day.condition),
+                      DashboardWeatherSection.getConditionIcon(day.condition),
                       size: 22,
                       color: badgeColor,
                     ),
@@ -1285,7 +1285,7 @@ class _DashboardWeatherSectionState extends State<DashboardWeatherSection>
                       color: badgeColor.withValues(alpha: 0.15),
                       shape: BoxShape.circle,
                     ),
-                    child: Icon(getConditionIcon(day.condition), size: 24, color: badgeColor),
+                    child: Icon(DashboardWeatherSection.getConditionIcon(day.condition), size: 24, color: badgeColor),
                   ),
                 ],
               ),
