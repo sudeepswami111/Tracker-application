@@ -1,18 +1,20 @@
 import 'dart:io';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
+import 'package:provider/provider.dart';
+
 import '../models/weather_model.dart';
+import '../models/workout_phase.dart';
 import '../providers/app_provider.dart';
+import '../providers/workout_session_provider.dart';
 import '../services/plan_readiness_service.dart';
 import '../services/plan_recommendation_service.dart';
-import '../theme/app_colors.dart';
-import '../models/workout_phase.dart';
-import '../services/workout_suggestion_service.dart';
-import 'workout_phase_details_sheet.dart';
+import '../services/workout_plan_suggestion_service.dart';
 import '../services/workout_start_router.dart';
-import 'package:provider/provider.dart';
-import '../providers/workout_session_provider.dart';
+import '../theme/app_colors.dart';
+import 'workout_phase_details_sheet.dart';
 
 class SmartTodayPlanCard extends StatelessWidget {
   final DailyPlan plan;
@@ -31,41 +33,64 @@ class SmartTodayPlanCard extends StatelessWidget {
   });
 
   void _confirmDelete(BuildContext context) {
+    HapticFeedback.selectionClick();
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: AppColors.surfaceElevated,
+        backgroundColor: const Color(0xFF141D2B),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Text('Remove this plan?',
-            style: TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.w700)),
-        content: const Text('This will delete the plan from your list.',
-            style: TextStyle(color: AppColors.textSecondary)),
+        title: const Text(
+          'Remove this plan?',
+          style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 16),
+        ),
+        content: const Text(
+          'This will remove this workout from your daily agenda.',
+          style: TextStyle(color: Colors.white70, fontSize: 13),
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancel', style: TextStyle(color: AppColors.textSecondary)),
+            child: const Text('Cancel', style: TextStyle(color: Colors.white60)),
           ),
-          TextButton(
+          ElevatedButton(
             onPressed: () {
               Navigator.pop(ctx);
               onDelete?.call();
             },
-            child: const Text('Remove', style: TextStyle(color: AppColors.pulseRed, fontWeight: FontWeight.w700)),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.pulseRed.withValues(alpha: 0.2),
+              foregroundColor: AppColors.pulseRed,
+              elevation: 0,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            ),
+            child: const Text('Remove', style: TextStyle(fontWeight: FontWeight.w700)),
           ),
         ],
       ),
     );
   }
 
+  IconData _getActivityIcon(String type) {
+    final lower = type.toLowerCase();
+    if (lower.contains('run') || lower.contains('treadmill')) return LucideIcons.footprints;
+    if (lower.contains('walk')) return LucideIcons.footprints;
+    if (lower.contains('cycle') || lower.contains('bike')) return LucideIcons.bike;
+    if (lower.contains('swim')) return LucideIcons.waves;
+    if (lower.contains('hiit') || lower.contains('strength') || lower.contains('gym')) return LucideIcons.dumbbell;
+    if (lower.contains('yoga') || lower.contains('stretch')) return LucideIcons.sparkles;
+    return LucideIcons.activity;
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
+    final isCompleted = plan.isCompleted;
 
     final readiness = PlanReadinessService.calculateReadiness(
       weather: weather,
       currentStreak: app.currentStreak,
-      currentSteps: 4500, // Dummy step data until health kit sync is added
+      currentSteps: app.steps > 0 ? app.steps : 4500,
     );
 
     final recommendation = PlanRecommendationService.getRecommendation(
@@ -75,357 +100,391 @@ class SmartTodayPlanCard extends StatelessWidget {
 
     Color getStatusColor() {
       switch (readiness.status) {
-        case ReadinessStatus.ready: return AppColors.teal;
-        case ReadinessStatus.good: return AppColors.green;
-        case ReadinessStatus.caution: return AppColors.solarAmber;
-        case ReadinessStatus.notIdeal: return AppColors.pulseRed;
+        case ReadinessStatus.ready:
+          return AppColors.voltCyan;
+        case ReadinessStatus.good:
+          return const Color(0xFF00E599);
+        case ReadinessStatus.caution:
+          return AppColors.solarAmber;
+        case ReadinessStatus.notIdeal:
+          return AppColors.pulseRed;
       }
     }
 
-    final isCompleted = plan.isCompleted;
     final statusColor = getStatusColor();
+    final durationInt = int.tryParse(plan.duration) ?? 30;
+    final activityIcon = _getActivityIcon(plan.type);
+
+    String? weatherStatus;
+    if (weather != null) {
+      if (weather!.currentTemp > 30) {
+        weatherStatus = 'hot';
+      } else if (weather!.condition.toLowerCase().contains('rain')) {
+        weatherStatus = 'rainy';
+      }
+    }
+
+    final phases = WorkoutPlanSuggestionService.generatePhases(
+      activityType: plan.type,
+      totalDurationMinutes: durationInt,
+      weatherStatus: weatherStatus,
+    );
+
+    final session = context.watch<WorkoutSessionProvider>();
+    final isActiveSession = session.activePlanId == plan.id;
+
+    final isIndoor = plan.type.toLowerCase().contains('treadmill') ||
+        plan.type.toLowerCase().contains('gym') ||
+        plan.type.toLowerCase().contains('hiit') ||
+        plan.type.toLowerCase().contains('indoor');
 
     return Container(
       width: double.infinity,
       decoration: BoxDecoration(
-        color: AppColors.surfaceCard,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.black.withValues(alpha: 0.05)),
+        color: isDark ? const Color(0xFF101724) : Colors.white,
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(
+          color: isDark ? Colors.white.withValues(alpha: 0.08) : Colors.black.withValues(alpha: 0.06),
+          width: 1.2,
+        ),
         boxShadow: [
           BoxShadow(
-            color: statusColor.withValues(alpha: 0.1),
-            blurRadius: 20,
-            offset: const Offset(0, 8),
+            color: Colors.black.withValues(alpha: isDark ? 0.25 : 0.05),
+            blurRadius: 16,
+            offset: const Offset(0, 6),
           ),
         ],
       ),
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // ── Header ──
+          // ── Header: Thumbnail / Icon + Title + Readiness ──
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            crossAxisAlignment: CrossAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              if (plan.imageUrl.isNotEmpty) ...[
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(16),
-                  child: SizedBox(
-                    width: 60,
-                    height: 60,
-                    child: plan.imageUrl.startsWith('http')
-                        ? CachedNetworkImage(
-                            imageUrl: plan.imageUrl,
-                            fit: BoxFit.cover,
-                            placeholder: (context, url) => Container(color: AppColors.surfaceElevated),
-                            errorWidget: (context, url, error) => Container(color: AppColors.surfaceElevated),
+              // Workout Thumbnail or Icon
+              Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  Container(
+                    width: 52,
+                    height: 52,
+                    decoration: BoxDecoration(
+                      color: AppColors.voltCyan.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(
+                        color: AppColors.voltCyan.withValues(alpha: 0.25),
+                        width: 1.2,
+                      ),
+                    ),
+                    child: plan.imageUrl.isNotEmpty
+                        ? ClipRRect(
+                            borderRadius: BorderRadius.circular(15),
+                            child: plan.imageUrl.startsWith('http')
+                                ? CachedNetworkImage(
+                                    imageUrl: plan.imageUrl,
+                                    fit: BoxFit.cover,
+                                    placeholder: (context, url) => Container(color: Colors.black12),
+                                    errorWidget: (context, url, error) => Center(
+                                      child: Icon(activityIcon, color: AppColors.voltCyan, size: 22),
+                                    ),
+                                  )
+                                : Image.file(
+                                    File(plan.imageUrl),
+                                    fit: BoxFit.cover,
+                                  ),
                           )
-                        : Image.file(
-                            File(plan.imageUrl),
-                            fit: BoxFit.cover,
+                        : Center(
+                            child: Icon(activityIcon, color: AppColors.voltCyan, size: 24),
                           ),
                   ),
-                ),
-                const SizedBox(width: 14),
-              ],
+                ],
+              ),
+              const SizedBox(width: 12),
+
+              // Title & Quick Specs
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Expanded(
-                          child: Text(
-                            plan.title,
-                            style: theme.textTheme.titleLarge?.copyWith(
-                              fontWeight: FontWeight.bold,
-                              color: AppColors.textPrimary,
-                              decoration: isCompleted ? TextDecoration.lineThrough : null,
-                            ),
-                          ),
-                        ),
-                      ],
+                    Text(
+                      plan.title,
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w800,
+                        fontSize: 16,
+                        letterSpacing: -0.2,
+                        decoration: isCompleted ? TextDecoration.lineThrough : null,
+                        color: isCompleted ? (isDark ? Colors.white38 : Colors.black38) : null,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
-                    const SizedBox(height: 8),
+                    const SizedBox(height: 5),
                     Row(
                       children: [
-                        const Icon(LucideIcons.timer, size: 14, color: AppColors.textSecondary),
-                        const SizedBox(width: 4),
-                        Text('${plan.duration}m', style: theme.textTheme.bodyMedium?.copyWith(color: AppColors.textSecondary)),
-                        const SizedBox(width: 12),
-                        const Icon(LucideIcons.zap, size: 14, color: AppColors.textSecondary),
-                        const SizedBox(width: 4),
-                        Text(plan.kcal, style: theme.textTheme.bodyMedium?.copyWith(color: AppColors.textSecondary)),
+                        _buildPillBadge(
+                          icon: LucideIcons.timer,
+                          text: '${plan.duration}m',
+                          color: AppColors.voltCyan,
+                          isDark: isDark,
+                        ),
+                        const SizedBox(width: 6),
+                        _buildPillBadge(
+                          icon: LucideIcons.flame,
+                          text: plan.kcal.contains('kcal') ? plan.kcal : '${plan.kcal} kcal',
+                          color: AppColors.solarAmber,
+                          isDark: isDark,
+                        ),
                       ],
                     ),
                   ],
                 ),
               ),
-              // Readiness Badge
+
+              // Readiness Indicator Pill
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
                 decoration: BoxDecoration(
-                  color: statusColor.withValues(alpha: 0.15),
+                  color: statusColor.withValues(alpha: 0.14),
                   borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: statusColor.withValues(alpha: 0.3),
+                    width: 1,
+                  ),
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(LucideIcons.activity, size: 14, color: statusColor),
+                    Icon(LucideIcons.activity, size: 12, color: statusColor),
                     const SizedBox(width: 4),
                     Text(
                       '${readiness.score} ${readiness.label}',
-                      style: theme.textTheme.labelSmall?.copyWith(color: statusColor, fontWeight: FontWeight.bold),
+                      style: TextStyle(
+                        color: statusColor,
+                        fontWeight: FontWeight.w800,
+                        fontSize: 10.5,
+                      ),
                     ),
                   ],
                 ),
               ),
             ],
           ),
-          
+
           if (!isCompleted) ...[
-            const SizedBox(height: 20),
-            
-            // ── Smart Context ──
-            Builder(
-              builder: (context) {
-                final suggestion = WorkoutPlanSuggestionService.getSuggestion(plan.type);
-                return Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: isDark ? Colors.white.withValues(alpha: 0.03) : Colors.black.withValues(alpha: 0.03),
-                    borderRadius: BorderRadius.circular(12),
+            const SizedBox(height: 14),
+
+            // ── AI Coach Smart Window Banner ──
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+              decoration: BoxDecoration(
+                color: isDark ? const Color(0xFF141D2B) : const Color(0xFFF1F5F9),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.black.withValues(alpha: 0.04),
+                ),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    isIndoor ? LucideIcons.home : LucideIcons.sparkles,
+                    size: 14,
+                    color: AppColors.voltCyan,
                   ),
-                  child: Row(
-                    children: [
-                      const Icon(LucideIcons.info, size: 18, color: AppColors.voltCyan),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(suggestion.title, style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
-                            const SizedBox(height: 2),
-                            Text(suggestion.body, style: theme.textTheme.bodySmall?.copyWith(color: AppColors.textSecondary)),
-                          ],
-                        ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      isIndoor
+                          ? 'Indoor Workout • Optimal 100% Controlled Conditions'
+                          : 'Ideal Window: Morning or Evening • Stay Hydrated',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        color: isDark ? Colors.white70 : Colors.black87,
                       ),
-                    ],
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
                   ),
-                );
-              }
+                ],
+              ),
             ),
 
-            // ── One-Tap Alternatives ──
-            if (recommendation.alternativeWorkouts.isNotEmpty) ...[
-              const SizedBox(height: 16),
-              Text('Alternatives', style: theme.textTheme.labelMedium?.copyWith(color: AppColors.textSecondary)),
-              const SizedBox(height: 8),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: recommendation.alternativeWorkouts.map((alt) {
-                  return Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                    decoration: BoxDecoration(
-                      border: Border.all(color: AppColors.borderSubtle),
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: Text(alt, style: theme.textTheme.bodySmall?.copyWith(color: AppColors.textPrimary)),
-                  );
-                }).toList(),
-              ),
-            ],
+            const SizedBox(height: 14),
 
-            const SizedBox(height: 20),
-
-            // ── Workout Timeline ──
-            Builder(
-              builder: (context) {
-                final durationInt = int.tryParse(plan.duration) ?? 30;
-                String? weatherStatus;
-                if (weather != null) {
-                  if (weather!.currentTemp > 30) {
-                    weatherStatus = 'hot';
-                  } else if (weather!.condition.toLowerCase().contains('rain')) {
-                    weatherStatus = 'rainy';
-                  }
-                }
-
-                final phases = WorkoutPlanSuggestionService.generatePhases(
-                  activityType: plan.type,
-                  totalDurationMinutes: durationInt,
-                  weatherStatus: weatherStatus,
-                );
-
-                final session = context.watch<WorkoutSessionProvider>();
-                final isActiveSession = session.activePlanId == plan.id;
-
-                final p0Active = isActiveSession ? session.currentPhaseIndex == 0 : true;
-                final p0Completed = isActiveSession && session.phaseCompleted.isNotEmpty && session.phaseCompleted[0];
-
-                final p1Active = isActiveSession ? session.currentPhaseIndex == 1 : false;
-                final p1Completed = isActiveSession && session.phaseCompleted.length > 1 && session.phaseCompleted[1];
-
-                final p2Active = isActiveSession ? session.currentPhaseIndex == 2 : false;
-                final p2Completed = isActiveSession && session.phaseCompleted.length > 2 && session.phaseCompleted[2];
-
-                return Row(
+            // ── Interactive 3-Phase Athletic Timeline ──
+            if (phases.length >= 3)
+              Container(
+                padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 4),
+                child: Row(
                   children: [
-                    _TimelineStep(
-                      phase: phases[0],
-                      isActive: p0Active,
-                      isCompleted: p0Completed,
-                      onTap: () {
-                        showModalBottomSheet(
-                          context: context,
-                          backgroundColor: Colors.transparent,
-                          isScrollControlled: true,
-                          builder: (_) => WorkoutPhaseDetailsSheet(
-                            phase: phases[0],
-                            onStartWorkout: () => WorkoutStartRouter.startWorkoutFromPlan(
-                              context: context,
-                              plan: plan,
-                              phases: phases,
-                            ),
-                          ),
-                        );
-                      },
+                    Expanded(
+                      child: _buildPhaseItem(
+                        context: context,
+                        phase: phases[0],
+                        label: 'Warm-up',
+                        duration: '${phases[0].durationMinutes}m',
+                        icon: LucideIcons.sparkles,
+                        color: const Color(0xFF00E599),
+                        isActive: isActiveSession ? session.currentPhaseIndex == 0 : true,
+                        isCompleted: isActiveSession && session.phaseCompleted.isNotEmpty && session.phaseCompleted[0],
+                        plan: plan,
+                        phases: phases,
+                        isDark: isDark,
+                      ),
                     ),
-                    _TimelineDivider(isCompleted: p0Completed),
-                    _TimelineStep(
-                      phase: phases[1],
-                      isActive: p1Active,
-                      isCompleted: p1Completed,
-                      onTap: () {
-                        showModalBottomSheet(
-                          context: context,
-                          backgroundColor: Colors.transparent,
-                          isScrollControlled: true,
-                          builder: (_) => WorkoutPhaseDetailsSheet(
-                            phase: phases[1],
-                            onStartWorkout: () => WorkoutStartRouter.startWorkoutFromPlan(
-                              context: context,
-                              plan: plan,
-                              phases: phases,
-                            ),
-                          ),
-                        );
-                      },
+                    _buildPhaseConnector(isDark),
+                    Expanded(
+                      child: _buildPhaseItem(
+                        context: context,
+                        phase: phases[1],
+                        label: plan.type.length > 10 ? 'Main' : plan.type,
+                        duration: '${phases[1].durationMinutes}m',
+                        icon: activityIcon,
+                        color: AppColors.voltCyan,
+                        isActive: isActiveSession ? session.currentPhaseIndex == 1 : false,
+                        isCompleted: isActiveSession && session.phaseCompleted.length > 1 && session.phaseCompleted[1],
+                        plan: plan,
+                        phases: phases,
+                        isDark: isDark,
+                      ),
                     ),
-                    _TimelineDivider(isCompleted: p1Completed),
-                    _TimelineStep(
-                      phase: phases[2],
-                      isActive: p2Active,
-                      isCompleted: p2Completed,
-                      onTap: () {
-                        showModalBottomSheet(
-                          context: context,
-                          backgroundColor: Colors.transparent,
-                          isScrollControlled: true,
-                          builder: (_) => WorkoutPhaseDetailsSheet(
-                            phase: phases[2],
-                            onStartWorkout: () => WorkoutStartRouter.startWorkoutFromPlan(
-                              context: context,
-                              plan: plan,
-                              phases: phases,
-                            ),
-                          ),
-                        );
-                      },
+                    _buildPhaseConnector(isDark),
+                    Expanded(
+                      child: _buildPhaseItem(
+                        context: context,
+                        phase: phases[2],
+                        label: 'Cooldown',
+                        duration: '${phases[2].durationMinutes}m',
+                        icon: LucideIcons.droplets,
+                        color: const Color(0xFF00B4D8),
+                        isActive: isActiveSession ? session.currentPhaseIndex == 2 : false,
+                        isCompleted: isActiveSession && session.phaseCompleted.length > 2 && session.phaseCompleted[2],
+                        plan: plan,
+                        phases: phases,
+                        isDark: isDark,
+                      ),
                     ),
                   ],
-                );
-              },
-            ),
-            
-            const SizedBox(height: 20),
-            
-            // ── Goal Impact ──
+                ),
+              ),
+
+            const SizedBox(height: 14),
+
+            // ── Goal Impact Subtext ──
             Row(
               children: [
-                const Icon(LucideIcons.trendingUp, size: 16, color: AppColors.solarAmber),
-                const SizedBox(width: 6),
-                Text('+${plan.duration}m active', style: theme.textTheme.labelMedium?.copyWith(color: AppColors.solarAmber)),
-                const SizedBox(width: 12),
-                const Icon(LucideIcons.flame, size: 16, color: AppColors.solarAmber),
-                const SizedBox(width: 6),
-                Text('Helps streak', style: theme.textTheme.labelMedium?.copyWith(color: AppColors.solarAmber)),
+                const Icon(LucideIcons.trendingUp, size: 13, color: AppColors.solarAmber),
+                const SizedBox(width: 4),
+                Text(
+                  '+${plan.duration}m active time',
+                  style: const TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.solarAmber,
+                  ),
+                ),
+                const SizedBox(width: 10),
+                const Icon(LucideIcons.flame, size: 13, color: AppColors.solarAmber),
+                const SizedBox(width: 4),
+                Text(
+                  'Extends ${app.currentStreak}-day streak',
+                  style: const TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.solarAmber,
+                  ),
+                ),
               ],
             ),
           ],
 
-          const SizedBox(height: 24),
+          const SizedBox(height: 16),
 
           // ── Action Buttons ──
           Row(
             children: [
               Expanded(
                 child: SizedBox(
-                  height: 48,
+                  height: 46,
                   child: isCompleted
                       ? Container(
                           decoration: BoxDecoration(
-                            color: AppColors.green.withValues(alpha: 0.1),
+                            color: const Color(0xFF00E599).withValues(alpha: 0.12),
                             borderRadius: BorderRadius.circular(14),
-                            border: Border.all(color: AppColors.green.withValues(alpha: 0.5)),
+                            border: Border.all(
+                              color: const Color(0xFF00E599).withValues(alpha: 0.3),
+                            ),
                           ),
                           child: const Row(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              Icon(LucideIcons.checkCircle2, color: AppColors.green),
+                              Icon(LucideIcons.checkCircle2, color: Color(0xFF00E599), size: 18),
                               SizedBox(width: 8),
-                              Text('Completed', style: TextStyle(color: AppColors.green, fontWeight: FontWeight.bold)),
+                              Text(
+                                'Completed Today',
+                                style: TextStyle(
+                                  color: Color(0xFF00E599),
+                                  fontWeight: FontWeight.w800,
+                                  fontSize: 13,
+                                ),
+                              ),
                             ],
                           ),
                         )
-                      : ElevatedButton(
+                      : ElevatedButton.icon(
                           onPressed: () {
-                            final durationInt = int.tryParse(plan.duration) ?? 30;
-                            String? weatherStatus;
-                            if (weather != null) {
-                              if (weather!.currentTemp > 30) {
-                                weatherStatus = 'hot';
-                              } else if (weather!.condition.toLowerCase().contains('rain')) {
-                                weatherStatus = 'rainy';
-                              }
-                            }
-                            final phases = WorkoutPlanSuggestionService.generatePhases(
-                              activityType: plan.type,
-                              totalDurationMinutes: durationInt,
-                              weatherStatus: weatherStatus,
-                            );
+                            HapticFeedback.mediumImpact();
                             WorkoutStartRouter.startWorkoutFromPlan(
                               context: context,
                               plan: plan,
                               phases: phases,
                             );
                           },
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: statusColor == AppColors.pulseRed ? AppColors.pulseRed : AppColors.voltCyan,
-                            foregroundColor: Colors.black,
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                          ),
-                          child: Text(
+                          icon: const Icon(LucideIcons.play, size: 16, color: Colors.black),
+                          label: Text(
                             _getButtonText(plan.type, recommendation.adaptiveActionText),
-                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                            style: const TextStyle(
+                              fontWeight: FontWeight.w800,
+                              fontSize: 14,
+                              color: Colors.black,
+                              letterSpacing: 0.2,
+                            ),
+                          ),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppColors.voltCyan,
+                            foregroundColor: Colors.black,
+                            elevation: 0,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(14),
+                            ),
                           ),
                         ),
                 ),
               ),
               if (onDelete != null) ...[
-                const SizedBox(width: 12),
-                SizedBox(
-                  height: 48,
-                  width: 48,
-                  child: IconButton(
-                    onPressed: () => _confirmDelete(context),
-                    icon: const Icon(LucideIcons.trash2, size: 20, color: AppColors.textSecondary),
-                    style: IconButton.styleFrom(
-                      backgroundColor: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.black.withValues(alpha: 0.05),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                const SizedBox(width: 10),
+                Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(14),
+                    onTap: () => _confirmDelete(context),
+                    child: Container(
+                      height: 46,
+                      width: 46,
+                      decoration: BoxDecoration(
+                        color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.black.withValues(alpha: 0.04),
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(
+                          color: isDark ? Colors.white.withValues(alpha: 0.08) : Colors.black.withValues(alpha: 0.06),
+                        ),
+                      ),
+                      child: const Icon(
+                        LucideIcons.trash2,
+                        size: 18,
+                        color: AppColors.textSecondary,
+                      ),
                     ),
                   ),
                 ),
@@ -434,6 +493,128 @@ class SmartTodayPlanCard extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildPillBadge({
+    required IconData icon,
+    required String text,
+    required Color color,
+    required bool isDark,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+      decoration: BoxDecoration(
+        color: isDark ? Colors.white.withValues(alpha: 0.06) : Colors.black.withValues(alpha: 0.04),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 11, color: color),
+          const SizedBox(width: 4),
+          Text(
+            text,
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+              color: isDark ? Colors.white70 : Colors.black87,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPhaseItem({
+    required BuildContext context,
+    required WorkoutPhase phase,
+    required String label,
+    required String duration,
+    required IconData icon,
+    required Color color,
+    required bool isActive,
+    required bool isCompleted,
+    required DailyPlan plan,
+    required List<WorkoutPhase> phases,
+    required bool isDark,
+  }) {
+    return GestureDetector(
+      onTap: () {
+        HapticFeedback.selectionClick();
+        showModalBottomSheet(
+          context: context,
+          backgroundColor: Colors.transparent,
+          isScrollControlled: true,
+          builder: (_) => WorkoutPhaseDetailsSheet(
+            phase: phase,
+            onStartWorkout: () => WorkoutStartRouter.startWorkoutFromPlan(
+              context: context,
+              plan: plan,
+              phases: phases,
+            ),
+          ),
+        );
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+        decoration: BoxDecoration(
+          color: isActive
+              ? color.withValues(alpha: 0.12)
+              : (isDark ? Colors.white.withValues(alpha: 0.03) : Colors.black.withValues(alpha: 0.03)),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+            color: isActive
+                ? color.withValues(alpha: 0.35)
+                : (isDark ? Colors.white.withValues(alpha: 0.06) : Colors.black.withValues(alpha: 0.04)),
+            width: isActive ? 1.2 : 1,
+          ),
+        ),
+        child: Column(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(6),
+              decoration: BoxDecoration(
+                color: isCompleted ? const Color(0xFF00E599) : color.withValues(alpha: 0.2),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                isCompleted ? LucideIcons.check : icon,
+                size: 13,
+                color: isCompleted ? Colors.black : color,
+              ),
+            ),
+            const SizedBox(height: 5),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 10.5,
+                fontWeight: FontWeight.w700,
+                color: isDark ? Colors.white : Colors.black87,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+            Text(
+              duration,
+              style: TextStyle(
+                fontSize: 9.5,
+                fontWeight: FontWeight.w600,
+                color: color,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPhaseConnector(bool isDark) {
+    return Container(
+      width: 12,
+      height: 2,
+      margin: const EdgeInsets.symmetric(horizontal: 2),
+      color: isDark ? Colors.white.withValues(alpha: 0.15) : Colors.black.withValues(alpha: 0.15),
     );
   }
 
@@ -448,134 +629,11 @@ class SmartTodayPlanCard extends StatelessWidget {
       return 'Start Walk';
     } else if (lower.contains('cycling') || lower.contains('cycle') || lower.contains('bike')) {
       return 'Start Ride';
-    } else if (lower.contains('yoga')) {
-      return 'Start Yoga';
-    } else if (lower.contains('study') || lower.contains('focus') || lower.contains('deep work')) {
-      return 'Start Focus';
-    } else if (lower.contains('meditat')) {
-      return 'Start Session';
-    } else if (lower.contains('strength') || lower.contains('gym') || lower.contains('swim') || lower.contains('hiit') || lower.contains('stretch') || lower.contains('rest') || lower.contains('recovery')) {
-      return 'Start Session';
+    } else if (lower.contains('swim')) {
+      return 'Start Swim';
+    } else if (lower.contains('gym') || lower.contains('strength') || lower.contains('workout') || lower.contains('hiit')) {
+      return 'Start Workout';
     }
     return 'Start Workout';
-  }
-}
-
-class _TimelineStep extends StatelessWidget {
-  final WorkoutPhase phase;
-  final bool isActive;
-  final bool isCompleted;
-  final VoidCallback onTap;
-
-  const _TimelineStep({
-    required this.phase,
-    required this.isActive,
-    required this.isCompleted,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
-    Color ringColor;
-    Color iconColor;
-    IconData iconData;
-    FontWeight fontWeight;
-    Color textColor;
-
-    if (isCompleted) {
-      ringColor = AppColors.teal;
-      iconColor = AppColors.teal;
-      iconData = LucideIcons.check;
-      fontWeight = FontWeight.normal;
-      textColor = AppColors.textSecondary;
-    } else if (isActive) {
-      ringColor = AppColors.voltCyan;
-      iconColor = AppColors.voltCyan;
-      iconData = phase.icon;
-      fontWeight = FontWeight.bold;
-      textColor = AppColors.textPrimary;
-    } else {
-      ringColor = AppColors.borderSubtle;
-      iconColor = AppColors.textSecondary.withValues(alpha: 0.5);
-      iconData = phase.icon;
-      fontWeight = FontWeight.normal;
-      textColor = AppColors.textSecondary.withValues(alpha: 0.5);
-    }
-
-    return GestureDetector(
-      onTap: onTap,
-      behavior: HitTestBehavior.opaque,
-      child: SizedBox(
-        width: 75,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 32,
-              height: 32,
-              decoration: BoxDecoration(
-                color: isActive ? AppColors.voltCyan.withValues(alpha: 0.2) : Colors.transparent,
-                shape: BoxShape.circle,
-                border: Border.all(
-                  color: ringColor,
-                  width: isActive ? 2.0 : 1.5,
-                ),
-              ),
-              child: Icon(
-                iconData,
-                size: 16,
-                color: iconColor,
-              ),
-            ),
-            const SizedBox(height: 6),
-            Text(
-              phase.shortTitle,
-              textAlign: TextAlign.center,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: theme.textTheme.labelSmall?.copyWith(
-                color: textColor,
-                fontSize: 10,
-                fontWeight: fontWeight,
-              ),
-            ),
-            const SizedBox(height: 2),
-            Text(
-              '${phase.durationMinutes}m',
-              textAlign: TextAlign.center,
-              style: theme.textTheme.labelSmall?.copyWith(
-                color: isCompleted
-                    ? AppColors.teal.withValues(alpha: 0.7)
-                    : (isActive ? AppColors.voltCyan : AppColors.textSecondary.withValues(alpha: 0.5)),
-                fontSize: 9,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _TimelineDivider extends StatelessWidget {
-  final bool isCompleted;
-  const _TimelineDivider({required this.isCompleted});
-
-  @override
-  Widget build(BuildContext context) {
-    return Expanded(
-      child: Padding(
-        padding: const EdgeInsets.only(bottom: 22.0),
-        child: Container(
-          height: 1.5,
-          color: isCompleted
-              ? AppColors.teal.withValues(alpha: 0.8)
-              : AppColors.borderSubtle.withValues(alpha: 0.3),
-        ),
-      ),
-    );
   }
 }
