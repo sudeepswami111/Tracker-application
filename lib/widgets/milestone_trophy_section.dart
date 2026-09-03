@@ -162,7 +162,7 @@ class _MilestoneTrophySectionState extends State<MilestoneTrophySection>
             borderRadius: BorderRadius.circular(28),
             gradient: isDark
                 ? const LinearGradient(
-                    colors: [Color(0xFF141926), Color(0xFF0D111A)],
+                    colors: [Color(0xFF131F2E), Color(0xFF0C1520)],
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                   )
@@ -172,12 +172,12 @@ class _MilestoneTrophySectionState extends State<MilestoneTrophySection>
                     end: Alignment.bottomRight,
                   ),
             border: Border.all(
-              color: const Color(0xFFF59E0B).withValues(alpha: isDark ? 0.25 : 0.4),
+              color: AppColors.zenAmber.withValues(alpha: isDark ? 0.25 : 0.4),
               width: 1.5,
             ),
             boxShadow: [
               BoxShadow(
-                color: const Color(0xFFF59E0B).withValues(alpha: isDark ? 0.08 : 0.14),
+                color: AppColors.zenAmber.withValues(alpha: isDark ? 0.08 : 0.14),
                 blurRadius: 24,
                 offset: const Offset(0, 8),
               ),
@@ -197,10 +197,10 @@ class _MilestoneTrophySectionState extends State<MilestoneTrophySection>
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
                         colors: [
-                          const Color(0xFFF59E0B).withValues(alpha: 0.1),
-                          const Color(0xFFF59E0B),
-                          AppColors.voltCyan,
-                          const Color(0xFFF59E0B).withValues(alpha: 0.1),
+                          AppColors.zenAmber.withValues(alpha: 0.1),
+                          AppColors.zenAmber,
+                          AppColors.zenMint,
+                          AppColors.zenAmber.withValues(alpha: 0.1),
                         ],
                       ),
                     ),
@@ -325,7 +325,7 @@ class _MilestoneTrophySectionState extends State<MilestoneTrophySection>
                               value: '${app.longestStreak}',
                               unit: 'Days',
                               icon: LucideIcons.flame,
-                              color: const Color(0xFFFF6B6B),
+                              color: AppColors.zenAmber,
                               isDark: isDark,
                             ),
                           ),
@@ -336,7 +336,7 @@ class _MilestoneTrophySectionState extends State<MilestoneTrophySection>
                               value: app.distance.toStringAsFixed(1),
                               unit: 'KM',
                               icon: LucideIcons.footprints,
-                              color: AppColors.voltCyan,
+                              color: AppColors.zenMint,
                               isDark: isDark,
                             ),
                           ),
@@ -351,7 +351,7 @@ class _MilestoneTrophySectionState extends State<MilestoneTrophySection>
                               value: '${app.dailyStepsGoal.toInt()}',
                               unit: 'Goal',
                               icon: LucideIcons.zap,
-                              color: const Color(0xFFF59E0B),
+                              color: AppColors.zenSky,
                               isDark: isDark,
                             ),
                           ),
@@ -362,7 +362,7 @@ class _MilestoneTrophySectionState extends State<MilestoneTrophySection>
                               value: (app.totalStudyMinutes / 60).toStringAsFixed(1),
                               unit: 'Hours',
                               icon: LucideIcons.brain,
-                              color: const Color(0xFF818CF8),
+                              color: AppColors.zenLavender,
                               isDark: isDark,
                             ),
                           ),
@@ -392,7 +392,7 @@ class _MilestoneTrophySectionState extends State<MilestoneTrophySection>
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
                             decoration: BoxDecoration(
-                              color: AppColors.voltCyan.withValues(alpha: 0.12),
+                              color: AppColors.zenMint.withValues(alpha: 0.12),
                               borderRadius: BorderRadius.circular(6),
                             ),
                             child: Text(
@@ -400,7 +400,7 @@ class _MilestoneTrophySectionState extends State<MilestoneTrophySection>
                               style: GoogleFonts.inter(
                                 fontSize: 8,
                                 fontWeight: FontWeight.w800,
-                                color: AppColors.voltCyan,
+                                color: AppColors.zenMint,
                                 letterSpacing: 0.8,
                               ),
                             ),
@@ -417,7 +417,7 @@ class _MilestoneTrophySectionState extends State<MilestoneTrophySection>
                               : Colors.black.withValues(alpha: 0.03),
                           borderRadius: BorderRadius.circular(16),
                           border: Border.all(
-                            color: AppColors.voltCyan.withValues(alpha: isDark ? 0.2 : 0.25),
+                            color: AppColors.zenMint.withValues(alpha: isDark ? 0.2 : 0.25),
                             width: 1,
                           ),
                         ),
@@ -429,13 +429,13 @@ class _MilestoneTrophySectionState extends State<MilestoneTrophySection>
                                 Container(
                                   padding: const EdgeInsets.all(6),
                                   decoration: BoxDecoration(
-                                    color: AppColors.voltCyan.withValues(alpha: 0.15),
+                                    color: AppColors.zenMint.withValues(alpha: 0.15),
                                     shape: BoxShape.circle,
                                   ),
                                   child: const Icon(
                                     LucideIcons.target,
                                     size: 15,
-                                    color: AppColors.voltCyan,
+                                    color: AppColors.zenMint,
                                   ),
                                 ),
                                 const SizedBox(width: 8),
@@ -458,7 +458,7 @@ class _MilestoneTrophySectionState extends State<MilestoneTrophySection>
                                         'Reward: +500 XP • 🥇 Gold Century Badge',
                                         style: GoogleFonts.inter(
                                           fontSize: 9,
-                                          color: const Color(0xFFF59E0B),
+                                          color: AppColors.zenAmber,
                                           fontWeight: FontWeight.w600,
                                         ),
                                         maxLines: 1,
@@ -487,7 +487,7 @@ class _MilestoneTrophySectionState extends State<MilestoneTrophySection>
                                   style: GoogleFonts.inter(
                                     fontSize: 10,
                                     fontWeight: FontWeight.w800,
-                                    color: AppColors.voltCyan,
+                                    color: AppColors.zenMint,
                                   ),
                                 ),
                               ],
@@ -501,7 +501,7 @@ class _MilestoneTrophySectionState extends State<MilestoneTrophySection>
                                 backgroundColor: isDark
                                     ? Colors.white.withValues(alpha: 0.08)
                                     : Colors.black.withValues(alpha: 0.08),
-                                valueColor: const AlwaysStoppedAnimation(AppColors.voltCyan),
+                                valueColor: const AlwaysStoppedAnimation(AppColors.zenMint),
                               ),
                             ),
                           ],
@@ -943,7 +943,7 @@ class _MilestoneTrophySectionState extends State<MilestoneTrophySection>
         description: 'Logged over 3,000 steps in a single day.',
         isUnlocked: stepTracker.steps >= 3000,
         xpReward: 300,
-        color: const Color(0xFFF59E0B),
+        color: AppColors.zenAmber,
       ),
       _TrophyBadge(
         title: 'Iron Streak',
@@ -951,7 +951,7 @@ class _MilestoneTrophySectionState extends State<MilestoneTrophySection>
         description: 'Maintained active daily physical consistency.',
         isUnlocked: app.currentStreak >= 1 || app.longestStreak >= 1,
         xpReward: 500,
-        color: const Color(0xFFFF6B6B),
+        color: AppColors.zenCoral,
       ),
       _TrophyBadge(
         title: 'Hydration Hero',
@@ -959,7 +959,7 @@ class _MilestoneTrophySectionState extends State<MilestoneTrophySection>
         description: 'Completed 100% of daily hydration targets.',
         isUnlocked: app.waterIntake >= 2.0 || app.waterGlasses >= 8,
         xpReward: 250,
-        color: AppColors.voltCyan,
+        color: AppColors.zenSky,
       ),
       _TrophyBadge(
         title: 'Zen Master',
@@ -967,7 +967,7 @@ class _MilestoneTrophySectionState extends State<MilestoneTrophySection>
         description: 'Completed deep work focus sessions.',
         isUnlocked: app.totalStudyMinutes >= 25,
         xpReward: 400,
-        color: const Color(0xFF818CF8),
+        color: AppColors.zenLavender,
       ),
       _TrophyBadge(
         title: 'Titan Runner',
@@ -975,7 +975,7 @@ class _MilestoneTrophySectionState extends State<MilestoneTrophySection>
         description: 'Crossed over 5 km total cardio distance.',
         isUnlocked: app.distance >= 5.0,
         xpReward: 750,
-        color: const Color(0xFF22C55E),
+        color: AppColors.zenMint,
       ),
       _TrophyBadge(
         title: 'Recovery Pro',
@@ -983,7 +983,7 @@ class _MilestoneTrophySectionState extends State<MilestoneTrophySection>
         description: 'Logged 7.5+ hours of restorative sleep.',
         isUnlocked: (watch.sleepHours ?? 0) >= 7.5 || app.sleepHours >= 7.5,
         xpReward: 350,
-        color: const Color(0xFFA855F7),
+        color: AppColors.zenLavenderLight,
       ),
     ];
   }

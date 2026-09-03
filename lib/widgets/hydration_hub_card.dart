@@ -97,16 +97,16 @@ class _HydrationHubCardState extends State<HydrationHubCard>
                   Container(
                     padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
-                      color: AppColors.voltCyan.withValues(alpha: 0.15),
+                      color: AppColors.zenSky.withValues(alpha: 0.15),
                       shape: BoxShape.circle,
                       border: Border.all(
-                        color: AppColors.voltCyan.withValues(alpha: 0.3),
+                        color: AppColors.zenSky.withValues(alpha: 0.3),
                         width: 1.5,
                       ),
                     ),
                     child: const Icon(
                       LucideIcons.droplets,
-                      color: AppColors.voltCyan,
+                      color: AppColors.zenSky,
                       size: 20,
                     ),
                   ),
@@ -140,19 +140,19 @@ class _HydrationHubCardState extends State<HydrationHubCard>
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
                         colors: [
-                          AppColors.voltCyan.withValues(alpha: 0.2),
-                          AppColors.blue.withValues(alpha: 0.2),
+                          AppColors.zenSky.withValues(alpha: 0.2),
+                          AppColors.zenMint.withValues(alpha: 0.2),
                         ],
                       ),
                       borderRadius: BorderRadius.circular(12),
                       border: Border.all(
-                        color: AppColors.voltCyan.withValues(alpha: 0.4),
+                        color: AppColors.zenSky.withValues(alpha: 0.4),
                       ),
                     ),
                     child: Text(
                       '${(fillPercent * 100).toInt()}%',
                       style: const TextStyle(
-                        color: AppColors.voltCyan,
+                        color: AppColors.zenSky,
                         fontWeight: FontWeight.w800,
                         fontSize: 13,
                       ),
@@ -268,14 +268,14 @@ class _HydrationHubCardState extends State<HydrationHubCard>
                             height: 28,
                             decoration: BoxDecoration(
                               color: isFilled
-                                  ? AppColors.voltCyan
+                                  ? AppColors.zenSky
                                   : (isDark
                                       ? Colors.white.withValues(alpha: 0.06)
                                       : Colors.black.withValues(alpha: 0.05)),
                               borderRadius: BorderRadius.circular(8),
                               border: Border.all(
                                 color: isFilled
-                                    ? AppColors.voltCyan
+                                    ? AppColors.zenSky
                                     : (isDark
                                         ? Colors.white.withValues(alpha: 0.12)
                                         : Colors.black.withValues(alpha: 0.1)),
@@ -283,7 +283,7 @@ class _HydrationHubCardState extends State<HydrationHubCard>
                               ),
                               boxShadow: [
                                 BoxShadow(
-                                  color: AppColors.voltCyan.withValues(alpha: isFilled ? 0.4 : 0.0),
+                                  color: AppColors.zenSky.withValues(alpha: isFilled ? 0.4 : 0.0),
                                   blurRadius: isFilled ? 6.0 : 0.0,
                                   offset: const Offset(0, 2),
                                 ),
@@ -322,7 +322,7 @@ class _HydrationHubCardState extends State<HydrationHubCard>
               children: [
                 const Icon(
                   LucideIcons.sparkles,
-                  color: AppColors.voltCyan,
+                  color: AppColors.zenSky,
                   size: 14,
                 ),
                 const SizedBox(width: 8),
@@ -357,7 +357,7 @@ class _HydrationHubCardState extends State<HydrationHubCard>
                       SnackBar(
                         content: Row(
                           children: [
-                            const Icon(LucideIcons.droplet, color: AppColors.voltCyan, size: 18),
+                            const Icon(LucideIcons.droplet, color: AppColors.zenSky, size: 18),
                             const SizedBox(width: 8),
                             Text(
                               '+250ml Logged! (${app.waterGlasses} of $goalGlasses glasses)',
@@ -378,8 +378,8 @@ class _HydrationHubCardState extends State<HydrationHubCard>
                     style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
                   ),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.voltCyan,
-                    foregroundColor: Colors.black,
+                    backgroundColor: AppColors.zenSky,
+                    foregroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(vertical: 12),
                     elevation: 0,
                     shape: RoundedRectangleBorder(

@@ -347,12 +347,12 @@ class _DashboardWeatherSectionState extends State<DashboardWeatherSection>
         borderRadius: BorderRadius.circular(28),
         gradient: isDark
             ? const LinearGradient(
-                colors: [Color(0xFF0F1729), Color(0xFF090E1A)],
+                colors: [Color(0xFF131F2E), Color(0xFF0C1520)],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               )
             : const LinearGradient(
-                colors: [Color(0xFFF9FAFD), Color(0xFFEEF2FF)],
+                colors: [Color(0xFFF8FAFC), Color(0xFFF1F5F9)],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
@@ -384,7 +384,7 @@ class _DashboardWeatherSectionState extends State<DashboardWeatherSection>
                     colors: [
                       scoreColor.withValues(alpha: 0.1),
                       scoreColor,
-                      AppColors.voltCyan,
+                      AppColors.zenSky,
                       scoreColor.withValues(alpha: 0.1),
                     ],
                   ),
@@ -806,9 +806,9 @@ class _DashboardWeatherSectionState extends State<DashboardWeatherSection>
   }
 
   Color _getScoreColor(int score) {
-    if (score >= 80) return const Color(0xFF22C55E); // Emerald
-    if (score >= 50) return const Color(0xFFF59E0B); // Amber
-    return const Color(0xFFFF4D6D); // Coral
+    if (score >= 80) return AppColors.zenMint; // Vitality Mint
+    if (score >= 50) return AppColors.zenAmber; // Sunlight Amber
+    return AppColors.zenCoral; // Soft Coral
   }
 
   Widget _buildSensorCell(String title, RiskIndicator risk, IconData icon, bool isDark) {

@@ -1,6 +1,22 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 
 class AppColors {
+  // ─── Bio-Harmonic / Minimal Zen Palette (Option D) ───
+  static const zenDarkBg = Color(0xFF0B1320);
+  static const zenDarkCard = Color(0xFF131F2E);
+  static const zenDarkElevated = Color(0xFF1B2B3E);
+  static const zenMint = Color(0xFF10B981);
+  static const zenMintLight = Color(0xFF34D399);
+  static const zenAmber = Color(0xFFF59E0B);
+  static const zenAmberLight = Color(0xFFFBBF24);
+  static const zenLavender = Color(0xFF818CF8);
+  static const zenLavenderLight = Color(0xFFA78BFA);
+  static const zenSky = Color(0xFF0EA5E9);
+  static const zenSkyLight = Color(0xFF38BDF8);
+  static const zenCoral = Color(0xFFFB7185);
+  static const zenCoralLight = Color(0xFFFDA4AF);
+  static const zenBorder = Color(0xFF1E293B);
+
   // ─── Core Backgrounds ───
   static const backgroundDeep = Color(0xFF0A0A0F);
   static const surfaceCard = Color(0xFF141420);

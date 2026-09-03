@@ -83,10 +83,10 @@ class _UnifiedActivityCardState extends State<UnifiedActivityCard>
   }
 
   Color _statusColor(double p) {
-    if (p < 0.3) return const Color(0xFFFF6B6B);
-    if (p < 0.6) return const Color(0xFFF59E0B);
-    if (p < 1.0) return AppColors.voltCyan;
-    return const Color(0xFF22C55E);
+    if (p < 0.3) return AppColors.zenCoral;
+    if (p < 0.6) return AppColors.zenAmber;
+    if (p < 1.0) return AppColors.zenMint;
+    return AppColors.zenMintLight;
   }
 
   @override
@@ -115,24 +115,24 @@ class _UnifiedActivityCardState extends State<UnifiedActivityCard>
         borderRadius: BorderRadius.circular(28),
         gradient: isDark
             ? const LinearGradient(
-                colors: [Color(0xFF0F1729), Color(0xFF0A1020)],
+                colors: [Color(0xFF131F2E), Color(0xFF0D1622)],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               )
             : const LinearGradient(
-                colors: [Color(0xFFF8FAFF), Color(0xFFEEF2FF)],
+                colors: [Color(0xFFF8FAFC), Color(0xFFF1F5F9)],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
         border: Border.all(
           color: isDark
-              ? AppColors.voltCyan.withValues(alpha: 0.15)
-              : AppColors.voltCyan.withValues(alpha: 0.25),
+              ? AppColors.zenMint.withValues(alpha: 0.2)
+              : AppColors.zenMint.withValues(alpha: 0.3),
           width: 1.5,
         ),
         boxShadow: [
           BoxShadow(
-            color: AppColors.voltCyan.withValues(alpha: isDark ? 0.07 : 0.12),
+            color: AppColors.zenMint.withValues(alpha: isDark ? 0.06 : 0.1),
             blurRadius: 24,
             offset: const Offset(0, 8),
           ),
@@ -156,10 +156,10 @@ class _UnifiedActivityCardState extends State<UnifiedActivityCard>
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                         decoration: BoxDecoration(
-                          color: AppColors.voltCyan.withValues(alpha: 0.12),
+                          color: AppColors.zenMint.withValues(alpha: 0.12),
                           borderRadius: BorderRadius.circular(8),
                           border: Border.all(
-                            color: AppColors.voltCyan.withValues(alpha: 0.3),
+                            color: AppColors.zenMint.withValues(alpha: 0.3),
                             width: 1,
                           ),
                         ),
@@ -170,11 +170,11 @@ class _UnifiedActivityCardState extends State<UnifiedActivityCard>
                               width: 6,
                               height: 6,
                               decoration: BoxDecoration(
-                                color: AppColors.voltCyan,
+                                color: AppColors.zenMint,
                                 shape: BoxShape.circle,
                                 boxShadow: [
                                   BoxShadow(
-                                    color: AppColors.voltCyan.withValues(alpha: 0.8),
+                                    color: AppColors.zenMint.withValues(alpha: 0.8),
                                     blurRadius: 4,
                                   ),
                                 ],
@@ -182,12 +182,12 @@ class _UnifiedActivityCardState extends State<UnifiedActivityCard>
                             ),
                             const SizedBox(width: 6),
                             Text(
-                              'LIVE ACTIVITY',
+                              'VITALITY RHYTHM',
                               style: GoogleFonts.inter(
                                 fontSize: 10,
                                 fontWeight: FontWeight.w700,
                                 letterSpacing: 1.5,
-                                color: AppColors.voltCyan,
+                                color: AppColors.zenMint,
                               ),
                             ),
                           ],
@@ -239,7 +239,7 @@ class _UnifiedActivityCardState extends State<UnifiedActivityCard>
                                       style: GoogleFonts.inter(
                                         fontSize: 11,
                                         fontWeight: FontWeight.w600,
-                                        color: AppColors.voltCyan,
+                                        color: AppColors.zenMint,
                                         letterSpacing: 1,
                                       ),
                                     ),
@@ -278,7 +278,7 @@ class _UnifiedActivityCardState extends State<UnifiedActivityCard>
                                   shaderCallback: (bounds) => LinearGradient(
                                     colors: [
                                       isDark ? Colors.white : Colors.black87,
-                                      AppColors.voltCyan,
+                                      AppColors.zenMint,
                                       isDark ? Colors.white : Colors.black87,
                                     ],
                                     stops: [
@@ -317,8 +317,8 @@ class _UnifiedActivityCardState extends State<UnifiedActivityCard>
                                     backgroundColor: isDark
                                         ? Colors.white.withValues(alpha: 0.08)
                                         : Colors.black.withValues(alpha: 0.08),
-                                    valueColor: AlwaysStoppedAnimation(
-                                      AppColors.voltCyan,
+                                    valueColor: const AlwaysStoppedAnimation(
+                                      AppColors.zenMint,
                                     ),
                                   );
                                 },
@@ -340,7 +340,7 @@ class _UnifiedActivityCardState extends State<UnifiedActivityCard>
                           value: '$hr',
                           unit: 'bpm',
                           label: 'Heart Rate',
-                          color: const Color(0xFFFF4D6D),
+                          color: AppColors.zenCoral,
                           icon: '❤️',
                           isDark: isDark,
                         ),
@@ -351,7 +351,7 @@ class _UnifiedActivityCardState extends State<UnifiedActivityCard>
                           value: activeStr,
                           unit: 'active',
                           label: 'Move Time',
-                          color: AppColors.voltCyan,
+                          color: AppColors.zenMint,
                           icon: '⚡',
                           isDark: isDark,
                         ),
@@ -362,7 +362,7 @@ class _UnifiedActivityCardState extends State<UnifiedActivityCard>
                           value: sleep.toStringAsFixed(1),
                           unit: 'hrs',
                           label: 'Sleep',
-                          color: const Color(0xFF818CF8),
+                          color: AppColors.zenLavender,
                           icon: '🌙',
                           isDark: isDark,
                         ),
@@ -565,7 +565,7 @@ class _OrbitalRingPainter extends CustomPainter {
         ..strokeWidth = 14
         ..strokeCap = StrokeCap.round
         ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 6)
-        ..color = AppColors.voltCyan.withValues(alpha: 0.35 * pulse);
+        ..color = AppColors.zenMint.withValues(alpha: 0.35 * pulse);
       canvas.drawArc(
         Rect.fromCircle(center: center, radius: 52),
         -pi / 2,
@@ -581,8 +581,8 @@ class _OrbitalRingPainter extends CustomPainter {
         ..strokeCap = StrokeCap.round
         ..shader = SweepGradient(
           colors: [
-            AppColors.voltCyan.withValues(alpha: 0.4),
-            AppColors.voltCyan,
+            AppColors.zenMint.withValues(alpha: 0.4),
+            AppColors.zenMintLight,
           ],
           startAngle: 0.0,
           endAngle: 2 * pi * progress,
@@ -606,7 +606,7 @@ class _OrbitalRingPainter extends CustomPainter {
         dotPos,
         5,
         Paint()
-          ..color = AppColors.voltCyan
+          ..color = AppColors.zenMint
           ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4),
       );
       canvas.drawCircle(

@@ -56,11 +56,11 @@ class DashboardScreen extends StatelessWidget {
     final isDark = theme.brightness == Brightness.dark;
 
     return Scaffold(
-      backgroundColor: theme.scaffoldBackgroundColor,
+      backgroundColor: isDark ? AppColors.zenDarkBg : const Color(0xFFF8FAFC),
       body: SafeArea(
         bottom: false,
         child: RefreshIndicator(
-          color: AppColors.voltCyan,
+          color: AppColors.zenMint,
           onRefresh: () async {
             await Future.wait([
               context.read<StepTrackerProvider>().refreshSteps(),
@@ -147,7 +147,7 @@ class DashboardScreen extends StatelessWidget {
               count: app.currentStreak,
               isActive: app.currentStreak > 0,
               icon: app.isStreakPending ? LucideIcons.hourglass : LucideIcons.flame,
-              activeColor: app.isStreakPending ? AppColors.borderSubtle : AppColors.solarAmber,
+              activeColor: app.isStreakPending ? AppColors.borderSubtle : AppColors.zenAmber,
               onTap: () {
                 showModalBottomSheet(
                   context: context,
@@ -174,22 +174,22 @@ class DashboardScreen extends StatelessWidget {
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                   decoration: BoxDecoration(
-                    color: AppColors.voltCyan.withValues(alpha: 0.12),
+                    color: AppColors.zenMint.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(20),
                     border: Border.all(
-                      color: AppColors.voltCyan.withValues(alpha: 0.3),
+                      color: AppColors.zenMint.withValues(alpha: 0.3),
                       width: 1.5,
                     ),
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Icon(LucideIcons.calendarCheck, size: 15, color: AppColors.voltCyan),
+                      const Icon(LucideIcons.calendarCheck, size: 15, color: AppColors.zenMint),
                       const SizedBox(width: 6),
                       Text(
                         DateFormat('MMM d').format(DateTime.now()),
                         style: theme.textTheme.labelLarge?.copyWith(
-                          color: AppColors.voltCyan,
+                          color: AppColors.zenMint,
                           fontWeight: FontWeight.w800,
                           fontSize: 12,
                         ),
@@ -220,19 +220,34 @@ class DashboardScreen extends StatelessWidget {
           children: [
             Row(
               children: [
+                Container(
+                  width: 3,
+                  height: 16,
+                  decoration: BoxDecoration(
+                    color: AppColors.zenMint,
+                    borderRadius: BorderRadius.circular(2),
+                    boxShadow: [
+                      BoxShadow(
+                        color: AppColors.zenMint.withValues(alpha: 0.6),
+                        blurRadius: 6,
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
                 Text("Today's Plan", style: theme.textTheme.headlineLarge?.copyWith(fontWeight: FontWeight.bold)),
                 if (planCount > 0) ...[
                   const SizedBox(width: 8),
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                     decoration: BoxDecoration(
-                      color: AppColors.voltCyan.withValues(alpha: 0.15),
+                      color: AppColors.zenMint.withValues(alpha: 0.15),
                       borderRadius: BorderRadius.circular(20),
                     ),
                     child: Text(
                       '$planCount',
                       style: theme.textTheme.labelSmall?.copyWith(
-                        color: AppColors.voltCyan,
+                        color: AppColors.zenMint,
                         fontWeight: FontWeight.w700,
                       ),
                     ),
@@ -244,7 +259,7 @@ class DashboardScreen extends StatelessWidget {
               children: [
                 IconButton(
                   icon: const Icon(LucideIcons.plus, size: 20),
-                  color: AppColors.voltCyan,
+                  color: AppColors.zenMint,
                   onPressed: () {
                     showModalBottomSheet(
                       context: context,

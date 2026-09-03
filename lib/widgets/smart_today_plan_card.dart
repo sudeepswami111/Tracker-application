@@ -117,13 +117,13 @@ class SmartTodayPlanCard extends StatelessWidget {
     Color getStatusColor() {
       switch (readiness.status) {
         case ReadinessStatus.ready:
-          return AppColors.voltCyan;
+          return AppColors.zenMint;
         case ReadinessStatus.good:
-          return const Color(0xFF00E599);
+          return AppColors.zenMintLight;
         case ReadinessStatus.caution:
-          return AppColors.solarAmber;
+          return AppColors.zenAmber;
         case ReadinessStatus.notIdeal:
-          return AppColors.pulseRed;
+          return AppColors.zenCoral;
       }
     }
 
@@ -153,10 +153,10 @@ class SmartTodayPlanCard extends StatelessWidget {
     return Container(
       width: double.infinity,
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF0F1622) : Colors.white,
-        borderRadius: BorderRadius.circular(24),
+        color: isDark ? AppColors.zenDarkCard : Colors.white,
+        borderRadius: BorderRadius.circular(28),
         border: Border.all(
-          color: isDark ? Colors.white.withValues(alpha: 0.08) : Colors.black.withValues(alpha: 0.06),
+          color: isDark ? AppColors.zenMint.withValues(alpha: 0.16) : Colors.black.withValues(alpha: 0.06),
           width: 1.2,
         ),
         boxShadow: [
@@ -168,10 +168,10 @@ class SmartTodayPlanCard extends StatelessWidget {
         ],
       ),
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(24),
+        borderRadius: BorderRadius.circular(28),
         child: Stack(
           children: [
-            // Top Ambient Neon Velocity Glow
+            // Top Ambient Velocity Glow
             Positioned(
               top: 0,
               left: 0,
@@ -181,8 +181,8 @@ class SmartTodayPlanCard extends StatelessWidget {
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
                     colors: [
-                      AppColors.voltCyan,
-                      const Color(0xFF00B4D8),
+                      AppColors.zenMint,
+                      AppColors.zenSky,
                       statusColor,
                     ],
                   ),
@@ -206,11 +206,11 @@ class SmartTodayPlanCard extends StatelessWidget {
                             width: 6,
                             height: 6,
                             decoration: BoxDecoration(
-                              color: AppColors.voltCyan,
+                              color: AppColors.zenMint,
                               shape: BoxShape.circle,
                               boxShadow: [
                                 BoxShadow(
-                                  color: AppColors.voltCyan.withValues(alpha: 0.8),
+                                  color: AppColors.zenMint.withValues(alpha: 0.8),
                                   blurRadius: 6,
                                 ),
                               ],
@@ -223,7 +223,7 @@ class SmartTodayPlanCard extends StatelessWidget {
                               fontSize: 10,
                               fontWeight: FontWeight.w900,
                               letterSpacing: 1.1,
-                              color: AppColors.voltCyan,
+                              color: AppColors.zenMint,
                             ),
                           ),
                         ],
@@ -290,7 +290,7 @@ class SmartTodayPlanCard extends StatelessWidget {
                   // ── 2. Hero Center: Icon/Image + Title ──
                   Row(
                     children: [
-                      // Futuristic Avatar Icon Container
+                      // Organic Avatar Icon Container
                       Container(
                         width: 56,
                         height: 56,
@@ -299,13 +299,13 @@ class SmartTodayPlanCard extends StatelessWidget {
                             begin: Alignment.topLeft,
                             end: Alignment.bottomRight,
                             colors: [
-                              AppColors.voltCyan.withValues(alpha: 0.25),
-                              const Color(0xFF0077B6).withValues(alpha: 0.15),
+                              AppColors.zenMint.withValues(alpha: 0.22),
+                              AppColors.zenSky.withValues(alpha: 0.15),
                             ],
                           ),
                           borderRadius: BorderRadius.circular(18),
                           border: Border.all(
-                            color: AppColors.voltCyan.withValues(alpha: 0.35),
+                            color: AppColors.zenMint.withValues(alpha: 0.35),
                             width: 1.4,
                           ),
                         ),
@@ -317,10 +317,10 @@ class SmartTodayPlanCard extends StatelessWidget {
                                         imageUrl: plan.imageUrl,
                                         fit: BoxFit.cover,
                                         placeholder: (context, url) => Center(
-                                          child: Icon(activityIcon, color: AppColors.voltCyan, size: 24),
+                                          child: Icon(activityIcon, color: AppColors.zenMint, size: 24),
                                         ),
                                         errorWidget: (context, url, error) => Center(
-                                          child: Icon(activityIcon, color: AppColors.voltCyan, size: 24),
+                                          child: Icon(activityIcon, color: AppColors.zenMint, size: 24),
                                         ),
                                       )
                                     : Image.file(
@@ -329,7 +329,7 @@ class SmartTodayPlanCard extends StatelessWidget {
                                       ),
                               )
                             : Center(
-                                child: Icon(activityIcon, color: AppColors.voltCyan, size: 26),
+                                child: Icon(activityIcon, color: AppColors.zenMint, size: 26),
                               ),
                       ),
                       const SizedBox(width: 14),
@@ -376,7 +376,7 @@ class SmartTodayPlanCard extends StatelessWidget {
                   Container(
                     padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
                     decoration: BoxDecoration(
-                      color: isDark ? const Color(0xFF141D2B) : const Color(0xFFF1F5F9),
+                      color: isDark ? AppColors.zenDarkElevated : const Color(0xFFF1F5F9),
                       borderRadius: BorderRadius.circular(16),
                       border: Border.all(
                         color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.black.withValues(alpha: 0.04),
@@ -389,7 +389,7 @@ class SmartTodayPlanCard extends StatelessWidget {
                           icon: LucideIcons.timer,
                           value: '${plan.duration}m',
                           label: 'DURATION',
-                          color: AppColors.voltCyan,
+                          color: AppColors.zenMint,
                           isDark: isDark,
                         ),
                         _buildTelemetryDivider(isDark),
@@ -397,7 +397,7 @@ class SmartTodayPlanCard extends StatelessWidget {
                           icon: LucideIcons.flame,
                           value: plan.kcal.contains('kcal') ? plan.kcal.replaceAll('kcal', '').trim() : plan.kcal,
                           label: 'EST. KCAL',
-                          color: AppColors.solarAmber,
+                          color: AppColors.zenAmber,
                           isDark: isDark,
                         ),
                         _buildTelemetryDivider(isDark),
@@ -405,7 +405,7 @@ class SmartTodayPlanCard extends StatelessWidget {
                           icon: LucideIcons.trendingUp,
                           value: '+${plan.duration}m',
                           label: 'FITNESS GOAL',
-                          color: const Color(0xFF00E599),
+                          color: AppColors.zenMintLight,
                           isDark: isDark,
                         ),
                       ],
@@ -425,10 +425,10 @@ class SmartTodayPlanCard extends StatelessWidget {
                         return Container(
                           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
                           decoration: BoxDecoration(
-                            color: isDark ? const Color(0xFF131D2D) : const Color(0xFFF0F9FF),
+                            color: isDark ? AppColors.zenDarkElevated : const Color(0xFFF0FDF4),
                             borderRadius: BorderRadius.circular(14),
                             border: Border.all(
-                              color: AppColors.voltCyan.withValues(alpha: 0.25),
+                              color: AppColors.zenMint.withValues(alpha: 0.25),
                               width: 1,
                             ),
                           ),
@@ -437,10 +437,10 @@ class SmartTodayPlanCard extends StatelessWidget {
                               Container(
                                 padding: const EdgeInsets.all(6),
                                 decoration: BoxDecoration(
-                                  color: AppColors.voltCyan.withValues(alpha: 0.15),
+                                  color: AppColors.zenMint.withValues(alpha: 0.15),
                                   shape: BoxShape.circle,
                                 ),
-                                child: Icon(timeRec.icon, size: 14, color: AppColors.voltCyan),
+                                child: Icon(timeRec.icon, size: 14, color: AppColors.zenMint),
                               ),
                               const SizedBox(width: 10),
                               Expanded(
@@ -455,7 +455,7 @@ class SmartTodayPlanCard extends StatelessWidget {
                                             fontSize: 9.5,
                                             fontWeight: FontWeight.w900,
                                             letterSpacing: 0.5,
-                                            color: AppColors.voltCyan,
+                                            color: AppColors.zenMint,
                                           ),
                                         ),
                                         Expanded(
@@ -478,8 +478,6 @@ class SmartTodayPlanCard extends StatelessWidget {
                                       style: TextStyle(
                                         fontSize: 10.5,
                                         color: isDark ? Colors.white70 : Colors.black87,
-                                        fontWeight: FontWeight.w500,
-                                        height: 1.25,
                                       ),
                                     ),
                                   ],
@@ -492,14 +490,13 @@ class SmartTodayPlanCard extends StatelessWidget {
                     ),
                   ],
 
-                  if (!isCompleted && phases.length >= 3) ...[
-                    const SizedBox(height: 12),
-
-                    // ── 4. Unified Phase Stepper Runway ──
+                  // ── 4. Intelligent Workout Runway ──
+                  if (phases.isNotEmpty) ...[
+                    const SizedBox(height: 14),
                     Container(
                       padding: const EdgeInsets.all(10),
                       decoration: BoxDecoration(
-                        color: isDark ? const Color(0xFF121927) : const Color(0xFFF8FAFC),
+                        color: isDark ? AppColors.zenDarkElevated : const Color(0xFFF8FAFC),
                         borderRadius: BorderRadius.circular(16),
                         border: Border.all(
                           color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.black.withValues(alpha: 0.04),
@@ -512,7 +509,7 @@ class SmartTodayPlanCard extends StatelessWidget {
                             stepNum: '01',
                             label: 'Warm-up',
                             duration: '${phases[0].durationMinutes}m',
-                            color: const Color(0xFF00E599),
+                            color: AppColors.zenMintLight,
                             phase: phases[0],
                             plan: plan,
                             phases: phases,
@@ -526,7 +523,7 @@ class SmartTodayPlanCard extends StatelessWidget {
                             stepNum: '02',
                             label: 'Workout',
                             duration: '${phases[1].durationMinutes}m',
-                            color: AppColors.voltCyan,
+                            color: AppColors.zenMint,
                             phase: phases[1],
                             plan: plan,
                             phases: phases,
@@ -540,7 +537,7 @@ class SmartTodayPlanCard extends StatelessWidget {
                             stepNum: '03',
                             label: 'Cooldown',
                             duration: '${phases[2].durationMinutes}m',
-                            color: const Color(0xFF00B4D8),
+                            color: AppColors.zenSky,
                             phase: phases[2],
                             plan: plan,
                             phases: phases,
@@ -555,28 +552,28 @@ class SmartTodayPlanCard extends StatelessWidget {
 
                   const SizedBox(height: 16),
 
-                  // ── 5. Action Trigger: Hero Glow Button ──
+                  // ── 5. Action Trigger: Hero Button ──
                   SizedBox(
                     width: double.infinity,
                     height: 50,
                     child: isCompleted
                         ? Container(
                             decoration: BoxDecoration(
-                              color: const Color(0xFF00E599).withValues(alpha: 0.15),
+                              color: AppColors.zenMint.withValues(alpha: 0.15),
                               borderRadius: BorderRadius.circular(16),
                               border: Border.all(
-                                color: const Color(0xFF00E599).withValues(alpha: 0.4),
+                                color: AppColors.zenMint.withValues(alpha: 0.4),
                               ),
                             ),
                             child: const Row(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
-                                Icon(LucideIcons.checkCircle2, color: Color(0xFF00E599), size: 20),
+                                Icon(LucideIcons.checkCircle2, color: AppColors.zenMint, size: 20),
                                 SizedBox(width: 8),
                                 Text(
                                   'WORKOUT COMPLETED',
                                   style: TextStyle(
-                                    color: Color(0xFF00E599),
+                                    color: AppColors.zenMint,
                                     fontWeight: FontWeight.w900,
                                     fontSize: 13,
                                     letterSpacing: 0.6,
@@ -590,13 +587,13 @@ class SmartTodayPlanCard extends StatelessWidget {
                               borderRadius: BorderRadius.circular(16),
                               gradient: const LinearGradient(
                                 colors: [
-                                  AppColors.voltCyan,
-                                  Color(0xFF00C49F),
+                                  AppColors.zenMint,
+                                  AppColors.zenMintLight,
                                 ],
                               ),
                               boxShadow: [
                                 BoxShadow(
-                                  color: AppColors.voltCyan.withValues(alpha: 0.35),
+                                  color: AppColors.zenMint.withValues(alpha: 0.3),
                                   blurRadius: 14,
                                   offset: const Offset(0, 4),
                                 ),
@@ -614,18 +611,18 @@ class SmartTodayPlanCard extends StatelessWidget {
                                     phases: phases,
                                   );
                                 },
-                                child: Center(
+                                child: const Center(
                                   child: Row(
                                     mainAxisAlignment: MainAxisAlignment.center,
                                     children: [
-                                      const Icon(LucideIcons.play, size: 18, color: Colors.black),
-                                      const SizedBox(width: 8),
+                                      Icon(LucideIcons.play, color: Colors.black, size: 18),
+                                      SizedBox(width: 8),
                                       Text(
-                                        _getButtonText(plan.type, recommendation.adaptiveActionText).toUpperCase(),
-                                        style: const TextStyle(
+                                        'START WORKOUT',
+                                        style: TextStyle(
+                                          color: Colors.black,
                                           fontWeight: FontWeight.w900,
                                           fontSize: 14,
-                                          color: Colors.black,
                                           letterSpacing: 0.8,
                                         ),
                                       ),
