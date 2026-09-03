@@ -26,7 +26,7 @@ import '../widgets/people_suggestion_section.dart';
 import '../widgets/streak_details_sheet.dart';
 import '../widgets/smart_calendar_sheet.dart';
 import '../widgets/smart_today_plan_card.dart';
-import '../widgets/dashboard_community_section.dart';
+import '../widgets/milestone_trophy_section.dart';
 import '../widgets/health_components.dart';
 import '../widgets/hydration_hub_card.dart';
 
@@ -124,17 +124,10 @@ class DashboardScreen extends StatelessWidget {
               ),
               const SizedBox(height: AppSpacing.xl),
 
-              // 6. People You May Know — Social discovery
+              // 6. Milestones & Trophies — Personal Bests, Level & Badges Vault
               AnimatedCardEnter(
                 index: 5,
-                child: const PeopleSuggestionSection(),
-              ),
-              const SizedBox(height: AppSpacing.xl),
-
-              // 7. Community Teaser — Broader community engagement
-              AnimatedCardEnter(
-                index: 6,
-                child: const DashboardCommunitySection(),
+                child: const MilestoneTrophySection(),
               ),
             ],
           ),
