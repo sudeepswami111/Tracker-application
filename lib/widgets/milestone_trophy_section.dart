@@ -43,8 +43,7 @@ class _MilestoneTrophySectionState extends State<MilestoneTrophySection>
     final app = context.watch<AppProvider>();
     final stepTracker = context.watch<StepTrackerProvider>();
     final watchProvider = context.watch<WatchMetricsProvider>();
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     // Calculate dynamic athlete level and XP
     final int totalSteps = stepTracker.steps;
@@ -62,51 +61,60 @@ class _MilestoneTrophySectionState extends State<MilestoneTrophySection>
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // ── Header ──
+        // ── Responsive Header ──
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            Row(
-              children: [
-                Container(
-                  width: 3,
-                  height: 16,
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFF59E0B),
-                    borderRadius: BorderRadius.circular(2),
-                    boxShadow: [
-                      BoxShadow(
-                        color: const Color(0xFFF59E0B).withValues(alpha: 0.6),
-                        blurRadius: 6,
-                      ),
-                    ],
+            Expanded(
+              child: Row(
+                children: [
+                  Container(
+                    width: 3,
+                    height: 16,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF59E0B),
+                      borderRadius: BorderRadius.circular(2),
+                      boxShadow: [
+                        BoxShadow(
+                          color: const Color(0xFFF59E0B).withValues(alpha: 0.6),
+                          blurRadius: 6,
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-                const SizedBox(width: 8),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      "Milestones & Trophies",
-                      style: GoogleFonts.inter(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w800,
-                        color: isDark ? Colors.white : Colors.black87,
-                        letterSpacing: -0.3,
-                      ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          "Milestones & Trophies",
+                          style: GoogleFonts.inter(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w800,
+                            color: isDark ? Colors.white : Colors.black87,
+                            letterSpacing: -0.3,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        Text(
+                          "Personal Bests & Badges",
+                          style: GoogleFonts.inter(
+                            fontSize: 10,
+                            color: isDark ? Colors.white38 : Colors.black45,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
                     ),
-                    Text(
-                      "Personal Bests & Holographic Badges",
-                      style: GoogleFonts.inter(
-                        fontSize: 11,
-                        color: isDark ? Colors.white38 : Colors.black45,
-                      ),
-                    ),
-                  ],
-                ),
-              ],
+                  ),
+                ],
+              ),
             ),
+            const SizedBox(width: 8),
             GestureDetector(
               onTap: () {
                 Navigator.push(
@@ -115,7 +123,7 @@ class _MilestoneTrophySectionState extends State<MilestoneTrophySection>
                 );
               },
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
                 decoration: BoxDecoration(
                   color: const Color(0xFFF59E0B).withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(10),
@@ -127,18 +135,18 @@ class _MilestoneTrophySectionState extends State<MilestoneTrophySection>
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(LucideIcons.trophy, size: 13, color: Color(0xFFF59E0B)),
-                    const SizedBox(width: 5),
+                    const Icon(LucideIcons.trophy, size: 12, color: Color(0xFFF59E0B)),
+                    const SizedBox(width: 4),
                     Text(
                       'Trophy Room',
                       style: GoogleFonts.inter(
                         color: const Color(0xFFF59E0B),
-                        fontSize: 11,
+                        fontSize: 10,
                         fontWeight: FontWeight.w700,
                       ),
                     ),
-                    const SizedBox(width: 3),
-                    const Icon(LucideIcons.chevronRight, size: 12, color: Color(0xFFF59E0B)),
+                    const SizedBox(width: 2),
+                    const Icon(LucideIcons.chevronRight, size: 11, color: Color(0xFFF59E0B)),
                   ],
                 ),
               ),
@@ -200,7 +208,7 @@ class _MilestoneTrophySectionState extends State<MilestoneTrophySection>
                 ),
 
                 Padding(
-                  padding: const EdgeInsets.all(20),
+                  padding: const EdgeInsets.all(18),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -210,7 +218,7 @@ class _MilestoneTrophySectionState extends State<MilestoneTrophySection>
                         children: [
                           // Level emblem
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                            padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
                             decoration: BoxDecoration(
                               gradient: const LinearGradient(
                                 colors: [Color(0xFFF59E0B), Color(0xFFD97706)],
@@ -227,12 +235,12 @@ class _MilestoneTrophySectionState extends State<MilestoneTrophySection>
                             child: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                const Icon(LucideIcons.crown, size: 14, color: Colors.black),
-                                const SizedBox(width: 5),
+                                const Icon(LucideIcons.crown, size: 13, color: Colors.black),
+                                const SizedBox(width: 4),
                                 Text(
                                   'LVL $level',
                                   style: GoogleFonts.inter(
-                                    fontSize: 12,
+                                    fontSize: 11,
                                     fontWeight: FontWeight.w900,
                                     color: Colors.black,
                                     letterSpacing: 0.5,
@@ -241,7 +249,7 @@ class _MilestoneTrophySectionState extends State<MilestoneTrophySection>
                               ],
                             ),
                           ),
-                          const SizedBox(width: 12),
+                          const SizedBox(width: 10),
                           Expanded(
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
@@ -249,14 +257,19 @@ class _MilestoneTrophySectionState extends State<MilestoneTrophySection>
                                 Row(
                                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                   children: [
-                                    Text(
-                                      _getRankTitle(level),
-                                      style: GoogleFonts.inter(
-                                        fontSize: 13,
-                                        fontWeight: FontWeight.w800,
-                                        color: isDark ? Colors.white : Colors.black87,
+                                    Flexible(
+                                      child: Text(
+                                        _getRankTitle(level),
+                                        style: GoogleFonts.inter(
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w800,
+                                          color: isDark ? Colors.white : Colors.black87,
+                                        ),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
                                       ),
                                     ),
+                                    const SizedBox(width: 4),
                                     Text(
                                       '$currentLevelXp / 1000 XP',
                                       style: GoogleFonts.inter(
@@ -267,7 +280,7 @@ class _MilestoneTrophySectionState extends State<MilestoneTrophySection>
                                     ),
                                   ],
                                 ),
-                                const SizedBox(height: 6),
+                                const SizedBox(height: 5),
                                 ClipRRect(
                                   borderRadius: BorderRadius.circular(4),
                                   child: LinearProgressIndicator(
@@ -285,12 +298,12 @@ class _MilestoneTrophySectionState extends State<MilestoneTrophySection>
                         ],
                       ),
 
-                      const SizedBox(height: 18),
+                      const SizedBox(height: 16),
                       Divider(
                         color: isDark ? Colors.white.withValues(alpha: 0.06) : Colors.black.withValues(alpha: 0.06),
                         height: 1,
                       ),
-                      const SizedBox(height: 16),
+                      const SizedBox(height: 14),
 
                       // ── 2. Personal Records Matrix (4 PRs) ──
                       Text(
@@ -356,12 +369,12 @@ class _MilestoneTrophySectionState extends State<MilestoneTrophySection>
                         ],
                       ),
 
-                      const SizedBox(height: 18),
+                      const SizedBox(height: 16),
                       Divider(
                         color: isDark ? Colors.white.withValues(alpha: 0.06) : Colors.black.withValues(alpha: 0.06),
                         height: 1,
                       ),
-                      const SizedBox(height: 16),
+                      const SizedBox(height: 14),
 
                       // ── 3. Active Weekly Quest / Sprint ──
                       Row(
@@ -397,7 +410,7 @@ class _MilestoneTrophySectionState extends State<MilestoneTrophySection>
                       const SizedBox(height: 10),
 
                       Container(
-                        padding: const EdgeInsets.all(14),
+                        padding: const EdgeInsets.all(12),
                         decoration: BoxDecoration(
                           color: isDark
                               ? Colors.white.withValues(alpha: 0.03)
@@ -414,18 +427,18 @@ class _MilestoneTrophySectionState extends State<MilestoneTrophySection>
                             Row(
                               children: [
                                 Container(
-                                  padding: const EdgeInsets.all(7),
+                                  padding: const EdgeInsets.all(6),
                                   decoration: BoxDecoration(
                                     color: AppColors.voltCyan.withValues(alpha: 0.15),
                                     shape: BoxShape.circle,
                                   ),
                                   child: const Icon(
                                     LucideIcons.target,
-                                    size: 16,
+                                    size: 15,
                                     color: AppColors.voltCyan,
                                   ),
                                 ),
-                                const SizedBox(width: 10),
+                                const SizedBox(width: 8),
                                 Expanded(
                                   child: Column(
                                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -433,26 +446,30 @@ class _MilestoneTrophySectionState extends State<MilestoneTrophySection>
                                       Text(
                                         '50,000 Steps Weekly Sprint',
                                         style: GoogleFonts.inter(
-                                          fontSize: 13,
+                                          fontSize: 12,
                                           fontWeight: FontWeight.w800,
                                           color: isDark ? Colors.white : Colors.black87,
                                         ),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
                                       ),
-                                      const SizedBox(height: 2),
+                                      const SizedBox(height: 1),
                                       Text(
                                         'Reward: +500 XP • 🥇 Gold Century Badge',
                                         style: GoogleFonts.inter(
-                                          fontSize: 10,
+                                          fontSize: 9,
                                           color: const Color(0xFFF59E0B),
                                           fontWeight: FontWeight.w600,
                                         ),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
                                       ),
                                     ],
                                   ),
                                 ),
                               ],
                             ),
-                            const SizedBox(height: 12),
+                            const SizedBox(height: 10),
                             // Progress bar with indicator
                             Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -460,7 +477,7 @@ class _MilestoneTrophySectionState extends State<MilestoneTrophySection>
                                 Text(
                                   '${(totalSteps).clamp(0, 50000)} / 50,000 steps',
                                   style: GoogleFonts.inter(
-                                    fontSize: 11,
+                                    fontSize: 10,
                                     fontWeight: FontWeight.w700,
                                     color: isDark ? Colors.white70 : Colors.black87,
                                   ),
@@ -468,19 +485,19 @@ class _MilestoneTrophySectionState extends State<MilestoneTrophySection>
                                 Text(
                                   '${((totalSteps / 50000) * 100).clamp(0, 100).toInt()}%',
                                   style: GoogleFonts.inter(
-                                    fontSize: 11,
+                                    fontSize: 10,
                                     fontWeight: FontWeight.w800,
                                     color: AppColors.voltCyan,
                                   ),
                                 ),
                               ],
                             ),
-                            const SizedBox(height: 6),
+                            const SizedBox(height: 5),
                             ClipRRect(
                               borderRadius: BorderRadius.circular(4),
                               child: LinearProgressIndicator(
                                 value: (totalSteps / 50000).clamp(0.0, 1.0),
-                                minHeight: 6,
+                                minHeight: 5,
                                 backgroundColor: isDark
                                     ? Colors.white.withValues(alpha: 0.08)
                                     : Colors.black.withValues(alpha: 0.08),
@@ -491,12 +508,12 @@ class _MilestoneTrophySectionState extends State<MilestoneTrophySection>
                         ),
                       ),
 
-                      const SizedBox(height: 18),
+                      const SizedBox(height: 16),
                       Divider(
                         color: isDark ? Colors.white.withValues(alpha: 0.06) : Colors.black.withValues(alpha: 0.06),
                         height: 1,
                       ),
-                      const SizedBox(height: 16),
+                      const SizedBox(height: 14),
 
                       // ── 4. Holographic Badge Vault (Horizontal Carousel) ──
                       Row(
@@ -575,12 +592,12 @@ class _MilestoneTrophySectionState extends State<MilestoneTrophySection>
     required bool isDark,
   }) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
       decoration: BoxDecoration(
         color: isDark
             ? color.withValues(alpha: 0.06)
             : color.withValues(alpha: 0.05),
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(14),
         border: Border.all(
           color: color.withValues(alpha: isDark ? 0.2 : 0.25),
           width: 1,
@@ -589,14 +606,14 @@ class _MilestoneTrophySectionState extends State<MilestoneTrophySection>
       child: Row(
         children: [
           Container(
-            padding: const EdgeInsets.all(7),
+            padding: const EdgeInsets.all(6),
             decoration: BoxDecoration(
               color: color.withValues(alpha: 0.15),
               shape: BoxShape.circle,
             ),
-            child: Icon(icon, size: 14, color: color),
+            child: Icon(icon, size: 13, color: color),
           ),
-          const SizedBox(width: 8),
+          const SizedBox(width: 7),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -607,7 +624,7 @@ class _MilestoneTrophySectionState extends State<MilestoneTrophySection>
                       TextSpan(
                         text: value,
                         style: GoogleFonts.inter(
-                          fontSize: 15,
+                          fontSize: 14,
                           fontWeight: FontWeight.w900,
                           color: isDark ? Colors.white : Colors.black87,
                         ),
@@ -622,6 +639,8 @@ class _MilestoneTrophySectionState extends State<MilestoneTrophySection>
                       ),
                     ],
                   ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
                 const SizedBox(height: 1),
                 Text(
@@ -629,7 +648,7 @@ class _MilestoneTrophySectionState extends State<MilestoneTrophySection>
                   style: GoogleFonts.inter(
                     fontSize: 8,
                     fontWeight: FontWeight.w700,
-                    letterSpacing: 0.5,
+                    letterSpacing: 0.4,
                     color: isDark ? Colors.white38 : Colors.black45,
                   ),
                   maxLines: 1,
