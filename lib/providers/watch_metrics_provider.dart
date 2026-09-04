@@ -46,6 +46,8 @@ class WatchMetricsProvider extends ChangeNotifier {
 
   double? _spO2;
   double? get spO2 => _spO2;
+  double? get spo2 => _spO2;
+  int? get stressLevel => _wellnessScore != null ? (100 - _wellnessScore!).clamp(0, 100) : null;
 
   double? _temperature;
   double? get temperature => _temperature;

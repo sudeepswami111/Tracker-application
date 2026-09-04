@@ -37,9 +37,9 @@ class _HealthScreenState extends State<HealthScreen> {
     final sleep = (watch.sleepHours != null && watch.sleepHours! > 0)
         ? watch.sleepHours!
         : 7.2;
-    final spo2 = (watch.spo2 != null && watch.spo2! > 0) ? watch.spo2! : 98;
-    final stress = (watch.stressLevel != null && watch.stressLevel! > 0)
-        ? watch.stressLevel!
+    final spo2 = (watch.spO2 != null && watch.spO2! > 0) ? watch.spO2!.toInt() : 98;
+    final stress = (watch.wellnessScore != null && watch.wellnessScore! > 0)
+        ? (100 - watch.wellnessScore!).clamp(0, 100)
         : 32;
     final kcal = (stepTracker.steps * 0.04).round().clamp(100, 2000);
     final waterL = (app.waterIntake > 0) ? app.waterIntake : 2.1;
