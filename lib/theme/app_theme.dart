@@ -84,13 +84,13 @@ class AppTheme {
     );
   }
 
-  static ThemeData light({Color accentColor = AppColors.voltCyan}) {
-    const lightOnSurface = AppColors.lightOnSurface;
-    const lightOnSurfaceVariant = AppColors.lightOnSurfaceVariant;
-    const lightSurface = AppColors.lightSurface;
-    const lightSurfaceContainer = AppColors.lightSurfaceContainer;
+  static ThemeData light({Color accentColor = AppColors.primaryTeal}) {
+    const lightOnSurface = AppColors.textPrimary;
+    const lightOnSurfaceVariant = AppColors.textSecondary;
+    const lightSurface = AppColors.cardWhite;
+    const lightSurfaceContainer = AppColors.cardWhite;
     const lightBg = AppColors.lightBg;
-    const lightOutline = AppColors.lightOutline;
+    const lightOutline = AppColors.cardBorder;
 
     return ThemeData(
       useMaterial3: true,
@@ -105,29 +105,31 @@ class AppTheme {
       scaffoldBackgroundColor: lightBg,
       colorScheme: ColorScheme.light(
         primary: accentColor,
-        secondary: accentColor,
+        secondary: AppColors.secondaryBlue,
         surface: lightSurface,
         onSurface: lightOnSurface,
         onSurfaceVariant: lightOnSurfaceVariant,
         outline: lightOutline,
-        error: AppColors.pulseRed,
+        error: AppColors.accentCoral,
         surfaceContainerHighest: lightSurfaceContainer,
-        surfaceContainerLow: AppColors.lightSurfaceContainerLow,
+        surfaceContainerLow: const Color(0xFFF8FAFC),
       ),
       textTheme: GoogleFonts.interTextTheme(ThemeData.light().textTheme).copyWith(
-        displayLarge: GoogleFonts.inter(fontSize: 48, fontWeight: FontWeight.w800, height: 52/48, color: lightOnSurface),
-        displayMedium: GoogleFonts.inter(fontSize: 34, fontWeight: FontWeight.w700, height: 40/34, color: lightOnSurface),
-        headlineLarge: GoogleFonts.inter(fontSize: 22, fontWeight: FontWeight.w700, height: 28/22, color: lightOnSurface),
-        headlineMedium: GoogleFonts.inter(fontSize: 17, fontWeight: FontWeight.w600, height: 22/17, color: lightOnSurface),
+        displayLarge: GoogleFonts.inter(fontSize: 34, fontWeight: FontWeight.w800, height: 40/34, color: lightOnSurface),
+        displayMedium: GoogleFonts.inter(fontSize: 28, fontWeight: FontWeight.w700, height: 34/28, color: lightOnSurface),
+        headlineLarge: GoogleFonts.inter(fontSize: 24, fontWeight: FontWeight.w700, height: 30/24, color: lightOnSurface),
+        headlineMedium: GoogleFonts.inter(fontSize: 18, fontWeight: FontWeight.w600, height: 24/18, color: lightOnSurface),
+        titleLarge: GoogleFonts.inter(fontSize: 17, fontWeight: FontWeight.w600, height: 22/17, color: lightOnSurface),
+        titleMedium: GoogleFonts.inter(fontSize: 15, fontWeight: FontWeight.w600, height: 20/15, color: lightOnSurface),
         bodyLarge: GoogleFonts.inter(fontSize: 15, fontWeight: FontWeight.w400, height: 22/15, color: lightOnSurface),
         bodyMedium: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w400, height: 18/13, color: lightOnSurfaceVariant),
         labelSmall: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w500, height: 14/11, color: lightOnSurfaceVariant),
-        displaySmall: GoogleFonts.dmMono(fontSize: 28, fontWeight: FontWeight.w600, height: 32/28, color: lightOnSurface),
+        displaySmall: GoogleFonts.inter(fontSize: 28, fontWeight: FontWeight.w700, height: 32/28, color: lightOnSurface),
       ),
       cardTheme: CardThemeData(
         color: lightSurface,
         elevation: 0,
-        shadowColor: Colors.black.withValues(alpha: 0.06),
+        shadowColor: Colors.black.withValues(alpha: 0.04),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(24),
           side: const BorderSide(color: lightOutline, width: 1),
@@ -139,21 +141,21 @@ class AppTheme {
         scrolledUnderElevation: 0,
         centerTitle: false,
         iconTheme: const IconThemeData(color: lightOnSurface),
-        titleTextStyle: GoogleFonts.inter(fontSize: 22, fontWeight: FontWeight.w700, height: 28/22, color: lightOnSurface),
+        titleTextStyle: GoogleFonts.inter(fontSize: 20, fontWeight: FontWeight.w700, height: 26/20, color: lightOnSurface),
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: lightSurfaceContainer,
+        fillColor: Colors.white,
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(16),
           borderSide: const BorderSide(color: lightOutline),
         ),
         enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(16),
           borderSide: const BorderSide(color: lightOutline),
         ),
         focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(16),
           borderSide: BorderSide(color: accentColor, width: 1.5),
         ),
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
@@ -183,16 +185,19 @@ class AppTheme {
         color: lightSurface,
         shadowColor: Colors.black.withValues(alpha: 0.08),
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(16),
           side: const BorderSide(color: lightOutline),
         ),
       ),
       dialogTheme: DialogThemeData(
         backgroundColor: lightSurface,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
       ),
       bottomSheetTheme: const BottomSheetThemeData(
         backgroundColor: lightSurface,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+        ),
       ),
       switchTheme: SwitchThemeData(
         thumbColor: WidgetStateProperty.resolveWith((s) =>

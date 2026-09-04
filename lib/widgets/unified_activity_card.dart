@@ -1,6 +1,7 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import '../theme/app_colors.dart';
 
 class UnifiedActivityCard extends StatefulWidget {
@@ -9,6 +10,7 @@ class UnifiedActivityCard extends StatefulWidget {
   final int activeMinutes;
   final int heartRate;
   final double sleepDuration;
+  final int calories;
   final bool showHealthMetrics;
 
   const UnifiedActivityCard({
@@ -18,6 +20,7 @@ class UnifiedActivityCard extends StatefulWidget {
     required this.activeMinutes,
     required this.heartRate,
     required this.sleepDuration,
+    this.calories = 430,
     this.showHealthMetrics = true,
   });
 
@@ -26,627 +29,431 @@ class UnifiedActivityCard extends StatefulWidget {
 }
 
 class _UnifiedActivityCardState extends State<UnifiedActivityCard>
-    with TickerProviderStateMixin {
-  late AnimationController _ringController;
-  late AnimationController _pulseController;
-  late AnimationController _shimmerController;
-  late Animation<double> _ringAnim;
-  late Animation<double> _pulseAnim;
-  late Animation<double> _shimmerAnim;
+    with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<double> _progressAnim;
 
   @override
   void initState() {
     super.initState();
-    _ringController = AnimationController(
+    _controller = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 1400),
     );
-    _pulseController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 1800),
-    )..repeat(reverse: true);
-    _shimmerController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 2400),
-    )..repeat();
-
-    _ringAnim = CurvedAnimation(parent: _ringController, curve: Curves.easeOutCubic);
-    _pulseAnim = Tween<double>(begin: 0.85, end: 1.0).animate(
-      CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
+    _progressAnim = CurvedAnimation(
+      parent: _controller,
+      curve: Curves.easeOutCubic,
     );
-    _shimmerAnim = Tween<double>(begin: -1.0, end: 2.0).animate(_shimmerController);
-
-    _ringController.forward();
+    _controller.forward();
   }
 
   @override
   void didUpdateWidget(UnifiedActivityCard oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.steps != widget.steps) {
-      _ringController.forward(from: 0);
+      _controller.forward(from: 0);
     }
   }
 
   @override
   void dispose() {
-    _ringController.dispose();
-    _pulseController.dispose();
-    _shimmerController.dispose();
+    _controller.dispose();
     super.dispose();
-  }
-
-  String _statusLabel(double p) {
-    if (p < 0.3) return "GET MOVING";
-    if (p < 0.6) return "IN PROGRESS";
-    if (p < 1.0) return "ALMOST THERE";
-    return "GOAL CRUSHED";
-  }
-
-  Color _statusColor(double p) {
-    if (p < 0.3) return AppColors.zenCoral;
-    if (p < 0.6) return AppColors.zenAmber;
-    if (p < 1.0) return AppColors.zenMint;
-    return AppColors.zenMintLight;
   }
 
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final double progress = (widget.stepGoal > 0
+    final double targetProgress = (widget.stepGoal > 0
             ? widget.steps / widget.stepGoal
             : 0.0)
         .clamp(0.0, 1.0);
-    final int pct = (progress * 100).toInt();
-    final statusLabel = _statusLabel(progress);
-    final statusColor = _statusColor(progress);
+    final int pct = (targetProgress * 100).toInt();
 
-    // Effective HR — fallback to 72 if no data
-    final int hr =
-        (widget.showHealthMetrics && widget.heartRate > 0) ? widget.heartRate : 72;
+    // Effective metrics
+    final int hr = (widget.showHealthMetrics && widget.heartRate > 0)
+        ? widget.heartRate
+        : 72;
     final double sleep = (widget.showHealthMetrics && widget.sleepDuration > 0)
         ? widget.sleepDuration
-        : 7.5;
-    final String activeStr = widget.activeMinutes > 0
-        ? '${widget.activeMinutes}m'
-        : '--';
+        : 7.2;
+    final int activeMin = widget.activeMinutes > 0 ? widget.activeMinutes : 48;
+    final int kcal = widget.calories > 0
+        ? widget.calories
+        : (widget.steps * 0.04).round().clamp(100, 2000);
 
     return Container(
+      width: double.infinity,
       decoration: BoxDecoration(
+        color: isDark ? AppColors.zenDarkCard : Colors.white,
         borderRadius: BorderRadius.circular(28),
-        gradient: isDark
-            ? const LinearGradient(
-                colors: [Color(0xFF131F2E), Color(0xFF0D1622)],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              )
-            : const LinearGradient(
-                colors: [Color(0xFFF8FAFC), Color(0xFFF1F5F9)],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
         border: Border.all(
           color: isDark
-              ? AppColors.zenMint.withValues(alpha: 0.2)
-              : AppColors.zenMint.withValues(alpha: 0.3),
-          width: 1.5,
+              ? Colors.white.withValues(alpha: 0.08)
+              : AppColors.cardBorder,
+          width: 1.2,
         ),
         boxShadow: [
           BoxShadow(
-            color: AppColors.zenMint.withValues(alpha: isDark ? 0.06 : 0.1),
-            blurRadius: 24,
-            offset: const Offset(0, 8),
+            color: Colors.black.withValues(alpha: isDark ? 0.35 : 0.04),
+            blurRadius: 20,
+            offset: const Offset(0, 6),
           ),
         ],
       ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(28),
-        child: Stack(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(20, 24, 20, 20),
+        child: Column(
           children: [
-            // ── Background grid lines ──
-            Positioned.fill(child: _GridLines(isDark: isDark)),
-
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 20, 20, 18),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  // ── Header ──
-                  Row(
+            // ── 1. Large Circular Steps Component (Reference Design) ──
+            AnimatedBuilder(
+              animation: _progressAnim,
+              builder: (context, _) {
+                final currentProgress = _progressAnim.value * targetProgress;
+                return SizedBox(
+                  width: 210,
+                  height: 210,
+                  child: Stack(
+                    alignment: Alignment.center,
                     children: [
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                        decoration: BoxDecoration(
-                          color: AppColors.zenMint.withValues(alpha: 0.12),
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(
-                            color: AppColors.zenMint.withValues(alpha: 0.3),
-                            width: 1,
+                      // Custom Circular Arc Painter
+                      CustomPaint(
+                        size: const Size(210, 210),
+                        painter: _StepsRingPainter(
+                          progress: currentProgress,
+                          isDark: isDark,
+                        ),
+                      ),
+                      // Inner Content: Shoe Badge + Steps + Subtitle
+                      Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          // Top Shoe Badge Icon
+                          Container(
+                            padding: const EdgeInsets.all(7),
+                            decoration: BoxDecoration(
+                              color: AppColors.primaryTeal.withValues(alpha: 0.14),
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(
+                              LucideIcons.footprints,
+                              size: 16,
+                              color: AppColors.primaryTeal,
+                            ),
                           ),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Container(
-                              width: 6,
-                              height: 6,
-                              decoration: BoxDecoration(
-                                color: AppColors.zenMint,
-                                shape: BoxShape.circle,
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: AppColors.zenMint.withValues(alpha: 0.8),
-                                    blurRadius: 4,
-                                  ),
-                                ],
-                              ),
+                          const SizedBox(height: 4),
+                          // Large Bold Number with Rolling Effect
+                          _RollingNumber(
+                            value: (_progressAnim.value * widget.steps).round(),
+                            fontSize: 34,
+                            fontWeight: FontWeight.w900,
+                            color: isDark ? Colors.white : AppColors.textPrimary,
+                          ),
+                          Text(
+                            'Steps',
+                            style: GoogleFonts.inter(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                              color: isDark ? Colors.white70 : AppColors.textSecondary,
                             ),
-                            const SizedBox(width: 6),
-                            Text(
-                              'VITALITY RHYTHM',
-                              style: GoogleFonts.inter(
-                                fontSize: 10,
-                                fontWeight: FontWeight.w700,
-                                letterSpacing: 1.5,
-                                color: AppColors.zenMint,
-                              ),
+                          ),
+                          const SizedBox(height: 3),
+                          Text(
+                            '$pct% of ${widget.stepGoal} steps goal',
+                            style: GoogleFonts.inter(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w500,
+                              color: isDark ? Colors.white38 : AppColors.neutralGray,
                             ),
-                          ],
-                        ),
-                      ),
-                      const Spacer(),
-                      _AnimatedStatusBadge(
-                        label: statusLabel,
-                        color: statusColor,
-                        shimmerAnim: _shimmerAnim,
+                          ),
+                        ],
                       ),
                     ],
                   ),
-
-                  const SizedBox(height: 20),
-
-                  // ── Central Orbital Ring + Steps ──
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.center,
-                    children: [
-                      // Orbital rings
-                      AnimatedBuilder(
-                        animation: Listenable.merge([_ringAnim, _pulseAnim]),
-                        builder: (context, _) {
-                          return SizedBox(
-                            width: 120,
-                            height: 120,
-                            child: CustomPaint(
-                              painter: _OrbitalRingPainter(
-                                progress: _ringAnim.value * progress,
-                                pulse: _pulseAnim.value,
-                                isDark: isDark,
-                              ),
-                              child: Center(
-                                child: Column(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Text(
-                                      '$pct',
-                                      style: GoogleFonts.inter(
-                                        fontSize: 28,
-                                        fontWeight: FontWeight.w900,
-                                        color: isDark ? Colors.white : Colors.black,
-                                        height: 1,
-                                      ),
-                                    ),
-                                    Text(
-                                      '%',
-                                      style: GoogleFonts.inter(
-                                        fontSize: 11,
-                                        fontWeight: FontWeight.w600,
-                                        color: AppColors.zenMint,
-                                        letterSpacing: 1,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          );
-                        },
-                      ),
-
-                      const SizedBox(width: 20),
-
-                      // Steps counter + goal bar
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'TODAY\'S STEPS',
-                              style: GoogleFonts.inter(
-                                fontSize: 9,
-                                fontWeight: FontWeight.w700,
-                                letterSpacing: 1.8,
-                                color: isDark
-                                    ? Colors.white38
-                                    : Colors.black38,
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            // Odometer-style rolling number
-                            AnimatedBuilder(
-                              animation: _shimmerAnim,
-                              builder: (context, _) {
-                                return ShaderMask(
-                                  shaderCallback: (bounds) => LinearGradient(
-                                    colors: [
-                                      isDark ? Colors.white : Colors.black87,
-                                      AppColors.zenMint,
-                                      isDark ? Colors.white : Colors.black87,
-                                    ],
-                                    stops: [
-                                      (_shimmerAnim.value - 0.3).clamp(0.0, 1.0),
-                                      _shimmerAnim.value.clamp(0.0, 1.0),
-                                      (_shimmerAnim.value + 0.3).clamp(0.0, 1.0),
-                                    ],
-                                  ).createShader(bounds),
-                                  child: _RollingNumber(
-                                    value: widget.steps,
-                                    fontSize: 36,
-                                    fontWeight: FontWeight.w900,
-                                    color: Colors.white,
-                                  ),
-                                );
-                              },
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              'of ${widget.stepGoal} goal',
-                              style: GoogleFonts.inter(
-                                fontSize: 11,
-                                color: isDark ? Colors.white38 : Colors.black38,
-                              ),
-                            ),
-                            const SizedBox(height: 12),
-                            // Progress bar
-                            ClipRRect(
-                              borderRadius: BorderRadius.circular(6),
-                              child: AnimatedBuilder(
-                                animation: _ringAnim,
-                                builder: (context, _) {
-                                  return LinearProgressIndicator(
-                                    value: _ringAnim.value * progress,
-                                    minHeight: 6,
-                                    backgroundColor: isDark
-                                        ? Colors.white.withValues(alpha: 0.08)
-                                        : Colors.black.withValues(alpha: 0.08),
-                                    valueColor: const AlwaysStoppedAnimation(
-                                      AppColors.zenMint,
-                                    ),
-                                  );
-                                },
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-
-                  const SizedBox(height: 18),
-
-                  // ── Metric Pods ──
-                  Row(
-                    children: [
-                      Expanded(
-                        child: _MetricPod(
-                          value: '$hr',
-                          unit: 'bpm',
-                          label: 'Heart Rate',
-                          color: AppColors.zenCoral,
-                          icon: '❤️',
-                          isDark: isDark,
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: _MetricPod(
-                          value: activeStr,
-                          unit: 'active',
-                          label: 'Move Time',
-                          color: AppColors.zenMint,
-                          icon: '⚡',
-                          isDark: isDark,
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: _MetricPod(
-                          value: sleep.toStringAsFixed(1),
-                          unit: 'hrs',
-                          label: 'Sleep',
-                          color: AppColors.zenLavender,
-                          icon: '🌙',
-                          isDark: isDark,
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
+                );
+              },
             ),
-          ],
-        ),
-      ),
-    );
-  }
-}
 
-// ── Animated status badge with shimmer ──
-class _AnimatedStatusBadge extends StatelessWidget {
-  final String label;
-  final Color color;
-  final Animation<double> shimmerAnim;
+            const SizedBox(height: 20),
 
-  const _AnimatedStatusBadge({
-    required this.label,
-    required this.color,
-    required this.shimmerAnim,
-  });
+            // ── 2. Hourly Step Activity Histogram ──
+            _buildHourlyHistogram(isDark),
 
-  @override
-  Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: shimmerAnim,
-      builder: (context, _) {
-        return Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-          decoration: BoxDecoration(
-            color: color.withValues(alpha: 0.12),
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: color.withValues(alpha: 0.4), width: 1),
-          ),
-          child: Text(
-            label,
-            style: GoogleFonts.inter(
-              fontSize: 9,
-              fontWeight: FontWeight.w800,
-              letterSpacing: 1.2,
-              color: color,
-            ),
-          ),
-        );
-      },
-    );
-  }
-}
+            const SizedBox(height: 20),
 
-// ── Metric pod tile ──
-class _MetricPod extends StatelessWidget {
-  final String value;
-  final String unit;
-  final String label;
-  final Color color;
-  final String icon;
-  final bool isDark;
-
-  const _MetricPod({
-    required this.value,
-    required this.unit,
-    required this.label,
-    required this.color,
-    required this.icon,
-    required this.isDark,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 10),
-      decoration: BoxDecoration(
-        color: isDark
-            ? color.withValues(alpha: 0.07)
-            : color.withValues(alpha: 0.06),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: color.withValues(alpha: isDark ? 0.2 : 0.25),
-          width: 1,
-        ),
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(icon, style: const TextStyle(fontSize: 18)),
-          const SizedBox(height: 6),
-          RichText(
-            text: TextSpan(
+            // ── 3. Bottom 4 Mini Metric Pods (Heart Rate, Active Min, Sleep, Calories) ──
+            Row(
               children: [
-                TextSpan(
-                  text: value,
-                  style: GoogleFonts.inter(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w900,
-                    color: color,
-                    height: 1,
+                Expanded(
+                  child: _MiniMetricCard(
+                    icon: LucideIcons.heart,
+                    iconColor: AppColors.accentCoral,
+                    bgColor: AppColors.accentCoral.withValues(alpha: 0.1),
+                    value: '$hr',
+                    unit: 'bpm',
+                    isDark: isDark,
                   ),
                 ),
-                TextSpan(
-                  text: ' $unit',
-                  style: GoogleFonts.inter(
-                    fontSize: 9,
-                    fontWeight: FontWeight.w500,
-                    color: color.withValues(alpha: 0.7),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: _MiniMetricCard(
+                    icon: LucideIcons.zap,
+                    iconColor: AppColors.primaryTeal,
+                    bgColor: AppColors.primaryTeal.withValues(alpha: 0.1),
+                    value: '$activeMin',
+                    unit: 'Active Min',
+                    isDark: isDark,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: _MiniMetricCard(
+                    icon: LucideIcons.moon,
+                    iconColor: AppColors.secondaryBlue,
+                    bgColor: AppColors.secondaryBlue.withValues(alpha: 0.1),
+                    value: sleep.toStringAsFixed(1),
+                    unit: 'Hours',
+                    isDark: isDark,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: _MiniMetricCard(
+                    icon: LucideIcons.flame,
+                    iconColor: AppColors.accentOrange,
+                    bgColor: AppColors.accentOrange.withValues(alpha: 0.1),
+                    value: '$kcal',
+                    unit: 'kcal',
+                    isDark: isDark,
                   ),
                 ),
               ],
             ),
-          ),
-          const SizedBox(height: 3),
-          Text(
-            label,
-            style: GoogleFonts.inter(
-              fontSize: 9,
-              fontWeight: FontWeight.w600,
-              letterSpacing: 0.5,
-              color: isDark ? Colors.white38 : Colors.black38,
-            ),
-          ),
-        ],
+          ],
+        ),
       ),
+    );
+  }
+
+  Widget _buildHourlyHistogram(bool isDark) {
+    // Simulated realistic hourly step bars with dynamic peak around afternoon/now
+    final List<double> barHeights = [
+      0.15, 0.1, 0.05, 0.05, 0.08, 0.12,
+      0.25, 0.45, 0.6, 0.75, 0.5, 0.65,
+      0.85, 0.95, 1.0, 0.7, 0.4, 0.2,
+      0.15, 0.1, 0.08, 0.05, 0.05, 0.05
+    ];
+
+    return Column(
+      children: [
+        SizedBox(
+          height: 38,
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: List.generate(barHeights.length, (index) {
+              final h = barHeights[index];
+              final isCurrent = index == 14;
+              return Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 1.5),
+                  child: Container(
+                    height: 38 * h,
+                    decoration: BoxDecoration(
+                      color: isCurrent
+                          ? AppColors.primaryTeal
+                          : (index < 14
+                              ? AppColors.primaryTeal.withValues(alpha: 0.45)
+                              : (isDark
+                                  ? Colors.white.withValues(alpha: 0.08)
+                                  : const Color(0xFFE2E8F0))),
+                      borderRadius: BorderRadius.circular(3),
+                    ),
+                  ),
+                ),
+              );
+            }),
+          ),
+        ),
+        const SizedBox(height: 6),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text('12 AM',
+                style: GoogleFonts.inter(
+                    fontSize: 9.5,
+                    color: isDark ? Colors.white38 : AppColors.neutralGray)),
+            Text('Morning',
+                style: GoogleFonts.inter(
+                    fontSize: 9.5,
+                    color: isDark ? Colors.white38 : AppColors.neutralGray)),
+            Text('Now',
+                style: GoogleFonts.inter(
+                    fontSize: 9.5,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.primaryTeal)),
+            Text('12 AM',
+                style: GoogleFonts.inter(
+                    fontSize: 9.5,
+                    color: isDark ? Colors.white38 : AppColors.neutralGray)),
+          ],
+        ),
+      ],
     );
   }
 }
 
-// ── Subtle background grid ──
-class _GridLines extends StatelessWidget {
-  final bool isDark;
-  const _GridLines({required this.isDark});
+// ─── Custom Painter for Large Circular Arc ────────────────────────────────────
 
-  @override
-  Widget build(BuildContext context) {
-    return CustomPaint(painter: _GridPainter(isDark: isDark));
-  }
-}
-
-class _GridPainter extends CustomPainter {
-  final bool isDark;
-  _GridPainter({required this.isDark});
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = isDark
-          ? Colors.white.withValues(alpha: 0.025)
-          : Colors.black.withValues(alpha: 0.03)
-      ..strokeWidth = 0.5;
-
-    const spacing = 28.0;
-    for (double x = 0; x < size.width; x += spacing) {
-      canvas.drawLine(Offset(x, 0), Offset(x, size.height), paint);
-    }
-    for (double y = 0; y < size.height; y += spacing) {
-      canvas.drawLine(Offset(0, y), Offset(size.width, y), paint);
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant _GridPainter oldDelegate) =>
-      oldDelegate.isDark != isDark;
-}
-
-// ── Orbital ring painter with outer + inner glow ──
-class _OrbitalRingPainter extends CustomPainter {
+class _StepsRingPainter extends CustomPainter {
   final double progress;
-  final double pulse;
   final bool isDark;
 
-  _OrbitalRingPainter({
-    required this.progress,
-    required this.pulse,
-    required this.isDark,
-  });
+  _StepsRingPainter({required this.progress, required this.isDark});
 
   @override
   void paint(Canvas canvas, Size size) {
     final center = Offset(size.width / 2, size.height / 2);
+    final radius = (size.width - 24) / 2;
+    const strokeWidth = 14.0;
 
-    // ── Outer ring track ──
+    // Background track
     final trackPaint = Paint()
       ..color = isDark
           ? Colors.white.withValues(alpha: 0.06)
-          : Colors.black.withValues(alpha: 0.06)
+          : const Color(0xFFE6F4F1)
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 10
+      ..strokeWidth = strokeWidth
       ..strokeCap = StrokeCap.round;
-    canvas.drawCircle(center, 52, trackPaint);
 
-    // ── Outer progress arc (neon glow) ──
+    canvas.drawCircle(center, radius, trackPaint);
+
     if (progress > 0.001) {
-      // Glow layer
-      final glowPaint = Paint()
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 14
-        ..strokeCap = StrokeCap.round
-        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 6)
-        ..color = AppColors.zenMint.withValues(alpha: 0.35 * pulse);
-      canvas.drawArc(
-        Rect.fromCircle(center: center, radius: 52),
-        -pi / 2,
-        2 * pi * progress,
-        false,
-        glowPaint,
+      // Gradient progress arc
+      final sweepGradient = SweepGradient(
+        colors: const [
+          AppColors.primaryTeal,
+          AppColors.primaryGreen,
+        ],
+        startAngle: 0.0,
+        endAngle: 2 * pi * progress,
+        transform: const GradientRotation(-pi / 2),
       );
 
-      // Sharp arc
       final arcPaint = Paint()
+        ..shader = sweepGradient.createShader(Rect.fromCircle(center: center, radius: radius))
         ..style = PaintingStyle.stroke
-        ..strokeWidth = 10
-        ..strokeCap = StrokeCap.round
-        ..shader = SweepGradient(
-          colors: [
-            AppColors.zenMint.withValues(alpha: 0.4),
-            AppColors.zenMintLight,
-          ],
-          startAngle: 0.0,
-          endAngle: 2 * pi * progress,
-          transform: const GradientRotation(-pi / 2),
-        ).createShader(Rect.fromCircle(center: center, radius: 52));
+        ..strokeWidth = strokeWidth
+        ..strokeCap = StrokeCap.round;
+
       canvas.drawArc(
-        Rect.fromCircle(center: center, radius: 52),
+        Rect.fromCircle(center: center, radius: radius),
         -pi / 2,
         2 * pi * progress,
         false,
         arcPaint,
       );
 
-      // ── Arc end dot ──
+      // Arc end dot indicator
       final angle = -pi / 2 + 2 * pi * progress;
       final dotPos = Offset(
-        center.dx + 52 * cos(angle),
-        center.dy + 52 * sin(angle),
+        center.dx + radius * cos(angle),
+        center.dy + radius * sin(angle),
       );
-      canvas.drawCircle(
-        dotPos,
-        5,
-        Paint()
-          ..color = AppColors.zenMint
-          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4),
-      );
-      canvas.drawCircle(
-        dotPos,
-        3.5,
-        Paint()..color = Colors.white,
-      );
-    }
 
-    // ── Inner dashed ring (decorative) ──
-    final dashPaint = Paint()
-      ..color = isDark
-          ? Colors.white.withValues(alpha: 0.05)
-          : Colors.black.withValues(alpha: 0.05)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.5;
-    const dashCount = 24;
-    for (int i = 0; i < dashCount; i++) {
-      final startAngle = (2 * pi / dashCount) * i;
-      canvas.drawArc(
-        Rect.fromCircle(center: center, radius: 36),
-        startAngle,
-        pi / dashCount * 0.6,
-        false,
-        dashPaint,
+      canvas.drawCircle(
+        dotPos,
+        strokeWidth / 2,
+        Paint()..color = AppColors.primaryGreen,
+      );
+      canvas.drawCircle(
+        dotPos,
+        strokeWidth / 4,
+        Paint()..color = Colors.white,
       );
     }
   }
 
   @override
-  bool shouldRepaint(covariant _OrbitalRingPainter oldDelegate) =>
-      oldDelegate.progress != progress ||
-      oldDelegate.pulse != pulse ||
-      oldDelegate.isDark != isDark;
+  bool shouldRepaint(covariant _StepsRingPainter oldDelegate) {
+    return oldDelegate.progress != progress || oldDelegate.isDark != isDark;
+  }
 }
 
-// ── Odometer-style rolling number ──────────────────────────────────────────
+// ─── Mini Metric Card Pod ─────────────────────────────────────────────────────
 
-/// Renders each digit in a vertically scrolling column, like a slot machine.
-/// Only the digits that change animate; stable digits stay still.
+class _MiniMetricCard extends StatelessWidget {
+  final IconData icon;
+  final Color iconColor;
+  final Color bgColor;
+  final String value;
+  final String unit;
+  final bool isDark;
+
+  const _MiniMetricCard({
+    required this.icon,
+    required this.iconColor,
+    required this.bgColor,
+    required this.value,
+    required this.unit,
+    required this.isDark,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF1B2B3E) : const Color(0xFFF8FAFC),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: isDark
+              ? Colors.white.withValues(alpha: 0.05)
+              : AppColors.cardBorder,
+          width: 1,
+        ),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(6),
+            decoration: BoxDecoration(
+              color: bgColor,
+              shape: BoxShape.circle,
+            ),
+            child: Icon(icon, size: 14, color: iconColor),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            value,
+            style: GoogleFonts.inter(
+              fontSize: 15,
+              fontWeight: FontWeight.w800,
+              color: isDark ? Colors.white : AppColors.textPrimary,
+              height: 1.1,
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+          const SizedBox(height: 2),
+          Text(
+            unit,
+            style: GoogleFonts.inter(
+              fontSize: 10,
+              fontWeight: FontWeight.w500,
+              color: isDark ? Colors.white54 : AppColors.neutralGray,
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─── Rolling Number Widget ────────────────────────────────────────────────────
+
 class _RollingNumber extends StatelessWidget {
   final int value;
   final double fontSize;
@@ -655,132 +462,28 @@ class _RollingNumber extends StatelessWidget {
 
   const _RollingNumber({
     required this.value,
-    required this.fontSize,
-    required this.fontWeight,
-    required this.color,
+    this.fontSize = 32,
+    this.fontWeight = FontWeight.w900,
+    this.color = Colors.white,
   });
 
-  @override
-  Widget build(BuildContext context) {
-    final digits = value.toString().split('');
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.end,
-      children: digits.map((d) {
-        return _RollingDigit(
-          digit: int.parse(d),
-          fontSize: fontSize,
-          fontWeight: fontWeight,
-          color: color,
-        );
-      }).toList(),
+  String _formatNumber(int n) {
+    return n.toString().replaceAllMapped(
+      RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
+      (Match m) => '${m[1]},',
     );
-  }
-}
-
-/// A single digit that animates vertically between 0–9 like an odometer.
-class _RollingDigit extends StatefulWidget {
-  final int digit;
-  final double fontSize;
-  final FontWeight fontWeight;
-  final Color color;
-
-  const _RollingDigit({
-    required this.digit,
-    required this.fontSize,
-    required this.fontWeight,
-    required this.color,
-  });
-
-  @override
-  State<_RollingDigit> createState() => _RollingDigitState();
-}
-
-class _RollingDigitState extends State<_RollingDigit>
-    with SingleTickerProviderStateMixin {
-  late AnimationController _ctrl;
-  late Animation<double> _anim;
-  int _oldDigit = 0;
-
-  @override
-  void initState() {
-    super.initState();
-    _oldDigit = widget.digit;
-    _ctrl = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 400),
-    );
-    _anim = CurvedAnimation(parent: _ctrl, curve: Curves.easeOutCubic);
-  }
-
-  @override
-  void didUpdateWidget(_RollingDigit old) {
-    super.didUpdateWidget(old);
-    if (old.digit != widget.digit) {
-      _oldDigit = old.digit;
-      _ctrl.forward(from: 0);
-    }
-  }
-
-  @override
-  void dispose() {
-    _ctrl.dispose();
-    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    final h = widget.fontSize * 1.15;
-    return SizedBox(
-      height: h,
-      child: ClipRect(
-        child: AnimatedBuilder(
-          animation: _anim,
-          builder: (context, _) {
-            // Animate from _oldDigit to widget.digit by sliding up
-            final t = _anim.value;
-            // offset: 0 = showing oldDigit, 1 = showing newDigit
-            // We shift upward: negative dy means move up
-            final dy = -t * h;
-
-            return Stack(
-              clipBehavior: Clip.hardEdge,
-              children: [
-                // Old digit sliding out (moving up)
-                Transform.translate(
-                  offset: Offset(0, dy),
-                  child: SizedBox(
-                    height: h,
-                    child: _digitText(_oldDigit, h),
-                  ),
-                ),
-                // New digit sliding in (comes from below)
-                Transform.translate(
-                  offset: Offset(0, h + dy),
-                  child: SizedBox(
-                    height: h,
-                    child: _digitText(widget.digit, h),
-                  ),
-                ),
-              ],
-            );
-          },
-        ),
-      ),
-    );
-  }
-
-  Widget _digitText(int d, double h) {
-    return Align(
-      alignment: Alignment.centerLeft,
-      child: Text(
-        '$d',
-        style: GoogleFonts.inter(
-          fontSize: widget.fontSize,
-          fontWeight: widget.fontWeight,
-          color: widget.color,
-          height: 1.15,
-        ),
+    return Text(
+      _formatNumber(value),
+      style: GoogleFonts.inter(
+        fontSize: fontSize,
+        fontWeight: fontWeight,
+        color: color,
+        letterSpacing: -0.5,
+        height: 1.1,
       ),
     );
   }

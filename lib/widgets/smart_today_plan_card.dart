@@ -154,24 +154,24 @@ class SmartTodayPlanCard extends StatelessWidget {
       width: double.infinity,
       decoration: BoxDecoration(
         color: isDark ? AppColors.zenDarkCard : Colors.white,
-        borderRadius: BorderRadius.circular(28),
+        borderRadius: BorderRadius.circular(24),
         border: Border.all(
-          color: isDark ? AppColors.zenMint.withValues(alpha: 0.16) : Colors.black.withValues(alpha: 0.06),
+          color: isDark ? Colors.white.withValues(alpha: 0.08) : AppColors.cardBorder,
           width: 1.2,
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: isDark ? 0.35 : 0.06),
-            blurRadius: 20,
-            offset: const Offset(0, 8),
+            color: Colors.black.withValues(alpha: isDark ? 0.35 : 0.04),
+            blurRadius: 16,
+            offset: const Offset(0, 4),
           ),
         ],
       ),
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(28),
+        borderRadius: BorderRadius.circular(24),
         child: Stack(
           children: [
-            // Top Ambient Velocity Glow
+            // Top Ambient Accent Stripe
             Positioned(
               top: 0,
               left: 0,
@@ -181,8 +181,8 @@ class SmartTodayPlanCard extends StatelessWidget {
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
                     colors: [
-                      AppColors.zenMint,
-                      AppColors.zenSky,
+                      AppColors.primaryTeal,
+                      AppColors.primaryGreen,
                       statusColor,
                     ],
                   ),
@@ -587,13 +587,13 @@ class SmartTodayPlanCard extends StatelessWidget {
                               borderRadius: BorderRadius.circular(16),
                               gradient: const LinearGradient(
                                 colors: [
-                                  AppColors.zenMint,
-                                  AppColors.zenMintLight,
+                                  AppColors.primaryTeal,
+                                  Color(0xFF00D8C8),
                                 ],
                               ),
                               boxShadow: [
                                 BoxShadow(
-                                  color: AppColors.zenMint.withValues(alpha: 0.3),
+                                  color: AppColors.primaryTeal.withValues(alpha: 0.35),
                                   blurRadius: 14,
                                   offset: const Offset(0, 4),
                                 ),
@@ -615,12 +615,12 @@ class SmartTodayPlanCard extends StatelessWidget {
                                   child: Row(
                                     mainAxisAlignment: MainAxisAlignment.center,
                                     children: [
-                                      Icon(LucideIcons.play, color: Colors.black, size: 18),
+                                      Icon(LucideIcons.play, color: Colors.white, size: 18),
                                       SizedBox(width: 8),
                                       Text(
                                         'START WORKOUT',
                                         style: TextStyle(
-                                          color: Colors.black,
+                                          color: Colors.white,
                                           fontWeight: FontWeight.w900,
                                           fontSize: 14,
                                           letterSpacing: 0.8,

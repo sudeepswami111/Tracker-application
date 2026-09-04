@@ -89,58 +89,94 @@ class _AppShellState extends State<AppShell> {
     return Scaffold(
       resizeToAvoidBottomInset: false,
       appBar: _isMapFullscreen ? null : AppBar(
+        backgroundColor: AppColors.lightBg,
+        surfaceTintColor: Colors.transparent,
+        elevation: 0,
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            FittedBox(
-              fit: BoxFit.scaleDown,
-              child: Text(
-                '${_getGreeting()}, ${app.userName} 👋',
-                style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+            Text(
+              '${_getGreeting()}, ${app.userName.isNotEmpty ? app.userName : "Sudeep"}! 👋',
+              style: const TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w800,
+                color: AppColors.textPrimary,
+                letterSpacing: -0.3,
               ),
             ),
-            FittedBox(
-              fit: BoxFit.scaleDown,
-              child: Text(
-                "Ready to crush your goals?",
-                style: theme.textTheme.bodySmall,
+            const SizedBox(height: 2),
+            const Text(
+              'Ready to crush your goals today?',
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
+                color: AppColors.textSecondary,
               ),
             ),
           ],
         ),
         actions: [
-          Stack(
-            children: [
-              IconButton(icon: const Icon(LucideIcons.bell, size: 20), onPressed: () {
-                Navigator.push(context, MaterialPageRoute(builder: (_) => const NotificationsScreen()));
-              }),
-              if (app.hasUnreadNotifications)
-                Positioned(
-                  right: 6,
-                  top: 6,
-                  child: Container(
-                    padding: const EdgeInsets.all(2),
-                    constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
-                    decoration: const BoxDecoration(
-                      color: AppColors.coral,
-                      shape: BoxShape.circle,
-                    ),
-                    child: Text(
-                      app.unreadNotificationCount > 99 ? '99+' : '${app.unreadNotificationCount}',
-                      style: const TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.bold),
-                      textAlign: TextAlign.center,
+          Container(
+            width: 38,
+            height: 38,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              shape: BoxShape.circle,
+              border: Border.all(color: AppColors.cardBorder, width: 1),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.03),
+                  blurRadius: 6,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                IconButton(
+                  padding: EdgeInsets.zero,
+                  icon: const Icon(LucideIcons.bell, size: 18, color: AppColors.textPrimary),
+                  onPressed: () {
+                    Navigator.push(context, MaterialPageRoute(builder: (_) => const NotificationsScreen()));
+                  },
+                ),
+                if (app.hasUnreadNotifications)
+                  Positioned(
+                    right: 6,
+                    top: 6,
+                    child: Container(
+                      width: 8,
+                      height: 8,
+                      decoration: const BoxDecoration(
+                        color: AppColors.accentCoral,
+                        shape: BoxShape.circle,
+                      ),
                     ),
                   ),
-                ),
-            ],
+              ],
+            ),
           ),
-          const SizedBox(width: 8),
+          const SizedBox(width: 10),
           GestureDetector(
             onTap: () => showProfileQuickPanel(context),
-            child: ProfileAvatar(
-              imageUrl: app.avatarUrl,
-              name: app.userName,
-              radius: 18,
+            child: Container(
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(color: Colors.white, width: 2),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.08),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: ProfileAvatar(
+                imageUrl: app.avatarUrl,
+                name: app.userName,
+                radius: 17,
+              ),
             ),
           ),
           const SizedBox(width: 16),

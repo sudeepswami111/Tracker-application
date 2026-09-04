@@ -45,7 +45,6 @@ class GlassNavBar extends StatelessWidget {
 
     return SafeArea(
       child: Padding(
-        // Floating offset above the bottom edge
         padding: const EdgeInsets.only(
           left: 20,
           right: 20,
@@ -57,34 +56,31 @@ class GlassNavBar extends StatelessWidget {
             clipBehavior: Clip.none,
             alignment: Alignment.center,
             children: [
-              // ── Glass Container ──────────────────────────────────────────────
+              // ── Navigation Bar Surface ──
               Positioned.fill(
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(36),
                   child: BackdropFilter(
-                    filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
+                    filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
                     child: Container(
                       decoration: BoxDecoration(
-                        // Semi-transparent dark premium background in dark mode
                         color: isDark
-                            ? const Color(0xFF151515).withValues(alpha: 0.75)
-                            : Colors.white.withValues(alpha: 0.88),
+                            ? const Color(0xFF131F2E).withValues(alpha: 0.92)
+                            : Colors.white.withValues(alpha: 0.95),
                         borderRadius: BorderRadius.circular(36),
                         border: Border.all(
                           color: isDark
-                              ? Colors.white.withValues(alpha: 0.12)
-                              : Colors.black.withValues(alpha: 0.08),
-                          width: 1,
+                              ? Colors.white.withValues(alpha: 0.1)
+                              : AppColors.cardBorder,
+                          width: 1.2,
                         ),
-                        boxShadow: isDark
-                            ? []
-                            : [
-                                BoxShadow(
-                                  color: Colors.black.withValues(alpha: 0.08),
-                                  blurRadius: 20,
-                                  offset: const Offset(0, 4),
-                                ),
-                              ],
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: isDark ? 0.35 : 0.06),
+                            blurRadius: 20,
+                            offset: const Offset(0, 6),
+                          ),
+                        ],
                       ),
                     ),
                   ),
@@ -94,7 +90,7 @@ class GlassNavBar extends StatelessWidget {
               // ── Nav Items Row ────────────────────────────────────────────────
               Row(
                 children: [
-                  // Left half: Dashboard, Health
+                  // Left half: Home, Health
                   Expanded(
                     child: Row(
                       children: [
@@ -115,7 +111,7 @@ class GlassNavBar extends StatelessWidget {
                       ],
                     ),
                   ),
-                  // Center gap for floating button
+                  // Center gap for floating RUN button
                   const SizedBox(width: 72),
                   // Right half: Chat, Study
                   Expanded(
@@ -141,9 +137,9 @@ class GlassNavBar extends StatelessWidget {
                 ],
               ),
 
-              // ── Floating Center Button ───────────────────────────────────────
+              // ── Floating Center RUN Button ──
               Positioned(
-                top: -24, // Moved slightly higher than nav bar to be prominent
+                top: -20,
                 child: _FloatingCenterButton(
                   isActive: currentIndex == 2,
                   onTap: () => onTap(2),
@@ -207,28 +203,31 @@ class _NavTabState extends State<_NavTab> with SingleTickerProviderStateMixin {
 
   @override
   Widget build(BuildContext context) {
-    // Specific module accent colors based on design spec
     Color getAccentColor() {
       switch (widget.destination.index) {
+        case 0:
+          return AppColors.primaryTeal;
         case 1:
-          return AppColors.pulseRed; // Health
+          return AppColors.primaryTeal;
+        case 3:
+          return AppColors.primaryTeal;
         case 4:
-          return AppColors.irisViolet; // Study
+          return AppColors.secondaryBlue;
         default:
-          return AppColors.voltCyan; // Home/Chat default
+          return AppColors.primaryTeal;
       }
     }
 
     final activeColor = getAccentColor();
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final inactiveColor = isDark ? Colors.white54 : Colors.black54;
+    final inactiveColor = isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B);
 
     final app = context.watch<AppProvider>();
     final showChatBadge = widget.destination.index == 3 && app.unreadChatCount > 0;
 
     Widget iconWidget = Icon(
       widget.destination.icon,
-      size: 24, // Consistent icon size 24px
+      size: 22,
       color: widget.isActive ? activeColor : inactiveColor,
     );
 
@@ -247,7 +246,7 @@ class _NavTabState extends State<_NavTab> with SingleTickerProviderStateMixin {
                 minHeight: 14,
               ),
               decoration: const BoxDecoration(
-                color: AppColors.pulseRed,
+                color: AppColors.accentCoral,
                 shape: BoxShape.circle,
               ),
               child: Center(
@@ -276,16 +275,16 @@ class _NavTabState extends State<_NavTab> with SingleTickerProviderStateMixin {
         child: ScaleTransition(
           scale: _scale,
           child: Container(
-            color: Colors.transparent, // Ensures full tap area
+            color: Colors.transparent,
             height: 72,
             alignment: Alignment.center,
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 250),
               curve: Curves.easeOutCubic,
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
               decoration: BoxDecoration(
                 color: widget.isActive
-                    ? activeColor.withValues(alpha: 0.15)
+                    ? activeColor.withValues(alpha: 0.12)
                     : Colors.transparent,
                 borderRadius: BorderRadius.circular(16),
               ),
@@ -294,12 +293,12 @@ class _NavTabState extends State<_NavTab> with SingleTickerProviderStateMixin {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   iconWidget,
-                  const SizedBox(height: 2),
+                  const SizedBox(height: 3),
                   Text(
                     widget.destination.label,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                    style: TextStyle(
                       color: widget.isActive ? activeColor : inactiveColor,
                       fontWeight: widget.isActive ? FontWeight.w700 : FontWeight.w500,
                       fontSize: 11,
@@ -362,15 +361,6 @@ class _FloatingCenterButtonState extends State<_FloatingCenterButton>
 
   @override
   Widget build(BuildContext context) {
-    // Center button represents "Running" so it gets Volt Cyan / Pulse Red combo
-    final gradient = widget.isActive
-        ? AppColors.gradientCyan
-        : AppColors.gradientCoral;
-
-    final glowColor = widget.isActive
-        ? AppColors.voltCyan.withValues(alpha: 0.35)
-        : AppColors.pulseRed.withValues(alpha: 0.35);
-
     return GestureDetector(
       onTapDown: _onTapDown,
       child: Semantics(
@@ -379,28 +369,31 @@ class _FloatingCenterButtonState extends State<_FloatingCenterButton>
         child: ScaleTransition(
           scale: _scale,
           child: Container(
-            width: 64,
-            height: 64,
+            width: 62,
+            height: 62,
             decoration: BoxDecoration(
-              gradient: gradient,
+              gradient: const LinearGradient(
+                colors: [AppColors.primaryTeal, Color(0xFF00D8C8)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
               shape: BoxShape.circle,
               boxShadow: [
                 BoxShadow(
-                  color: glowColor,
-                  blurRadius: 24,
-                  spreadRadius: 2,
+                  color: AppColors.primaryTeal.withValues(alpha: 0.4),
+                  blurRadius: 18,
                   offset: const Offset(0, 6),
                 ),
               ],
               border: Border.all(
-                color: Colors.white.withValues(alpha: 0.2),
-                width: 1.5,
+                color: Colors.white,
+                width: 2.5,
               ),
             ),
             child: const Icon(
               Icons.directions_run_rounded,
               color: Colors.white,
-              size: 32,
+              size: 30,
             ),
           ),
         ),

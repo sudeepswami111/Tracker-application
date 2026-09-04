@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -25,6 +26,8 @@ class ChatHomeScreen extends StatefulWidget {
 
 class _ChatHomeScreenState extends State<ChatHomeScreen> with SingleTickerProviderStateMixin {
   int _selectedTab = 0; // 0: Chats, 1: Community
+  String _selectedCategory = 'Messages';
+  final List<String> _categories = ['All', 'Messages', 'Groups', 'Requests'];
   final ChatService _chatService = ChatService();
 
   List<ChatRoom> _chats = [];
@@ -33,21 +36,12 @@ class _ChatHomeScreenState extends State<ChatHomeScreen> with SingleTickerProvid
 
   // Search Chat query
   final TextEditingController _searchCtrl = TextEditingController();
-  bool _showSearch = false;
   String _searchQuery = '';
-
-  // Floating Action Button pulse animations (for Community compose)
-  late AnimationController _fabPulseCtrl;
-  late Animation<double> _fabPulseAnim;
 
   @override
   void initState() {
     super.initState();
     _loadChats();
-
-    // Pulse animation for Community compose FAB
-    _fabPulseCtrl = AnimationController(vsync: this, duration: const Duration(seconds: 2))..repeat(reverse: true);
-    _fabPulseAnim = Tween<double>(begin: 0.8, end: 1.2).animate(CurvedAnimation(parent: _fabPulseCtrl, curve: Curves.easeInOut));
 
     // Real-time reloading of chat lists when any message activity happens
     try {
@@ -69,7 +63,6 @@ class _ChatHomeScreenState extends State<ChatHomeScreen> with SingleTickerProvid
 
   @override
   void dispose() {
-    _fabPulseCtrl.dispose();
     if (_realtimeMessagesChannel != null) {
       try {
         Supabase.instance.client.removeChannel(_realtimeMessagesChannel!);
@@ -125,145 +118,232 @@ class _ChatHomeScreenState extends State<ChatHomeScreen> with SingleTickerProvid
     final isDark = theme.brightness == Brightness.dark;
 
     return Scaffold(
-      backgroundColor: isDark ? AppColors.backgroundDeep : AppColors.lightBg,
-      // ── CONDITIONAL FLOATING ACTION BUTTON FOR COMMUNITY ──
-      floatingActionButton: _selectedTab == 1
-          ? Padding(
-              padding: const EdgeInsets.only(bottom: 90.0), // Safely above bottom nav
-              child: AnimatedBuilder(
-                animation: _fabPulseAnim,
-                builder: (context, child) {
-                  return Container(
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      boxShadow: [
-                        BoxShadow(
-                          color: AppColors.irisViolet.withValues(
-                            alpha: (0.4 * (_fabPulseAnim.value - 0.8)).clamp(0.0, 1.0),
-                          ),
-                          blurRadius: (20 * _fabPulseAnim.value).clamp(0.0, 40.0),
-                          spreadRadius: (10 * _fabPulseAnim.value).clamp(0.0, 20.0),
-                        ),
-                      ],
-                    ),
-                    child: FloatingActionButton(
-                      onPressed: () async {
-                        HapticFeedback.mediumImpact();
-                        final result = await showModalBottomSheet<bool>(
-                          context: context,
-                          isScrollControlled: true,
-                          backgroundColor: Colors.transparent,
-                          builder: (_) => const CreatePostSheet(),
-                        );
-                        if (result == true && mounted) {
-                          setState(() {});
-                        }
-                      },
-                      backgroundColor: AppColors.irisViolet,
-                      elevation: 0,
-                      child: Container(
-                        decoration: const BoxDecoration(
-                          shape: BoxShape.circle,
-                          gradient: LinearGradient(
-                            colors: [AppColors.irisViolet, Color(0xFF9D4EDD)],
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                          ),
-                        ),
-                        child: const Center(
-                          child: Icon(LucideIcons.feather, color: Colors.white),
-                        ),
-                      ),
-                    ),
-                  );
-                },
+      backgroundColor: theme.scaffoldBackgroundColor,
+      // ── FLOATING ACTION BUTTON (TEAL CIRCLE +) ──
+      floatingActionButton: Padding(
+        padding: const EdgeInsets.only(bottom: 90.0), // Safely above bottom nav
+        child: Container(
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            boxShadow: [
+              BoxShadow(
+                color: AppColors.primaryTeal.withValues(alpha: 0.4),
+                blurRadius: 16,
+                offset: const Offset(0, 4),
               ),
-            )
-          : null,
+            ],
+          ),
+          child: FloatingActionButton(
+            onPressed: () async {
+              HapticFeedback.mediumImpact();
+              if (_selectedTab == 0) {
+                _openNewMessageScreen();
+              } else {
+                final result = await showModalBottomSheet<bool>(
+                  context: context,
+                  isScrollControlled: true,
+                  backgroundColor: Colors.transparent,
+                  builder: (_) => const CreatePostSheet(),
+                );
+                if (result == true && mounted) {
+                  setState(() {});
+                }
+              }
+            },
+            backgroundColor: AppColors.primaryTeal,
+            elevation: 0,
+            child: const Icon(LucideIcons.plus, color: Colors.white, size: 26),
+          ),
+        ),
+      ),
       body: SafeArea(
         bottom: false,
         child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // ── HEADER ──
+            // ── HEADER: Chat & Stay connected ──
             Padding(
               padding: const EdgeInsets.fromLTRB(
-                  AppSpacing.screenMargin, AppSpacing.lg, AppSpacing.screenMargin, AppSpacing.md),
+                AppSpacing.screenMargin,
+                14,
+                AppSpacing.screenMargin,
+                10,
+              ),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  _showSearch
-                      ? Expanded(
-                          child: Padding(
-                            padding: const EdgeInsets.only(right: 12),
-                            child: TextField(
-                              controller: _searchCtrl,
-                              autofocus: true,
-                              onChanged: _onSearchChanged,
-                              style: TextStyle(color: isDark ? Colors.white : Colors.black),
-                              decoration: InputDecoration(
-                                hintText: 'Search chats or messages...',
-                                border: InputBorder.none,
-                                hintStyle: TextStyle(color: theme.colorScheme.onSurfaceVariant),
-                              ),
-                            ),
-                          ),
-                        )
-                      : Text(
-                          'Chat',
-                          style: theme.textTheme.headlineLarge?.copyWith(
-                            fontWeight: FontWeight.w900,
-                            letterSpacing: -0.5,
-                          ),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Chat',
+                        style: GoogleFonts.inter(
+                          fontSize: 24,
+                          fontWeight: FontWeight.w800,
+                          color: isDark ? Colors.white : AppColors.textPrimary,
+                          letterSpacing: -0.4,
                         ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        'Stay connected',
+                        style: GoogleFonts.inter(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w500,
+                          color: AppColors.neutralGray,
+                        ),
+                      ),
+                    ],
+                  ),
                   Row(
                     children: [
                       _HeaderIconButton(
-                        icon: _showSearch ? LucideIcons.x : LucideIcons.search,
-                        onTap: () {
-                          if (_selectedTab == 1) {
-                            // Community tab active: delegate to CommunitySearchDelegate
-                            showSearch(context: context, delegate: CommunitySearchDelegate());
-                          } else {
-                            // Chats tab active: toggle inline text field search
-                            setState(() {
-                              _showSearch = !_showSearch;
-                              if (!_showSearch) {
-                                _searchCtrl.clear();
-                                _searchQuery = '';
-                              }
-                            });
-                          }
-                        },
+                        icon: LucideIcons.messageSquarePlus,
+                        onTap: _openNewMessageScreen,
                       ),
-                      if (_selectedTab == 0) ...[
-                        const SizedBox(width: AppSpacing.sm),
-                        _HeaderIconButton(
-                          icon: LucideIcons.messageSquarePlus,
-                          onTap: _openNewMessageScreen,
-                        ),
-                      ],
                     ],
                   ),
                 ],
               ),
             ),
 
-            // ── SEGMENTED CONTROL ──
+            // ── SEARCH BAR ──
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.screenMargin),
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppSpacing.screenMargin,
+                vertical: 6,
+              ),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 2),
+                decoration: BoxDecoration(
+                  color: isDark ? AppColors.zenDarkCard : Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                    color: isDark ? Colors.white.withValues(alpha: 0.08) : AppColors.cardBorder,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.03),
+                      blurRadius: 10,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: Row(
+                  children: [
+                    const Icon(LucideIcons.search, size: 18, color: AppColors.neutralGray),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: TextField(
+                        controller: _searchCtrl,
+                        onChanged: _onSearchChanged,
+                        style: GoogleFonts.inter(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                          color: isDark ? Colors.white : AppColors.textPrimary,
+                        ),
+                        decoration: InputDecoration(
+                          hintText: 'Search messages',
+                          hintStyle: GoogleFonts.inter(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w400,
+                            color: AppColors.neutralGray,
+                          ),
+                          border: InputBorder.none,
+                          isDense: true,
+                          contentPadding: const EdgeInsets.symmetric(vertical: 10),
+                        ),
+                      ),
+                    ),
+                    if (_searchCtrl.text.isNotEmpty)
+                      GestureDetector(
+                        onTap: () {
+                          _searchCtrl.clear();
+                          _onSearchChanged('');
+                        },
+                        child: const Icon(LucideIcons.x, size: 16, color: AppColors.neutralGray),
+                      ),
+                  ],
+                ),
+              ),
+            ),
+
+            // ── CATEGORY PILLS (All, Messages, Groups, Requests) ──
+            Padding(
+              padding: const EdgeInsets.only(top: 8, bottom: 8),
+              child: SizedBox(
+                height: 38,
+                child: ListView.separated(
+                  padding: const EdgeInsets.symmetric(horizontal: AppSpacing.screenMargin),
+                  scrollDirection: Axis.horizontal,
+                  itemCount: _categories.length,
+                  separatorBuilder: (_, __) => const SizedBox(width: 8),
+                  itemBuilder: (context, index) {
+                    final cat = _categories[index];
+                    final isActive = _selectedCategory == cat && _selectedTab == 0;
+                    return GestureDetector(
+                      onTap: () {
+                        HapticFeedback.lightImpact();
+                        setState(() {
+                          _selectedCategory = cat;
+                          _selectedTab = 0;
+                        });
+                      },
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 200),
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: isActive
+                              ? AppColors.primaryTeal
+                              : (isDark ? AppColors.zenDarkCard : Colors.white),
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(
+                            color: isActive
+                                ? AppColors.primaryTeal
+                                : (isDark ? Colors.white.withValues(alpha: 0.08) : AppColors.cardBorder),
+                            width: 1.2,
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: isActive
+                                  ? AppColors.primaryTeal.withValues(alpha: 0.3)
+                                  : Colors.black.withValues(alpha: 0.02),
+                              blurRadius: isActive ? 8 : 4,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
+                        ),
+                        child: Text(
+                          cat,
+                          style: GoogleFonts.inter(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                            color: isActive
+                                ? Colors.white
+                                : (isDark ? Colors.white70 : AppColors.textPrimary),
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ),
+
+            // ── SEGMENTED CONTROL (Chats | Community) ──
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.screenMargin, vertical: 4),
               child: ChatSegmentedControl(
                 selectedIndex: _selectedTab,
                 onTabSelected: (index) {
                   setState(() {
                     _selectedTab = index;
-                    _showSearch = false;
-                    _searchCtrl.clear();
-                    _searchQuery = '';
                   });
                 },
               ),
             ),
-            const SizedBox(height: AppSpacing.md),
+            const SizedBox(height: 6),
 
             // ── BODY ──
             Expanded(
@@ -308,16 +388,26 @@ class _HeaderIconButton extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        width: 44,
-        height: 44,
+        width: 42,
+        height: 42,
         decoration: BoxDecoration(
-          color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.black.withValues(alpha: 0.05),
+          color: isDark ? AppColors.zenDarkCard : Colors.white,
           shape: BoxShape.circle,
+          border: Border.all(
+            color: isDark ? Colors.white.withValues(alpha: 0.08) : AppColors.cardBorder,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.03),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            ),
+          ],
         ),
         child: Icon(
           icon,
-          size: 20,
-          color: isDark ? Colors.white : Colors.black,
+          size: 19,
+          color: isDark ? Colors.white : AppColors.textPrimary,
         ),
       ),
     );

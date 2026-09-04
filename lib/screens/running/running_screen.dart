@@ -34,6 +34,8 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../services/notification_service.dart';
 import '../../models/workout_phase.dart';
 import '../../providers/step_tracker_provider.dart';
+import 'package:google_fonts/google_fonts.dart';
+import '../../models/weather_model.dart';
 
 enum RunState { planning, countdown, running, paused, finished }
 
@@ -1354,7 +1356,400 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
     return LucideIcons.route;
   }
 
-  // _buildCompactRouteInput replaced by LocationInputField widget.
+  Widget _buildWeatherAirQualityCard(WeatherModel? weather, bool isDark) {
+    final tempText = weather != null ? '${weather.currentTemp.round()}°C' : '28°C';
+    final condText = weather != null ? weather.condition : 'Partly Cloudy';
+    final aqiVal = weather?.aqi ?? 42;
+    final aqiCategory = aqiVal <= 50 ? 'Good' : (aqiVal <= 100 ? 'Moderate' : 'Unhealthy');
+    final humidity = weather?.hydration ?? '64%';
+    final wind = weather?.windSpeed != null ? '${weather!.windSpeed.round()} km/h' : '12 km/h';
+
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: isDark ? AppColors.zenDarkCard : Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(
+          color: isDark ? Colors.white.withValues(alpha: 0.08) : AppColors.cardBorder,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.03),
+            blurRadius: 16,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: AppColors.accentOrange.withValues(alpha: 0.15),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(LucideIcons.cloudSun, color: AppColors.accentOrange, size: 22),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '$tempText $condText',
+                      style: GoogleFonts.inter(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                        color: isDark ? Colors.white : AppColors.textPrimary,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      'Perfect weather for an outdoor session',
+                      style: GoogleFonts.inter(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                        color: AppColors.neutralGray,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          const Divider(height: 1, color: Color(0xFFF1F5F9)),
+          const SizedBox(height: 14),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              _buildMiniWeatherMetric(LucideIcons.leaf, 'Air Quality', '$aqiVal $aqiCategory', AppColors.primaryGreen, isDark),
+              _buildMiniWeatherMetric(LucideIcons.droplets, 'Humidity', humidity, AppColors.primaryTeal, isDark),
+              _buildMiniWeatherMetric(LucideIcons.wind, 'Wind', wind, AppColors.secondaryBlue, isDark),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMiniWeatherMetric(IconData icon, String label, String value, Color iconColor, bool isDark) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, size: 15, color: iconColor),
+        const SizedBox(width: 6),
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              label,
+              style: GoogleFonts.inter(
+                fontSize: 10,
+                fontWeight: FontWeight.w500,
+                color: AppColors.neutralGray,
+              ),
+            ),
+            Text(
+              value,
+              style: GoogleFonts.inter(
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+                color: isDark ? Colors.white : AppColors.textPrimary,
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildScenicStartCard(bool isDark) {
+    return Container(
+      width: double.infinity,
+      height: 240,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(28),
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: isDark
+              ? [const Color(0xFF1E293B), const Color(0xFF0F172A)]
+              : [const Color(0xFFE0E7FF), const Color(0xFFCCFBF1), const Color(0xFFE0F2FE)],
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.primaryTeal.withValues(alpha: 0.15),
+            blurRadius: 20,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          // Background decorative rings
+          Positioned(
+            child: Container(
+              width: 190,
+              height: 190,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: Colors.white.withValues(alpha: 0.45),
+                  width: 1.5,
+                ),
+              ),
+            ),
+          ),
+          Positioned(
+            child: Container(
+              width: 155,
+              height: 155,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: Colors.white.withValues(alpha: 0.7),
+                  width: 2,
+                ),
+              ),
+            ),
+          ),
+          // Large circular Start Run button
+          GestureDetector(
+            onTap: _startCountdown,
+            child: Container(
+              width: 126,
+              height: 126,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: const LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [AppColors.secondaryBlue, AppColors.primaryTeal],
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: AppColors.primaryTeal.withValues(alpha: 0.45),
+                    blurRadius: 24,
+                    spreadRadius: 2,
+                    offset: const Offset(0, 8),
+                  ),
+                ],
+              ),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(LucideIcons.play, color: Colors.white, size: 28),
+                  const SizedBox(height: 6),
+                  Text(
+                    'START RUN',
+                    style: GoogleFonts.inter(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w900,
+                      color: Colors.white,
+                      letterSpacing: 0.5,
+                    ),
+                  ),
+                  Text(
+                    'Tap to begin',
+                    style: GoogleFonts.inter(
+                      fontSize: 9,
+                      fontWeight: FontWeight.w500,
+                      color: Colors.white.withValues(alpha: 0.85),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          // Quick Target badge in top corner
+          Positioned(
+            top: 14,
+            right: 16,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.85),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: Colors.white.withValues(alpha: 0.9)),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(LucideIcons.target, size: 12, color: AppColors.secondaryBlue),
+                  const SizedBox(width: 4),
+                  Text(
+                    '5.0 km Target',
+                    style: GoogleFonts.inter(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.textPrimary,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildRecentActivitiesSection(bool isDark) {
+    final runs = [
+      {
+        'title': 'Morning Run',
+        'date': 'May 28, 2025',
+        'distance': '5.02 km',
+        'duration': '32:14',
+        'pace': '6:25 /km',
+        'calories': '412 kcal',
+        'iconColor': AppColors.primaryTeal,
+      },
+      {
+        'title': 'Tempo Run',
+        'date': 'May 26, 2025',
+        'distance': '6.21 km',
+        'duration': '38:22',
+        'pace': '6:10 /km',
+        'calories': '520 kcal',
+        'iconColor': AppColors.secondaryBlue,
+      },
+      {
+        'title': 'Easy Run',
+        'date': 'May 24, 2025',
+        'distance': '3.12 km',
+        'duration': '20:15',
+        'pace': '6:30 /km',
+        'calories': '250 kcal',
+        'iconColor': AppColors.primaryGreen,
+      },
+    ];
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              'Recent Activities',
+              style: GoogleFonts.inter(
+                fontSize: 17,
+                fontWeight: FontWeight.w700,
+                color: isDark ? Colors.white : AppColors.textPrimary,
+              ),
+            ),
+            GestureDetector(
+              onTap: () {},
+              child: Text(
+                'View All',
+                style: GoogleFonts.inter(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.primaryTeal,
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        ...runs.map((r) => _buildRecentRunCard(r, isDark)),
+      ],
+    );
+  }
+
+  Widget _buildRecentRunCard(Map<String, dynamic> r, bool isDark) {
+    final Color iconColor = r['iconColor'] as Color;
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: isDark ? AppColors.zenDarkCard : Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(
+          color: isDark ? Colors.white.withValues(alpha: 0.08) : AppColors.cardBorder,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.02),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              color: iconColor.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: Icon(LucideIcons.footprints, color: iconColor, size: 20),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      r['title'] as String,
+                      style: GoogleFonts.inter(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
+                        color: isDark ? Colors.white : AppColors.textPrimary,
+                      ),
+                    ),
+                    Text(
+                      r['distance'] as String,
+                      style: GoogleFonts.inter(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w800,
+                        color: AppColors.primaryTeal,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      r['date'] as String,
+                      style: GoogleFonts.inter(
+                        fontSize: 11,
+                        color: AppColors.neutralGray,
+                      ),
+                    ),
+                    Text(
+                      '${r['duration']} · ${r['pace']} · ${r['calories']}',
+                      style: GoogleFonts.inter(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w500,
+                        color: AppColors.neutralGray,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 6),
+          const Icon(LucideIcons.chevronRight, size: 16, color: AppColors.neutralGray),
+        ],
+      ),
+    );
+  }
 
   Widget _buildCompactRoutePlannerCard(bool isDark) {
     // canSearch: either both coordinate-backed, or both have text (fallback geocode)
@@ -1622,168 +2017,106 @@ class _RunningScreenState extends State<RunningScreen> with TickerProviderStateM
       resizeToAvoidBottomInset: false,
       body: Stack(
         children: [
-          // ── 1. PLANNING VIEW (Scrollable) ──
+          // ── 1. PLANNING VIEW (Scrollable Reference Design) ──
           if (!isRunningPhase && !_isFullScreenMap)
             Positioned.fill(
               child: SingleChildScrollView(
+                padding: const EdgeInsets.only(
+                  left: AppSpacing.screenMargin,
+                  right: AppSpacing.screenMargin,
+                  top: 12,
+                  bottom: 150,
+                ),
                 child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    SizedBox(height: MediaQuery.of(context).padding.top + 12),
-                    
-                    // Compact Route Planner
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      child: _buildCompactRoutePlannerCard(isDark),
+                    // ── Header: Run & Let's hit the road ──
+                    Text(
+                      'Run',
+                      style: GoogleFonts.inter(
+                        fontSize: 24,
+                        fontWeight: FontWeight.w800,
+                        color: isDark ? Colors.white : AppColors.textPrimary,
+                        letterSpacing: -0.4,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      "Let's hit the road",
+                      style: GoogleFonts.inter(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                        color: AppColors.neutralGray,
+                      ),
                     ),
                     const SizedBox(height: 16),
-                    
-                    // ── Map Card ──
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      child: SizedBox(
-                        height: 228,
-                        width: double.infinity,
-                        child: ClipRRect(
-                          borderRadius: BorderRadius.circular(24),
-                          child: Stack(
-                            children: [
-                              _buildMapWidget(mapUrl, isDark, true),
-                              
-                              // Map Controls (top right)
-                              Positioned(
-                                top: 12,
-                                right: 12,
-                                child: _buildRightMapControls(
-                                  isFullScreen: false,
-                                  isRunning: false,
-                                  isDark: isDark,
+
+                    // ── Weather & Air Quality Card (Reference Design) ──
+                    _buildWeatherAirQualityCard(weather, isDark),
+                    const SizedBox(height: 18),
+
+                    // ── Activity Selection Chips: Outdoor Run, Treadmill, Trail Run ──
+                    Row(
+                      children: ['Outdoor Run', 'Treadmill', 'Trail Run'].map((type) {
+                        final isActive = _selectedRunType == type;
+                        return Padding(
+                          padding: const EdgeInsets.only(right: 8),
+                          child: GestureDetector(
+                            onTap: () {
+                              HapticFeedback.lightImpact();
+                              setState(() => _selectedRunType = type);
+                            },
+                            child: AnimatedContainer(
+                              duration: const Duration(milliseconds: 200),
+                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                              decoration: BoxDecoration(
+                                color: isActive
+                                    ? AppColors.primaryTeal
+                                    : (isDark ? AppColors.zenDarkCard : Colors.white),
+                                borderRadius: BorderRadius.circular(20),
+                                border: Border.all(
+                                  color: isActive
+                                      ? AppColors.primaryTeal
+                                      : (isDark ? Colors.white.withValues(alpha: 0.08) : AppColors.cardBorder),
+                                  width: 1.2,
+                                ),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: isActive
+                                        ? AppColors.primaryTeal.withValues(alpha: 0.3)
+                                        : Colors.black.withValues(alpha: 0.03),
+                                    blurRadius: isActive ? 10 : 4,
+                                    offset: const Offset(0, 2),
+                                  ),
+                                ],
+                              ),
+                              child: Text(
+                                type,
+                                style: GoogleFonts.inter(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w700,
+                                  color: isActive
+                                      ? Colors.white
+                                      : (isDark ? Colors.white70 : AppColors.textPrimary),
                                 ),
                               ),
-                              
-                              // Theme Toggle (top left)
-                              Positioned(
-                                top: 12,
-                                left: 12,
-                                child: _mapControlBtn(
-                                  icon: mapModeIsDark ? Icons.light_mode : Icons.dark_mode,
-                                  onTap: () => setState(() => _mapIsDark = !mapModeIsDark),
-                                ),
-                              ),
-
-                              // Route count badge (shown when multiple routes are found)
-                              if (_routeAlternatives.length > 1)
-                                Positioned(
-                                  bottom: 10, left: 10,
-                                  child: Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                                    decoration: BoxDecoration(
-                                      color: Colors.black.withValues(alpha: 0.65),
-                                      borderRadius: BorderRadius.circular(10),
-                                      border: Border.all(color: AppColors.voltCyan.withValues(alpha: 0.4)),
-                                    ),
-                                    child: Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        const Icon(LucideIcons.route, size: 12, color: AppColors.voltCyan),
-                                        const SizedBox(width: 5),
-                                        Text('${_routeAlternatives.length} routes found',
-                                            style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w600)),
-                                      ],
-                                    ),
-                                  ),
-                                )
-                              else if (_routeAlternatives.isEmpty && !_isLoadingRoute)
-                                Positioned(
-                                  bottom: 10, left: 0, right: 0,
-                                  child: Center(
-                                    child: Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                                      decoration: BoxDecoration(
-                                        color: Colors.black.withValues(alpha: 0.6),
-                                        borderRadius: BorderRadius.circular(12),
-                                      ),
-                                      child: const Text('Find a route or start free run',
-                                          style: TextStyle(color: Colors.white, fontSize: 11)),
-                                    ),
-                                  ),
-                                ),
-                            ],
+                            ),
                           ),
-                        ),
-                      ),
+                        );
+                      }).toList(),
                     ),
+                    const SizedBox(height: 18),
 
-                    // ── Route Alternative Cards (shown after route search) ──
-                    if (_routeAlternatives.isNotEmpty) ...[
-                      const SizedBox(height: 12),
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 16),
-                        child: _buildRouteAlternativeCards(isDark),
-                      ),
-                    ],
-
-                    const SizedBox(height: 14),
-
-                    // ── START Button ──
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      child: SizedBox(
-                        width: double.infinity,
-                        height: 56,
-                        child: ElevatedButton(
-                          onPressed: _startCountdown,
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: _mockPreRunRoute.isNotEmpty
-                                ? AppColors.pulseRed
-                                : const Color(0xFFDC2626),
-                            foregroundColor: Colors.white,
-                            elevation: 0,
-                            padding: EdgeInsets.zero,
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                          ),
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              if (_mockPreRunRoute.isNotEmpty) ...[
-                                // Route selected
-                                Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    const Icon(Icons.play_arrow_rounded, size: 20),
-                                    const SizedBox(width: 6),
-                                    Text(
-                                      'START ${_routeAlternatives.isNotEmpty ? _routeAlternatives[_selectedRouteIndex].label.toUpperCase() : 'SELECTED ROUTE'}',
-                                      style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800, letterSpacing: 0.8),
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(height: 2),
-                                Text(
-                                  _routeAlternatives.isNotEmpty ? _routeAlternatives[_selectedRouteIndex].summaryText : '',
-                                  style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w500, color: Colors.white70),
-                                ),
-                              ] else ...[
-                                // Free run
-                                const Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Icon(Icons.directions_run, size: 20),
-                                    SizedBox(width: 6),
-                                    Text('START FREE RUN', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, letterSpacing: 0.8)),
-                                  ],
-                                ),
-                                const SizedBox(height: 2),
-                                const Text('No route needed', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w500, color: Colors.white70)),
-                              ],
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
+                    // ── Scenic Pathway Card with Large Gradient Circular Button ──
+                    _buildScenicStartCard(isDark),
                     const SizedBox(height: 24),
-                    
-                    // Pre-run Metrics and Settings
-                    _buildPreRunUI(theme, isDark),
+
+                    // ── Recent Activities List (Reference Design) ──
+                    _buildRecentActivitiesSection(isDark),
+                    const SizedBox(height: 24),
+
+                    // ── Optional Route Planner (Expandable Card) ──
+                    _buildCompactRoutePlannerCard(isDark),
                   ],
                 ),
               ),

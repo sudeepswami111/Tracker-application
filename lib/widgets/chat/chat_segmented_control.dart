@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import '../../theme/app_colors.dart';
 
 class ChatSegmentedControl extends StatelessWidget {
@@ -17,10 +18,10 @@ class ChatSegmentedControl extends StatelessWidget {
     final isDark = theme.brightness == Brightness.dark;
 
     return Container(
-      height: 48,
+      height: 44,
       decoration: BoxDecoration(
-        color: isDark ? AppColors.surfaceElevated : Colors.grey[200],
-        borderRadius: BorderRadius.circular(24),
+        color: isDark ? AppColors.zenDarkCard : const Color(0xFFE2E8F0),
+        borderRadius: BorderRadius.circular(22),
       ),
       child: Row(
         children: [
@@ -38,24 +39,24 @@ class ChatSegmentedControl extends StatelessWidget {
     bool isDark,
   ) {
     final isSelected = selectedIndex == index;
-    final theme = Theme.of(context);
 
     return Expanded(
       child: GestureDetector(
         onTap: () => onTabSelected(index),
         behavior: HitTestBehavior.opaque,
-        child: Container(
-          margin: const EdgeInsets.all(4),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          margin: const EdgeInsets.all(3),
           decoration: BoxDecoration(
             color: isSelected
-                ? (isDark ? AppColors.irisViolet : Colors.white)
+                ? (isDark ? AppColors.secondaryBlue : Colors.white)
                 : Colors.transparent,
-            borderRadius: BorderRadius.circular(20),
+            borderRadius: BorderRadius.circular(19),
             boxShadow: isSelected && !isDark
                 ? [
                     BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.05),
-                      blurRadius: 4,
+                      color: Colors.black.withValues(alpha: 0.06),
+                      blurRadius: 6,
                       offset: const Offset(0, 2),
                     )
                   ]
@@ -64,11 +65,12 @@ class ChatSegmentedControl extends StatelessWidget {
           alignment: Alignment.center,
           child: Text(
             title,
-            style: theme.textTheme.titleSmall?.copyWith(
+            style: GoogleFonts.inter(
+              fontSize: 13,
               fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
               color: isSelected
-                  ? Colors.white
-                  : (isDark ? Colors.white54 : Colors.black54),
+                  ? (isDark ? Colors.white : AppColors.textPrimary)
+                  : (isDark ? Colors.white54 : AppColors.neutralGray),
             ),
           ),
         ),

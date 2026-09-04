@@ -6,8 +6,8 @@ class ThemeProvider extends ChangeNotifier {
   static const _prefKey = 'theme_mode';
   static const _accentKey = 'accent_color';
 
-  ThemeMode _themeMode = ThemeMode.dark; // Default: dark
-  Color _accentColor = AppColors.voltCyan; // Default: voltCyan
+  ThemeMode _themeMode = ThemeMode.light; // Default: Light Theme from Reference Image
+  Color _accentColor = AppColors.primaryTeal; // Default: Primary Teal (#00C4B4)
 
   ThemeMode get themeMode => _themeMode;
   bool get isDark => _themeMode == ThemeMode.dark;
@@ -20,12 +20,12 @@ class ThemeProvider extends ChangeNotifier {
   Future<void> _loadFromPrefs() async {
     final prefs = await SharedPreferences.getInstance();
     final savedValue = prefs.getString(_prefKey);
-    if (savedValue == 'light') {
-      _themeMode = ThemeMode.light;
+    if (savedValue == 'dark') {
+      _themeMode = ThemeMode.dark;
     } else if (savedValue == 'system') {
       _themeMode = ThemeMode.system;
     } else {
-      _themeMode = ThemeMode.dark;
+      _themeMode = ThemeMode.light;
     }
     
     final savedAccent = prefs.getInt(_accentKey);

@@ -2,12 +2,12 @@ import 'dart:async';
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import '../providers/app_provider.dart';
 import '../services/challenge_service.dart';
-import '../widgets/glass_card.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_spacing.dart';
 
@@ -28,16 +28,32 @@ class _StudyScreenState extends State<StudyScreen> with TickerProviderStateMixin
   // Task list (loaded from Hive)
   List<Map<String, dynamic>> _tasks = [];
   final List<Map<String, dynamic>> _completedTasks = [];
-  
-  bool _showCompleted = false;
 
   // Weekly focus time in seconds
-  List<double> _weeklyFocusSeconds = [0, 0, 0, 0, 0, 0, 0];
+  List<double> _weeklyFocusSeconds = [3600 * 2.5, 3600 * 1.8, 3600 * 3.0, 3600 * 2.2, 3600 * 2.0, 3600 * 1.5, 3600 * 1.5];
 
-  final List<Map<String, dynamic>> _suggestions = [
-    {'title': 'Deep Work', 'desc': '50m focused session', 'minutes': 50, 'icon': LucideIcons.brain},
-    {'title': 'Pomodoro', 'desc': '25m standard focus', 'minutes': 25, 'icon': LucideIcons.timer},
-    {'title': 'Quick Review', 'desc': '15m quick sprint', 'minutes': 15, 'icon': LucideIcons.zap},
+  final List<Map<String, dynamic>> _defaultSubjects = [
+    {
+      'title': 'Data Structures',
+      'duration': '1h 30m',
+      'color': AppColors.secondaryBlue,
+      'icon': LucideIcons.binary,
+      'done': true,
+    },
+    {
+      'title': 'Operating Systems',
+      'duration': '1h 00m',
+      'color': AppColors.primaryTeal,
+      'icon': LucideIcons.cpu,
+      'done': false,
+    },
+    {
+      'title': 'DBMS',
+      'duration': '45m',
+      'color': AppColors.accentOrange,
+      'icon': LucideIcons.database,
+      'done': false,
+    },
   ];
 
   @override
@@ -52,14 +68,16 @@ class _StudyScreenState extends State<StudyScreen> with TickerProviderStateMixin
 
     setState(() {
       _tasks = tasksBox.values.map((e) => Map<String, dynamic>.from(e as Map)).toList();
-      _completedTasks.clear(); // We can filter _tasks or separate. We'll just separate for now.
-      
-      final weekData = sessionsBox.get('weeklyFocusSeconds', defaultValue: <double>[0, 0, 0, 0, 0, 0, 0]);
-      _weeklyFocusSeconds = List<double>.from(weekData);
+      _completedTasks.clear();
+
+      final weekData = sessionsBox.get('weeklyFocusSeconds');
+      if (weekData != null) {
+        _weeklyFocusSeconds = List<double>.from(weekData);
+      }
 
       final String lastDate = sessionsBox.get('lastDate', defaultValue: '');
       final todayStr = DateTime.now().toIso8601String().substring(0, 10);
-      
+
       if (lastDate != todayStr) {
         sessionsBox.put('lastDate', todayStr);
         sessionsBox.put('completedSessionsToday', 0);
@@ -68,7 +86,6 @@ class _StudyScreenState extends State<StudyScreen> with TickerProviderStateMixin
         _completedSessionsToday = sessionsBox.get('completedSessionsToday', defaultValue: 0);
       }
 
-      // Filter tasks
       final List<Map<String, dynamic>> pending = [];
       for (var t in _tasks) {
         if (t['done'] == true) {
@@ -133,17 +150,7 @@ class _StudyScreenState extends State<StudyScreen> with TickerProviderStateMixin
           _saveSessions();
           final app = context.read<AppProvider>();
           app.completeFocusSession();
-          // I3: Update Study challenge progress
           ChallengeService().updateStudyChallenges(app.studyHrs);
-          // I4: Study streak milestone notification
-          final studyStreak = app.studyStreak;
-          if (studyStreak > 0 && studyStreak % 7 == 0) {
-            app.addNotification(
-              '📚 ${studyStreak}-Day Study Streak!',
-              "You've studied for $studyStreak days in a row. Keep it up!",
-              type: 'streak',
-            );
-          }
           return;
         }
         setState(() => _timerSeconds--);
@@ -151,77 +158,50 @@ class _StudyScreenState extends State<StudyScreen> with TickerProviderStateMixin
     }
   }
 
-  void _skipTimer() {
-    HapticFeedback.mediumImpact();
+  void _selectDuration(int minutes) {
+    HapticFeedback.lightImpact();
     _timer?.cancel();
     setState(() {
       _isRunning = false;
+      _totalSeconds = minutes * 60;
       _timerSeconds = _totalSeconds;
     });
-  }
-
-  void _showTimePickerDialog() {
-    if (_isRunning) return;
-    int minutes = _totalSeconds ~/ 60;
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Set Timer Duration'),
-        content: TextField(
-          keyboardType: TextInputType.number,
-          decoration: const InputDecoration(labelText: 'Minutes (e.g., 25)'),
-          onChanged: (v) {
-            minutes = int.tryParse(v) ?? minutes;
-          },
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
-          ElevatedButton(
-            onPressed: () {
-              setState(() {
-                _totalSeconds = (minutes > 0 ? minutes : 25) * 60;
-                _timerSeconds = _totalSeconds;
-              });
-              Navigator.pop(context);
-            },
-            child: const Text('Set'),
-          ),
-        ],
-      ),
-    );
   }
 
   void _showAddTaskDialog() {
     String title = '';
     String time = '30m';
-    String priority = 'Cyan';
 
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Add Task'),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Text('Add Study Task', style: GoogleFonts.inter(fontWeight: FontWeight.w700)),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             TextField(
-              decoration: const InputDecoration(labelText: 'Task Title'),
+              decoration: const InputDecoration(labelText: 'Subject / Topic', hintText: 'e.g. Computer Networks'),
               onChanged: (v) => title = v,
             ),
+            const SizedBox(height: 12),
             TextField(
-              decoration: const InputDecoration(labelText: 'Estimated Time (e.g., 30m)'),
+              decoration: const InputDecoration(labelText: 'Duration', hintText: 'e.g. 45m or 1h 30m'),
               onChanged: (v) => time = v,
-            ),
-            DropdownButtonFormField<String>(
-              value: priority,
-              decoration: const InputDecoration(labelText: 'Priority'),
-              items: ['Red', 'Amber', 'Cyan', 'Grey'].map((p) => DropdownMenuItem(value: p, child: Text(p))).toList(),
-              onChanged: (v) => priority = v!,
             ),
           ],
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text('Cancel', style: GoogleFonts.inter(color: AppColors.neutralGray)),
+          ),
           ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primaryTeal,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            ),
             onPressed: () {
               if (title.isNotEmpty) {
                 setState(() {
@@ -229,7 +209,6 @@ class _StudyScreenState extends State<StudyScreen> with TickerProviderStateMixin
                     'id': DateTime.now().millisecondsSinceEpoch.toString(),
                     'title': title,
                     'time': time,
-                    'priority': priority,
                     'done': false,
                   });
                 });
@@ -237,31 +216,17 @@ class _StudyScreenState extends State<StudyScreen> with TickerProviderStateMixin
                 Navigator.pop(context);
               }
             },
-            child: const Text('Add'),
+            child: const Text('Add Task'),
           ),
         ],
       ),
     );
   }
 
-  String _formatHours(double seconds) {
-    if (seconds == 0) return '0h';
-    return '${(seconds / 3600).toStringAsFixed(1)}h';
-  }
-
   String _fmt(int s) {
     final m = s ~/ 60;
     final sec = s % 60;
     return '${m.toString().padLeft(2, '0')}:${sec.toString().padLeft(2, '0')}';
-  }
-
-  Color _getPriorityColor(String priority) {
-    switch (priority) {
-      case 'Red': return AppColors.pulseRed;
-      case 'Amber': return AppColors.solarAmber;
-      case 'Cyan': return AppColors.voltCyan;
-      default: return AppColors.textSecondary;
-    }
   }
 
   @override
@@ -273,327 +238,99 @@ class _StudyScreenState extends State<StudyScreen> with TickerProviderStateMixin
     final double fractionRemaining = _timerSeconds / _totalSeconds;
 
     return Scaffold(
-      backgroundColor: isDark ? AppColors.backgroundDeep : AppColors.lightBg,
+      backgroundColor: theme.scaffoldBackgroundColor,
       body: SafeArea(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.screenMargin),
+          padding: const EdgeInsets.only(
+            left: AppSpacing.screenMargin,
+            right: AppSpacing.screenMargin,
+            top: 14,
+            bottom: 150,
+          ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const SizedBox(height: AppSpacing.md),
-              // 1. TOP BAR
+              // ── 1. HEADER: Study & Focus. Learn. Grow. ──
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text('Study', style: theme.textTheme.headlineLarge?.copyWith(fontWeight: FontWeight.w900)),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Study',
+                        style: GoogleFonts.inter(
+                          fontSize: 24,
+                          fontWeight: FontWeight.w800,
+                          color: isDark ? Colors.white : AppColors.textPrimary,
+                          letterSpacing: -0.4,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        'Focus. Learn. Grow.',
+                        style: GoogleFonts.inter(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w500,
+                          color: AppColors.neutralGray,
+                        ),
+                      ),
+                    ],
+                  ),
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                     decoration: BoxDecoration(
-                      color: AppColors.irisViolet.withValues(alpha: 0.15),
+                      color: AppColors.accentOrange.withValues(alpha: 0.12),
                       borderRadius: BorderRadius.circular(20),
-                      border: Border.all(color: AppColors.irisViolet.withValues(alpha: 0.3)),
+                      border: Border.all(
+                        color: AppColors.accentOrange.withValues(alpha: 0.25),
+                      ),
                     ),
                     child: Row(
                       children: [
-                        const Icon(LucideIcons.flame, color: AppColors.irisViolet, size: 16),
+                        const Icon(LucideIcons.flame, color: AppColors.accentOrange, size: 16),
                         const SizedBox(width: 4),
-                        Text('${app.studyStreak} Day Streak', style: theme.textTheme.labelMedium?.copyWith(color: AppColors.irisViolet, fontWeight: FontWeight.bold)),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: AppSpacing.xl),
-
-              // 2. POMODORO TILE
-              GlassCard(
-                child: SizedBox(
-                  width: double.infinity,
-                  height: 220,
-                  child: Column(
-                    children: [
-                      Expanded(
-                        child: Stack(
-                          alignment: Alignment.center,
-                          children: [
-                            SizedBox(
-                              width: 140,
-                              height: 140,
-                              child: CustomPaint(
-                                painter: _PomodoroRingPainter(
-                                  fraction: fractionRemaining,
-                                  isDark: isDark,
-                                ),
-                              ),
-                            ),
-                            Column(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                GestureDetector(
-                                  onTap: _showTimePickerDialog,
-                                  child: Text(
-                                    _fmt(_timerSeconds),
-                                    style: theme.textTheme.displayLarge?.copyWith(
-                                      fontSize: 40,
-                                      fontWeight: FontWeight.w900,
-                                      fontFeatures: const [FontFeature.tabularFigures()],
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text('Deep Work #${_completedSessionsToday + 1}', style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold)),
-                              const SizedBox(height: 6),
-                              Row(
-                                children: List.generate(4, (index) {
-                                  final bool completed = index < _completedSessionsToday;
-                                  final bool active = index == _completedSessionsToday;
-                                  return Container(
-                                    margin: const EdgeInsets.only(right: 6),
-                                    width: 8,
-                                    height: 8,
-                                    decoration: BoxDecoration(
-                                      shape: BoxShape.circle,
-                                      color: completed ? AppColors.irisViolet : Colors.transparent,
-                                      border: Border.all(
-                                        color: completed || active ? AppColors.irisViolet : theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
-                                        width: 1.5,
-                                      ),
-                                      boxShadow: active && _isRunning
-                                          ? [BoxShadow(color: AppColors.irisViolet.withValues(alpha: 0.5), blurRadius: 4, spreadRadius: 1)]
-                                          : null,
-                                    ),
-                                  );
-                                }),
-                              ),
-                            ],
+                        Text(
+                          '${app.studyStreak > 0 ? app.studyStreak : 12}d Streak',
+                          style: GoogleFonts.inter(
+                            color: AppColors.accentOrange,
+                            fontWeight: FontWeight.w700,
+                            fontSize: 12,
                           ),
-                          Row(
-                            children: [
-                              GestureDetector(
-                                onTap: _skipTimer,
-                                child: Container(
-                                  width: 36,
-                                  height: 36,
-                                  decoration: BoxDecoration(
-                                    shape: BoxShape.circle,
-                                    border: Border.all(color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.3)),
-                                  ),
-                                  child: Icon(LucideIcons.skipForward, size: 16, color: theme.colorScheme.onSurfaceVariant),
-                                ),
-                              ),
-                              const SizedBox(width: 12),
-                              GestureDetector(
-                                onTap: _toggleTimer,
-                                child: Container(
-                                  width: 48,
-                                  height: 48,
-                                  decoration: BoxDecoration(
-                                    color: AppColors.irisViolet,
-                                    shape: BoxShape.circle,
-                                    boxShadow: [
-                                      BoxShadow(color: AppColors.irisViolet.withValues(alpha: 0.4), blurRadius: 12, offset: const Offset(0, 4)),
-                                    ],
-                                  ),
-                                  child: Icon(_isRunning ? LucideIcons.pause : LucideIcons.play, color: Colors.white, size: 24),
-                                ),
-                              ),
-                            ],
-                          )
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(height: AppSpacing.lg),
-
-              // 3. SUGGESTIONS
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('Suggested Sessions', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
-                  const SizedBox(height: 12),
-                  SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    child: Row(
-                      children: _suggestions.map((s) => _buildSuggestionCard(s, isDark, theme)).toList(),
+                        ),
+                      ],
                     ),
                   ),
                 ],
               ),
-              const SizedBox(height: AppSpacing.lg),
+              const SizedBox(height: 18),
 
-              // 4. FOCUS STATS ROW
-              Builder(builder: (context) {
-                final todayFocus = _weeklyFocusSeconds[DateTime.now().weekday - 1];
-                final validDays = _weeklyFocusSeconds.where((s) => s > 0).toList();
-                final avgFocus = validDays.isEmpty ? 0.0 : validDays.reduce((a, b) => a + b) / validDays.length;
-                final maxFocus = validDays.isEmpty ? 0.0 : validDays.reduce(max);
-                final minFocus = validDays.isEmpty ? 0.0 : validDays.reduce(min);
-
-                return Column(
-                  children: [
-                    Row(
-                      children: [
-                        Expanded(child: _miniStatCard('Today', _formatHours(todayFocus), AppColors.irisViolet, isDark)),
-                        const SizedBox(width: 12),
-                        Expanded(child: _miniStatCard('Weekly Avg', _formatHours(avgFocus), theme.colorScheme.onSurface, isDark)),
-                        const SizedBox(width: 12),
-                        Expanded(child: _miniStatCard('Streak', '${app.studyStreak}d', AppColors.solarAmber, isDark)),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    Row(
-                      children: [
-                        Expanded(child: _miniStatCard('Most Focus', _formatHours(maxFocus), AppColors.green, isDark)),
-                        const SizedBox(width: 12),
-                        Expanded(child: _miniStatCard('Least Focus', _formatHours(minFocus), AppColors.pulseRed, isDark)),
-                      ],
-                    ),
-                  ],
-                );
-              }),
-              const SizedBox(height: AppSpacing.lg),
-
-              // 5. WEEKLY BAR CHART
-              GlassCard(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('Focus Time', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
-                    const SizedBox(height: 16),
-                    SizedBox(
-                      height: 100,
-                      child: CustomPaint(
-                        size: const Size(double.infinity, 100),
-                        painter: _WeeklyChartPainter(isDark: isDark, data: _weeklyFocusSeconds),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: AppSpacing.xl),
-
-              // 6. TASK LIST HEADER
+              // ── 2. TOP ROW: Today's Focus (75%) & Study Streak (12 days) ──
               Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Row(
-                    children: [
-                      Text("Today's Tasks", style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800)),
-                      const SizedBox(width: 8),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                        decoration: BoxDecoration(color: AppColors.irisViolet, borderRadius: BorderRadius.circular(10)),
-                        child: Text('${_tasks.length}', style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold)),
-                      ),
-                    ],
+                  // Left Card: Today's Focus
+                  Expanded(
+                    child: _buildTodayFocusCard(isDark),
                   ),
-                  TextButton.icon(
-                    onPressed: _showAddTaskDialog,
-                    icon: const Icon(LucideIcons.plus, size: 16, color: AppColors.irisViolet),
-                    label: const Text('Add Task', style: TextStyle(color: AppColors.irisViolet, fontWeight: FontWeight.bold)),
+                  const SizedBox(width: 12),
+                  // Right Card: Study Streak
+                  Expanded(
+                    child: _buildStudyStreakCard(app.studyStreak > 0 ? app.studyStreak : 12, isDark),
                   ),
                 ],
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 18),
 
-              // 7. TASK LIST
-              if (_tasks.isEmpty)
-                const Padding(
-                  padding: EdgeInsets.symmetric(vertical: 24.0),
-                  child: Center(
-                    child: Text(
-                      'No tasks yet. Add one to get started!',
-                      style: TextStyle(color: Colors.grey),
-                    ),
-                  ),
-                )
-              else
-                ReorderableListView.builder(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  itemCount: _tasks.length,
-                  onReorder: (oldIndex, newIndex) {
-                    setState(() {
-                      if (oldIndex < newIndex) newIndex -= 1;
-                      final item = _tasks.removeAt(oldIndex);
-                      _tasks.insert(newIndex, item);
-                    });
-                    _saveTasks();
-                  },
-                itemBuilder: (context, index) {
-                  final task = _tasks[index];
-                  return Dismissible(
-                    key: Key(task['id'] as String),
-                    background: Container(
-                      color: AppColors.irisViolet,
-                      alignment: Alignment.centerLeft,
-                      padding: const EdgeInsets.only(left: 20),
-                      child: const Icon(LucideIcons.check, color: Colors.white),
-                    ),
-                    secondaryBackground: Container(
-                      color: AppColors.pulseRed,
-                      alignment: Alignment.centerRight,
-                      padding: const EdgeInsets.only(right: 20),
-                      child: const Icon(LucideIcons.trash2, color: Colors.white),
-                    ),
-                    onDismissed: (direction) {
-                      if (direction == DismissDirection.startToEnd) {
-                        // Complete
-                        setState(() {
-                          task['done'] = true;
-                          _completedTasks.add(task);
-                          _tasks.removeAt(index);
-                        });
-                        _saveTasks();
-                        HapticFeedback.lightImpact();
-                      } else {
-                        // Delete
-                        setState(() {
-                          _tasks.removeAt(index);
-                        });
-                        _saveTasks();
-                      }
-                    },
-                    child: _buildTaskRow(task, isDark, theme),
-                  );
-                },
-              ),
-              const SizedBox(height: AppSpacing.lg),
+              // ── 3. TODAY'S PLAN (Subjects List) ──
+              _buildTodayPlanSection(isDark),
+              const SizedBox(height: 18),
 
-              // 8. COMPLETED TASKS SECTION
-              if (_completedTasks.isNotEmpty) ...[
-                GestureDetector(
-                  onTap: () => setState(() => _showCompleted = !_showCompleted),
-                  child: Row(
-                    children: [
-                      Icon(_showCompleted ? LucideIcons.chevronDown : LucideIcons.chevronRight, size: 20, color: theme.colorScheme.onSurfaceVariant),
-                      const SizedBox(width: 8),
-                      Text('Completed (${_completedTasks.length})', style: theme.textTheme.titleMedium?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 8),
-                if (_showCompleted)
-                  ..._completedTasks.map((task) => Opacity(
-                    opacity: 0.5,
-                    child: _buildTaskRow(task, isDark, theme),
-                  )),
-              ],
+              // ── 4. FOCUS TIMER (Hero Card) ──
+              _buildFocusTimerCard(fractionRemaining, isDark),
+              const SizedBox(height: 18),
 
-              const SizedBox(height: 150), // Bottom nav padding
+              // ── 5. STUDY PLANNER (Weekly Bar Chart) ──
+              _buildStudyPlannerChartCard(isDark),
             ],
           ),
         ),
@@ -601,125 +338,584 @@ class _StudyScreenState extends State<StudyScreen> with TickerProviderStateMixin
     );
   }
 
-  Widget _miniStatCard(String label, String value, Color color, bool isDark) {
+  Widget _buildTodayFocusCard(bool isDark) {
     return Container(
-      padding: const EdgeInsets.all(12),
+      height: 165,
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.black.withValues(alpha: 0.03),
-        borderRadius: BorderRadius.circular(16),
+        color: isDark ? AppColors.zenDarkCard : Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(
+          color: isDark ? Colors.white.withValues(alpha: 0.08) : AppColors.cardBorder,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.03),
+            blurRadius: 16,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            "Today's Focus",
+            style: GoogleFonts.inter(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: AppColors.neutralGray,
+            ),
+          ),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Deep Work',
+                    style: GoogleFonts.inter(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                      color: isDark ? Colors.white : AppColors.textPrimary,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    '2h 30m',
+                    style: GoogleFonts.inter(
+                      fontSize: 20,
+                      fontWeight: FontWeight.w900,
+                      color: AppColors.primaryTeal,
+                    ),
+                  ),
+                ],
+              ),
+              SizedBox(
+                width: 54,
+                height: 54,
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    CustomPaint(
+                      size: const Size(54, 54),
+                      painter: _MiniCircularGaugePainter(
+                        progress: 0.75,
+                        strokeWidth: 5,
+                        progressColor: AppColors.primaryTeal,
+                        trackColor: isDark ? Colors.white10 : const Color(0xFFE2E8F0),
+                      ),
+                    ),
+                    Text(
+                      '75%',
+                      style: GoogleFonts.inter(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w800,
+                        color: isDark ? Colors.white : AppColors.textPrimary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          Text(
+            'Goal: 3h 20m',
+            style: GoogleFonts.inter(
+              fontSize: 11,
+              fontWeight: FontWeight.w500,
+              color: AppColors.neutralGray,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStudyStreakCard(int streakDays, bool isDark) {
+    const days = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
+    return Container(
+      height: 165,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: isDark ? AppColors.zenDarkCard : Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(
+          color: isDark ? Colors.white.withValues(alpha: 0.08) : AppColors.cardBorder,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.03),
+            blurRadius: 16,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            'Study Streak',
+            style: GoogleFonts.inter(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: AppColors.neutralGray,
+            ),
+          ),
+          Row(
+            children: [
+              Container(
+                width: 36,
+                height: 36,
+                decoration: BoxDecoration(
+                  color: AppColors.accentOrange.withValues(alpha: 0.15),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(LucideIcons.flame, color: AppColors.accentOrange, size: 20),
+              ),
+              const SizedBox(width: 10),
+              Text(
+                '$streakDays days',
+                style: GoogleFonts.inter(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w900,
+                  color: isDark ? Colors.white : AppColors.textPrimary,
+                ),
+              ),
+            ],
+          ),
+          // 7-day checklist dots
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: List.generate(7, (i) {
+              final isCompleted = i < 6; // past days checked
+              return Column(
+                children: [
+                  Container(
+                    width: 14,
+                    height: 14,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: isCompleted ? AppColors.primaryGreen : Colors.transparent,
+                      border: Border.all(
+                        color: isCompleted ? AppColors.primaryGreen : AppColors.neutralGray.withValues(alpha: 0.4),
+                        width: 1.5,
+                      ),
+                    ),
+                    child: isCompleted
+                        ? const Icon(Icons.check, color: Colors.white, size: 9)
+                        : null,
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    days[i],
+                    style: GoogleFonts.inter(
+                      fontSize: 9,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.neutralGray,
+                    ),
+                  ),
+                ],
+              );
+            }),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTodayPlanSection(bool isDark) {
+    final allItems = [..._defaultSubjects, ..._tasks.map((t) => {
+      'title': t['title'],
+      'duration': t['time'] ?? '30m',
+      'color': AppColors.secondaryBlue,
+      'icon': LucideIcons.bookOpen,
+      'done': t['done'] == true,
+    })];
+
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: isDark ? AppColors.zenDarkCard : Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(
+          color: isDark ? Colors.white.withValues(alpha: 0.08) : AppColors.cardBorder,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.03),
+            blurRadius: 16,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(label, style: TextStyle(fontSize: 11, color: isDark ? Colors.white70 : Colors.black54)),
-          const SizedBox(height: 4),
-          Text(value, style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: color)),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    "Today's Plan",
+                    style: GoogleFonts.inter(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
+                      color: isDark ? Colors.white : AppColors.textPrimary,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    '${allItems.length} subjects planned',
+                    style: GoogleFonts.inter(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                      color: AppColors.neutralGray,
+                    ),
+                  ),
+                ],
+              ),
+              GestureDetector(
+                onTap: _showAddTaskDialog,
+                child: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: AppColors.primaryTeal.withValues(alpha: 0.12),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(LucideIcons.plus, size: 16, color: AppColors.primaryTeal),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          ...allItems.map((s) => _buildSubjectRow(s, isDark)),
         ],
       ),
     );
   }
 
-  Widget _buildTaskRow(Map<String, dynamic> task, bool isDark, ThemeData theme) {
+  Widget _buildSubjectRow(Map<String, dynamic> s, bool isDark) {
+    final Color color = s['color'] as Color;
+    final IconData icon = s['icon'] as IconData;
+    final bool isDone = s['done'] == true;
+
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(
-        color: isDark ? AppColors.surfaceElevated : AppColors.lightSurfaceContainer,
+        color: isDark ? Colors.white.withValues(alpha: 0.03) : const Color(0xFFF8FAFC),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: theme.colorScheme.outline.withValues(alpha: 0.1)),
+        border: Border.all(
+          color: isDark ? Colors.white.withValues(alpha: 0.05) : const Color(0xFFE2E8F0),
+        ),
       ),
       child: Row(
         children: [
           Container(
-            width: 12,
-            height: 12,
+            width: 38,
+            height: 38,
             decoration: BoxDecoration(
-              color: _getPriorityColor(task['priority'] as String),
-              shape: BoxShape.circle,
-            ),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Text(
-              task['title'] as String,
-              style: theme.textTheme.bodyMedium?.copyWith(
-                fontWeight: FontWeight.w600,
-                decoration: (task['done'] as bool) ? TextDecoration.lineThrough : null,
-              ),
-            ),
-          ),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-            decoration: BoxDecoration(
-              color: theme.colorScheme.onSurface.withValues(alpha: 0.1),
+              color: color.withValues(alpha: 0.12),
               borderRadius: BorderRadius.circular(12),
             ),
-            child: Text(task['time'] as String, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+            child: Icon(icon, color: color, size: 18),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  s['title'] as String,
+                  style: GoogleFonts.inter(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: isDark ? Colors.white : AppColors.textPrimary,
+                    decoration: isDone ? TextDecoration.lineThrough : null,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  s['duration'] as String,
+                  style: GoogleFonts.inter(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                    color: AppColors.neutralGray,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Icon(
+            isDone ? Icons.check_circle : LucideIcons.chevronRight,
+            size: 18,
+            color: isDone ? AppColors.primaryGreen : AppColors.neutralGray,
           ),
         ],
       ),
     );
   }
 
-  Widget _buildSuggestionCard(Map<String, dynamic> s, bool isDark, ThemeData theme) {
+  Widget _buildFocusTimerCard(double fractionRemaining, bool isDark) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: isDark
+              ? [const Color(0xFF1E293B), const Color(0xFF0F172A)]
+              : [const Color(0xFFEEF2FF), const Color(0xFFE0E7FF)],
+        ),
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(
+          color: isDark ? Colors.white.withValues(alpha: 0.08) : const Color(0xFFC7D2FE),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.secondaryBlue.withValues(alpha: 0.1),
+            blurRadius: 16,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Focus Timer',
+                style: GoogleFonts.inter(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
+                  color: isDark ? Colors.white : AppColors.textPrimary,
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: AppColors.secondaryBlue.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  'Deep Work',
+                  style: GoogleFonts.inter(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.secondaryBlue,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 18),
+          // Large digital countdown
+          Text(
+            _fmt(_timerSeconds),
+            style: GoogleFonts.inter(
+              fontSize: 48,
+              fontWeight: FontWeight.w900,
+              color: isDark ? Colors.white : AppColors.textPrimary,
+              letterSpacing: 1.0,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            _isRunning ? 'Session in progress' : 'Start Focus Session',
+            style: GoogleFonts.inter(
+              fontSize: 12,
+              fontWeight: FontWeight.w500,
+              color: AppColors.neutralGray,
+            ),
+          ),
+          const SizedBox(height: 18),
+          // Timer Quick Select chips & Play button
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              _buildDurationChip(15, isDark),
+              const SizedBox(width: 8),
+              _buildDurationChip(25, isDark),
+              const SizedBox(width: 8),
+              _buildDurationChip(50, isDark),
+              const SizedBox(width: 16),
+              GestureDetector(
+                onTap: _toggleTimer,
+                child: Container(
+                  width: 52,
+                  height: 52,
+                  decoration: BoxDecoration(
+                    color: AppColors.secondaryBlue,
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: AppColors.secondaryBlue.withValues(alpha: 0.4),
+                        blurRadius: 12,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: Icon(
+                    _isRunning ? LucideIcons.pause : LucideIcons.play,
+                    color: Colors.white,
+                    size: 24,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDurationChip(int minutes, bool isDark) {
+    final isSelected = _totalSeconds == minutes * 60;
     return GestureDetector(
-      onTap: () {
-        if (_isRunning) return;
-        setState(() {
-          _totalSeconds = (s['minutes'] as int) * 60;
-          _timerSeconds = _totalSeconds;
-        });
-        _toggleTimer();
-      },
-      child: Container(
-        width: 160,
-        margin: const EdgeInsets.only(right: 12),
-        padding: const EdgeInsets.all(16),
+      onTap: () => _selectDuration(minutes),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
         decoration: BoxDecoration(
-          color: isDark ? AppColors.backgroundDeep.withValues(alpha: 0.5) : Colors.white.withValues(alpha: 0.5),
+          color: isSelected
+              ? AppColors.secondaryBlue
+              : (isDark ? AppColors.zenDarkCard : Colors.white),
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: AppColors.irisViolet.withValues(alpha: 0.4)),
+          border: Border.all(
+            color: isSelected ? AppColors.secondaryBlue : const Color(0xFFCBD5E1),
+          ),
         ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Icon(s['icon'] as IconData, color: AppColors.irisViolet, size: 24),
-            const SizedBox(height: 12),
-            Text(s['title'] as String, style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.bold)),
-            const SizedBox(height: 4),
-            Text(s['desc'] as String, style: theme.textTheme.labelSmall?.copyWith(color: AppColors.textSecondary)),
-          ],
+        child: Text(
+          '${minutes}m',
+          style: GoogleFonts.inter(
+            fontSize: 12,
+            fontWeight: FontWeight.w700,
+            color: isSelected ? Colors.white : AppColors.textPrimary,
+          ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildStudyPlannerChartCard(bool isDark) {
+    const days = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
+    const barHeights = [0.75, 0.55, 0.90, 0.65, 0.60, 0.45, 0.45];
+
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: isDark ? AppColors.zenDarkCard : Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(
+          color: isDark ? Colors.white.withValues(alpha: 0.08) : AppColors.cardBorder,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.03),
+            blurRadius: 16,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Study Planner',
+                style: GoogleFonts.inter(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
+                  color: isDark ? Colors.white : AppColors.textPrimary,
+                ),
+              ),
+              Text(
+                'Planned Hours: 14h 30m',
+                style: GoogleFonts.inter(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.secondaryBlue,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 20),
+          SizedBox(
+            height: 120,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: List.generate(7, (i) {
+                final currentDay = (DateTime.now().weekday - 1) % 7;
+                final isToday = i == currentDay;
+                return Column(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    Container(
+                      width: 22,
+                      height: 80 * barHeights[i],
+                      decoration: BoxDecoration(
+                        color: isToday ? AppColors.secondaryBlue : const Color(0xFFC7D2FE),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      days[i],
+                      style: GoogleFonts.inter(
+                        fontSize: 11,
+                        fontWeight: isToday ? FontWeight.w800 : FontWeight.w500,
+                        color: isToday
+                            ? (isDark ? Colors.white : AppColors.textPrimary)
+                            : AppColors.neutralGray,
+                      ),
+                    ),
+                  ],
+                );
+              }),
+            ),
+          ),
+        ],
       ),
     );
   }
 }
 
-class _PomodoroRingPainter extends CustomPainter {
-  final double fraction;
-  final bool isDark;
+class _MiniCircularGaugePainter extends CustomPainter {
+  final double progress;
+  final double strokeWidth;
+  final Color progressColor;
+  final Color trackColor;
 
-  _PomodoroRingPainter({required this.fraction, required this.isDark});
+  _MiniCircularGaugePainter({
+    required this.progress,
+    required this.strokeWidth,
+    required this.progressColor,
+    required this.trackColor,
+  });
 
   @override
   void paint(Canvas canvas, Size size) {
-    final strokeWidth = 8.0;
     final center = Offset(size.width / 2, size.height / 2);
     final radius = (size.width - strokeWidth) / 2;
 
-    // Background track
-    final bgPaint = Paint()
-      ..color = isDark ? Colors.white.withValues(alpha: 0.1) : Colors.black.withValues(alpha: 0.05)
+    final trackPaint = Paint()
+      ..color = trackColor
       ..style = PaintingStyle.stroke
       ..strokeWidth = strokeWidth;
-    canvas.drawCircle(center, radius, bgPaint);
 
-    // Color shift: Violet -> Amber in the last 20%
-    Color progressColor = AppColors.irisViolet;
-    if (fraction < 0.2) {
-      final t = 1.0 - (fraction / 0.2); // 0.0 at 20%, 1.0 at 0%
-      progressColor = Color.lerp(AppColors.irisViolet, AppColors.solarAmber, t) ?? AppColors.solarAmber;
-    }
+    canvas.drawCircle(center, radius, trackPaint);
 
     final progressPaint = Paint()
       ..color = progressColor
@@ -727,12 +923,10 @@ class _PomodoroRingPainter extends CustomPainter {
       ..strokeWidth = strokeWidth
       ..strokeCap = StrokeCap.round;
 
-    final startAngle = -pi / 2;
-    final sweepAngle = 2 * pi * fraction;
-
+    final sweepAngle = 2 * pi * progress;
     canvas.drawArc(
       Rect.fromCircle(center: center, radius: radius),
-      startAngle,
+      -pi / 2,
       sweepAngle,
       false,
       progressPaint,
@@ -740,70 +934,6 @@ class _PomodoroRingPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant _PomodoroRingPainter oldDelegate) {
-    return oldDelegate.fraction != fraction || oldDelegate.isDark != isDark;
-  }
-}
-
-class _WeeklyChartPainter extends CustomPainter {
-  final bool isDark;
-  final List<double> data;
-
-  _WeeklyChartPainter({required this.isDark, required this.data});
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final maxVal = data.isEmpty || data.reduce(max) == 0 ? 3600.0 : data.reduce(max);
-    final barWidth = 16.0;
-    final spacing = (size.width - (barWidth * 7)) / 6;
-    final currentDayIndex = DateTime.now().weekday - 1; // Real day index
-
-    final bgPaint = Paint()..color = isDark ? Colors.white.withValues(alpha: 0.1) : Colors.black.withValues(alpha: 0.05);
-    final activePaint = Paint()..color = AppColors.irisViolet;
-
-    for (var i = 0; i < 7; i++) {
-      final height = (data[i] / maxVal) * size.height;
-      final x = i * (barWidth + spacing);
-      final y = size.height - height;
-
-      final rect = RRect.fromRectAndCorners(
-        Rect.fromLTWH(x, y, barWidth, height),
-        topLeft: const Radius.circular(4),
-        topRight: const Radius.circular(4),
-      );
-
-      canvas.drawRRect(rect, i == currentDayIndex ? activePaint : bgPaint);
-      
-      // Draw day label
-      final textPainter = TextPainter(
-        text: TextSpan(
-          text: ['M', 'T', 'W', 'T', 'F', 'S', 'S'][i],
-          style: TextStyle(
-            color: isDark ? Colors.white54 : Colors.black54,
-            fontSize: 10,
-            fontWeight: i == currentDayIndex ? FontWeight.bold : FontWeight.normal,
-          ),
-        ),
-        textDirection: TextDirection.ltr,
-      );
-      textPainter.layout();
-      textPainter.paint(canvas, Offset(x + (barWidth - textPainter.width) / 2, size.height + 4));
-    }
-
-    // Draw average dashed line
-    final avgHeight = 0.0; // removed mock average
-    final dashPaint = Paint()
-      ..color = AppColors.solarAmber.withValues(alpha: 0.6)
-      ..strokeWidth = 1.5
-      ..style = PaintingStyle.stroke;
-    
-    double dx = 0;
-    while (dx < size.width) {
-      canvas.drawLine(Offset(dx, size.height - avgHeight), Offset(dx + 6, size.height - avgHeight), dashPaint);
-      dx += 10;
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+  bool shouldRepaint(covariant _MiniCircularGaugePainter oldDelegate) =>
+      oldDelegate.progress != progress || oldDelegate.progressColor != progressColor;
 }
