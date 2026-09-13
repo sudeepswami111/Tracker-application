@@ -1,12 +1,13 @@
-import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
-import 'package:provider/provider.dart';
-import '../theme/app_colors.dart';
-import '../providers/app_provider.dart';
 
-// ─── Data ─────────────────────────────────────────────────────────────────────
+import '../theme/app_colors.dart';
+import '../screens/running/running_screen.dart';
+import '../screens/hydration_hub_screen.dart';
+import '../screens/workout/fitness_screen.dart';
+import '../screens/study_screen.dart';
 
 class _NavDestination {
   final IconData icon;
@@ -21,13 +22,11 @@ class _NavDestination {
 }
 
 const _destinations = [
-  _NavDestination(icon: LucideIcons.layoutDashboard, label: 'Home', index: 0),
-  _NavDestination(icon: LucideIcons.heartPulse, label: 'Health', index: 1),
-  _NavDestination(icon: LucideIcons.messageSquare, label: 'Chat', index: 3),
-  _NavDestination(icon: LucideIcons.graduationCap, label: 'Study', index: 4),
+  _NavDestination(icon: LucideIcons.home, label: 'Home', index: 0),
+  _NavDestination(icon: LucideIcons.compass, label: 'Explore', index: 1),
+  _NavDestination(icon: LucideIcons.users, label: 'Community', index: 3),
+  _NavDestination(icon: LucideIcons.user, label: 'Profile', index: 4),
 ];
-
-// ─── Main Widget ──────────────────────────────────────────────────────────────
 
 class GlassNavBar extends StatelessWidget {
   final int currentIndex;
@@ -39,58 +38,176 @@ class GlassNavBar extends StatelessWidget {
     required this.onTap,
   });
 
+  void _showQuickActionSheet(BuildContext context) {
+    HapticFeedback.mediumImpact();
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => Container(
+        padding: const EdgeInsets.fromLTRB(24, 20, 24, 32),
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+          boxShadow: [
+            BoxShadow(
+              color: Color(0x14000000),
+              blurRadius: 20,
+              offset: Offset(0, -4),
+            ),
+          ],
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Center(
+              child: Container(
+                width: 36,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: AppColors.cardBorder,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+            const SizedBox(height: 18),
+            Text(
+              'Quick Actions',
+              style: GoogleFonts.plusJakartaSans(
+                fontSize: 18,
+                fontWeight: FontWeight.w800,
+                color: AppColors.textPrimary,
+              ),
+            ),
+            const SizedBox(height: 18),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              children: [
+                _buildQuickSheetAction(
+                  context,
+                  icon: LucideIcons.footprints,
+                  iconColor: AppColors.sageGreen,
+                  bgColor: AppColors.mintLight,
+                  label: 'Start Run',
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    Navigator.push(context, MaterialPageRoute(builder: (_) => const RunningScreen()));
+                  },
+                ),
+                _buildQuickSheetAction(
+                  context,
+                  icon: LucideIcons.droplets,
+                  iconColor: AppColors.skyBlue,
+                  bgColor: AppColors.skyLight,
+                  label: 'Add Water',
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    Navigator.push(context, MaterialPageRoute(builder: (_) => const HydrationHubScreen()));
+                  },
+                ),
+                _buildQuickSheetAction(
+                  context,
+                  icon: LucideIcons.dumbbell,
+                  iconColor: AppColors.accentOrange,
+                  bgColor: const Color(0xFFFEF3E8),
+                  label: 'Workout',
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    Navigator.push(context, MaterialPageRoute(builder: (_) => const FitnessScreen()));
+                  },
+                ),
+                _buildQuickSheetAction(
+                  context,
+                  icon: LucideIcons.bookOpen,
+                  iconColor: AppColors.lavender,
+                  bgColor: AppColors.lavenderLight,
+                  label: 'Start Study',
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    Navigator.push(context, MaterialPageRoute(builder: (_) => const StudyScreen()));
+                  },
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildQuickSheetAction(
+    BuildContext context, {
+    required IconData icon,
+    required Color iconColor,
+    required Color bgColor,
+    required String label,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 56,
+            height: 56,
+            decoration: BoxDecoration(
+              color: bgColor,
+              shape: BoxShape.circle,
+            ),
+            child: Icon(icon, color: iconColor, size: 24),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            label,
+            style: GoogleFonts.plusJakartaSans(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: AppColors.textPrimary,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-
     return SafeArea(
       child: Padding(
         padding: const EdgeInsets.only(
-          left: 20,
-          right: 20,
-          bottom: 16,
+          left: 18,
+          right: 18,
+          bottom: 12,
         ),
         child: SizedBox(
-          height: 72,
+          height: 68,
           child: Stack(
             clipBehavior: Clip.none,
             alignment: Alignment.center,
             children: [
-              // ── Navigation Bar Surface ──
+              // ── Background Surface ──
               Positioned.fill(
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(36),
-                  child: BackdropFilter(
-                    filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
-                    child: Container(
-                      decoration: BoxDecoration(
-                        color: isDark
-                            ? const Color(0xFF131F2E).withValues(alpha: 0.92)
-                            : Colors.white.withValues(alpha: 0.95),
-                        borderRadius: BorderRadius.circular(36),
-                        border: Border.all(
-                          color: isDark
-                              ? Colors.white.withValues(alpha: 0.1)
-                              : AppColors.cardBorder,
-                          width: 1.2,
-                        ),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withValues(alpha: isDark ? 0.35 : 0.06),
-                            blurRadius: 20,
-                            offset: const Offset(0, 6),
-                          ),
-                        ],
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(34),
+                    border: Border.all(color: AppColors.cardBorder, width: 1.2),
+                    boxShadow: [
+                      BoxShadow(
+                        color: const Color(0xFF16382B).withValues(alpha: 0.06),
+                        blurRadius: 18,
+                        offset: const Offset(0, 4),
                       ),
-                    ),
+                    ],
                   ),
                 ),
               ),
 
-              // ── Nav Items Row ────────────────────────────────────────────────
+              // ── Navigation Tabs Row ──
               Row(
                 children: [
-                  // Left half: Home, Health
+                  // Left: Home, Explore
                   Expanded(
                     child: Row(
                       children: [
@@ -111,9 +228,11 @@ class GlassNavBar extends StatelessWidget {
                       ],
                     ),
                   ),
-                  // Center gap for floating RUN button
-                  const SizedBox(width: 72),
-                  // Right half: Chat, Study
+
+                  // Center Gap for (+) Action Button
+                  const SizedBox(width: 60),
+
+                  // Right: Community, Profile
                   Expanded(
                     child: Row(
                       children: [
@@ -137,12 +256,32 @@ class GlassNavBar extends StatelessWidget {
                 ],
               ),
 
-              // ── Floating Center RUN Button ──
+              // ── Center (+) Floating Button in Dark Forest Green ──
               Positioned(
-                top: -20,
-                child: _FloatingCenterButton(
-                  isActive: currentIndex == 2,
-                  onTap: () => onTap(2),
+                top: -14,
+                child: GestureDetector(
+                  onTap: () => _showQuickActionSheet(context),
+                  child: Container(
+                    width: 54,
+                    height: 54,
+                    decoration: BoxDecoration(
+                      color: AppColors.forestGreen,
+                      shape: BoxShape.circle,
+                      border: Border.all(color: Colors.white, width: 3),
+                      boxShadow: [
+                        BoxShadow(
+                          color: AppColors.forestGreen.withValues(alpha: 0.35),
+                          blurRadius: 14,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
+                    ),
+                    child: const Icon(
+                      LucideIcons.plus,
+                      color: Colors.white,
+                      size: 26,
+                    ),
+                  ),
                 ),
               ),
             ],
@@ -153,9 +292,7 @@ class GlassNavBar extends StatelessWidget {
   }
 }
 
-// ─── Nav Tab ──────────────────────────────────────────────────────────────────
-
-class _NavTab extends StatefulWidget {
+class _NavTab extends StatelessWidget {
   final _NavDestination destination;
   final bool isActive;
   final ValueChanged<int> onTap;
@@ -167,236 +304,35 @@ class _NavTab extends StatefulWidget {
   });
 
   @override
-  State<_NavTab> createState() => _NavTabState();
-}
-
-class _NavTabState extends State<_NavTab> with SingleTickerProviderStateMixin {
-  late final AnimationController _controller;
-  late final Animation<double> _scale;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 120),
-      lowerBound: 0.0,
-      upperBound: 1.0,
-    );
-    _scale = Tween<double>(begin: 1.0, end: 0.88).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeIn),
-    );
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  Future<void> _onTapDown(_) async {
-    HapticFeedback.lightImpact();
-    await _controller.forward();
-    await _controller.reverse();
-    widget.onTap(widget.destination.index);
-  }
-
-  @override
   Widget build(BuildContext context) {
-    Color getAccentColor() {
-      switch (widget.destination.index) {
-        case 0:
-          return AppColors.primaryTeal;
-        case 1:
-          return AppColors.primaryTeal;
-        case 3:
-          return AppColors.primaryTeal;
-        case 4:
-          return AppColors.secondaryBlue;
-        default:
-          return AppColors.primaryTeal;
-      }
-    }
+    const activeColor = AppColors.forestGreen;
+    const inactiveColor = AppColors.textSecondary;
 
-    final activeColor = getAccentColor();
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final inactiveColor = isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B);
-
-    final app = context.watch<AppProvider>();
-    final showChatBadge = widget.destination.index == 3 && app.unreadChatCount > 0;
-
-    Widget iconWidget = Icon(
-      widget.destination.icon,
-      size: 22,
-      color: widget.isActive ? activeColor : inactiveColor,
-    );
-
-    if (showChatBadge) {
-      iconWidget = Stack(
-        clipBehavior: Clip.none,
+    return GestureDetector(
+      onTap: () {
+        HapticFeedback.selectionClick();
+        onTap(destination.index);
+      },
+      behavior: HitTestBehavior.opaque,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          iconWidget,
-          Positioned(
-            right: -6,
-            top: -6,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-              constraints: const BoxConstraints(
-                minWidth: 14,
-                minHeight: 14,
-              ),
-              decoration: const BoxDecoration(
-                color: AppColors.accentCoral,
-                shape: BoxShape.circle,
-              ),
-              child: Center(
-                child: Text(
-                  app.unreadChatCount > 99 ? '99+' : '${app.unreadChatCount}',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 8,
-                    fontWeight: FontWeight.bold,
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-              ),
+          Icon(
+            destination.icon,
+            size: 20,
+            color: isActive ? activeColor : inactiveColor,
+          ),
+          const SizedBox(height: 3),
+          Text(
+            destination.label,
+            style: GoogleFonts.plusJakartaSans(
+              fontSize: 10,
+              fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
+              color: isActive ? activeColor : inactiveColor,
             ),
           ),
         ],
-      );
-    }
-
-    return GestureDetector(
-      onTapDown: _onTapDown,
-      behavior: HitTestBehavior.opaque,
-      child: Semantics(
-        label: widget.destination.label,
-        button: true,
-        child: ScaleTransition(
-          scale: _scale,
-          child: Container(
-            color: Colors.transparent,
-            height: 72,
-            alignment: Alignment.center,
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 250),
-              curve: Curves.easeOutCubic,
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-              decoration: BoxDecoration(
-                color: widget.isActive
-                    ? activeColor.withValues(alpha: 0.12)
-                    : Colors.transparent,
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  iconWidget,
-                  const SizedBox(height: 3),
-                  Text(
-                    widget.destination.label,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      color: widget.isActive ? activeColor : inactiveColor,
-                      fontWeight: widget.isActive ? FontWeight.w700 : FontWeight.w500,
-                      fontSize: 11,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-// ─── Floating Center Button ───────────────────────────────────────────────────
-
-class _FloatingCenterButton extends StatefulWidget {
-  final bool isActive;
-  final VoidCallback onTap;
-
-  const _FloatingCenterButton({
-    required this.isActive,
-    required this.onTap,
-  });
-
-  @override
-  State<_FloatingCenterButton> createState() => _FloatingCenterButtonState();
-}
-
-class _FloatingCenterButtonState extends State<_FloatingCenterButton>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _controller;
-  late final Animation<double> _scale;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 120),
-    );
-    _scale = Tween<double>(begin: 1.0, end: 0.88).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeIn),
-    );
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  Future<void> _onTapDown(_) async {
-    HapticFeedback.lightImpact();
-    await _controller.forward();
-    await _controller.reverse();
-    widget.onTap();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTapDown: _onTapDown,
-      child: Semantics(
-        label: 'Run',
-        button: true,
-        child: ScaleTransition(
-          scale: _scale,
-          child: Container(
-            width: 62,
-            height: 62,
-            decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                colors: [AppColors.primaryTeal, Color(0xFF00D8C8)],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-              shape: BoxShape.circle,
-              boxShadow: [
-                BoxShadow(
-                  color: AppColors.primaryTeal.withValues(alpha: 0.4),
-                  blurRadius: 18,
-                  offset: const Offset(0, 6),
-                ),
-              ],
-              border: Border.all(
-                color: Colors.white,
-                width: 2.5,
-              ),
-            ),
-            child: const Icon(
-              Icons.directions_run_rounded,
-              color: Colors.white,
-              size: 30,
-            ),
-          ),
-        ),
       ),
     );
   }

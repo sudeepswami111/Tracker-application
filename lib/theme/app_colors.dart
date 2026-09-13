@@ -1,140 +1,155 @@
 import 'package:flutter/material.dart';
 
 class AppColors {
-  // ─── Reference Design System Palette (Light Theme Truth) ───
-  static const primaryGreen = Color(0xFF4CAF50);    // Steps, walking, completed activity, positive status
-  static const primaryTeal = Color(0xFF00C4B4);     // Primary actions, running, active navigation, progress
-  static const secondaryBlue = Color(0xFF6366F1);   // Study, workouts, focus timers, selected states
-  static const accentOrange = Color(0xFFFFBA00);    // Streak flame, calories, warnings, motivation
-  static const accentCoral = Color(0xFFFF6B6B);     // Heart rate, alerts, liked reactions
-  static const neutralGray = Color(0xFF64748B);     // Secondary text, icons, inactive states
-  static const lightBg = Color(0xFFF0F4F8);         // Global background
-  static const cardWhite = Color(0xFFFFFFFF);       // Cards, modals, sheets
-  static const cardBorder = Color(0xFFE2E8F0);      // Subtle border for light surfaces
-  static const textPrimary = Color(0xFF0F172A);     // Deep slate text for high readability
-  static const textSecondary = Color(0xFF64748B);   // Muted slate text
+  // ─── Reference Design System Palette (Single Source of Truth) ───
+  // Primary Backgrounds
+  static const Color lightBg = Color(0xFFFBF9F4);         // Warm cream/ivory background
+  static const Color cardWhite = Color(0xFFFFFFFF);       // Pure white card surfaces
+  static const Color cardMuted = Color(0xFFF4F0E6);       // Warm sand/cream secondary card surface
+  static const Color cardBorder = Color(0xFFEDE8DF);      // Subtle warm card border
 
-  // ─── Bio-Harmonic / Zen Aliases ───
-  static const zenDarkBg = Color(0xFF0B1320);
-  static const zenDarkCard = Color(0xFF131F2E);
-  static const zenDarkElevated = Color(0xFF1B2B3E);
-  static const zenMint = primaryGreen;
-  static const zenMintLight = Color(0xFF81C784);
-  static const zenAmber = accentOrange;
-  static const zenAmberLight = Color(0xFFFFD54F);
-  static const zenLavender = secondaryBlue;
-  static const zenLavenderLight = Color(0xFF9FA8DA);
-  static const zenSky = primaryTeal;
-  static const zenSkyLight = Color(0xFF4DD0E1);
-  static const zenCoral = accentCoral;
-  static const zenCoralLight = Color(0xFFFF8A80);
-  static const zenBorder = cardBorder;
+  // Primary & Secondary Brand Colors
+  static const Color forestGreen = Color(0xFF16382B);     // Deep forest green (main CTA, active pills, badges)
+  static const Color primaryGreen = Color(0xFF16382B);    // Primary brand alias
+  static const Color sageGreen = Color(0xFF5C946E);       // Sage green (completed checks, progress, graphs)
+  static const Color mintLight = Color(0xFFEAF4EC);       // Soft sage/mint container background
+  static const Color sageDark = Color(0xFF3B684B);        // Deep sage
 
-  // ─── Semantic Aliases ───
-  static const pulseRed = accentCoral;
-  static const voltCyan = primaryTeal;
-  static const irisViolet = secondaryBlue;
-  static const solarAmber = accentOrange;
-  static const borderSubtle = cardBorder;
+  // Accents from Reference Image
+  static const Color accentPeach = Color(0xFFF38D68);     // Soft peach / coral (heart rate, alerts)
+  static const Color accentCoral = Color(0xFFF38D68);     // Heart rate alias
+  static const Color accentOrange = Color(0xFFF4A261);    // Warm orange (streak flame, calories)
+  static const Color accentGold = Color(0xFFE8A838);      // Trophy gold
+  static const Color skyBlue = Color(0xFF4B9CD3);         // Muted sky blue (hydration, SpO2)
+  static const Color primaryTeal = Color(0xFF4B9CD3);     // Teal/blue alias
+  static const Color skyLight = Color(0xFFEBF5FB);        // Soft blue container
+  static const Color lavender = Color(0xFF8B80F9);        // Soft lavender / purple (sleep, workout tags)
+  static const Color lavenderLight = Color(0xFFF3F0FF);   // Soft purple container
+  static const Color secondaryBlue = Color(0xFF8B80F9);   // Secondary blue/purple alias
 
-  // ─── Legacy Mapping & Theme Compatibility ───
-  static const primary = primaryTeal;
-  static const primaryLight = Color(0xFF4DD0E1);
-  static const primaryContainer = Color(0xFFE0F7FA);
-  static const secondary = secondaryBlue;
-  static const coral = accentCoral;
-  static const green = primaryGreen;
-  static const blue = secondaryBlue;
-  static const pink = Color(0xFFF093FB);
-  static const yellow = accentOrange;
-  static const teal = primaryTeal;
-  static const orange = accentOrange;
+  // Typography & Neutral Text
+  static const Color textPrimary = Color(0xFF18221B);     // Deep slate/forest black for high legibility
+  static const Color textSecondary = Color(0xFF6C7A70);   // Muted sage slate for subtitles
+  static const Color neutralGray = Color(0xFF8E9B92);     // Light muted neutral gray
+  static const Color textMuted = Color(0xFFA5B2A9);       // Placeholder text
 
-  static const backgroundDeep = lightBg;
-  static const surfaceCard = cardWhite;
-  static const surfaceElevated = cardWhite;
+  // ─── Semantic & Compatibility Aliases ───
+  static const Color pulseRed = accentPeach;
+  static const Color voltCyan = skyBlue;
+  static const Color irisViolet = lavender;
+  static const Color solarAmber = accentOrange;
+  static const Color borderSubtle = cardBorder;
 
-  static const darkBg = Color(0xFF0B1320);
-  static const darkSurface = Color(0xFF131F2E);
-  static const darkSurfaceContainer = Color(0xFF1B2B3E);
-  static const darkSurfaceContainerLow = Color(0xFF0E1830);
-  static const darkSurface2 = Color(0xFF1A2540);
-  static const darkOnSurface = Color(0xFFF8FAFC);
-  static const darkOnSurfaceVariant = Color(0xFF94A3B8);
-  static const darkOutline = Color(0xFF334155);
+  static const Color zenDarkBg = Color(0xFF13201A);
+  static const Color zenDarkCard = Color(0xFF1B2E25);
+  static const Color zenDarkElevated = Color(0xFF243B30);
+  static const Color zenMint = sageGreen;
+  static const Color zenMintLight = mintLight;
+  static const Color zenAmber = accentOrange;
+  static const Color zenAmberLight = Color(0xFFFCE8D3);
+  static const Color zenLavender = lavender;
+  static const Color zenLavenderLight = lavenderLight;
+  static const Color zenSky = skyBlue;
+  static const Color zenSkyLight = skyLight;
+  static const Color zenCoral = accentPeach;
+  static const Color zenCoralLight = Color(0xFFFDECE6);
+  static const Color zenBorder = cardBorder;
 
-  static const lightSurface = cardWhite;
-  static const lightSurfaceContainer = cardWhite;
-  static const lightSurfaceContainerLow = Color(0xFFF8FAFC);
-  static const lightOnSurface = textPrimary;
-  static const lightOnSurfaceVariant = textSecondary;
-  static const lightOutline = cardBorder;
+  // Legacy mappings for existing codebase components
+  static const Color primary = forestGreen;
+  static const Color primaryLight = sageGreen;
+  static const Color primaryContainer = mintLight;
+  static const Color secondary = sageGreen;
+  static const Color coral = accentPeach;
+  static const Color green = sageGreen;
+  static const Color blue = skyBlue;
+  static const Color pink = Color(0xFFF472B6);
+  static const Color yellow = accentGold;
+  static const Color teal = skyBlue;
+  static const Color orange = accentOrange;
 
-  // ─── Glass & Opacity Helpers ───
-  static Color glassWhite(double opacity) => Colors.white.withValues(alpha: opacity);
-  static Color glassBlack(double opacity) => Colors.black.withValues(alpha: opacity);
+  static const Color backgroundDeep = lightBg;
+  static const Color surfaceCard = cardWhite;
+  static const Color surfaceElevated = cardWhite;
 
-  // ─── Gradients from Reference Image ───
-  static const gradientTealGreen = LinearGradient(
-    colors: [primaryTeal, primaryGreen],
+  static const Color darkBg = lightBg;
+  static const Color darkSurface = cardWhite;
+  static const Color darkSurfaceContainer = cardWhite;
+  static const Color darkSurfaceContainerLow = cardMuted;
+  static const Color darkSurface2 = cardMuted;
+  static const Color darkOnSurface = textPrimary;
+  static const Color darkOnSurfaceVariant = textSecondary;
+  static const Color darkOutline = cardBorder;
+
+  static const Color lightSurface = cardWhite;
+  static const Color lightSurfaceContainer = cardWhite;
+  static const Color lightSurfaceContainerLow = cardMuted;
+  static const Color lightOnSurface = textPrimary;
+  static const Color lightOnSurfaceVariant = textSecondary;
+  static const Color lightOutline = cardBorder;
+
+  // ─── Subtle Shadows & Effects ───
+  static List<BoxShadow> get softShadow => [
+    BoxShadow(
+      color: const Color(0xFF16382B).withValues(alpha: 0.04),
+      blurRadius: 18,
+      offset: const Offset(0, 4),
+    ),
+  ];
+
+  static List<BoxShadow> get cardShadow => [
+    BoxShadow(
+      color: Colors.black.withValues(alpha: 0.03),
+      blurRadius: 12,
+      offset: const Offset(0, 2),
+    ),
+  ];
+
+  static List<BoxShadow> get buttonShadow => [
+    BoxShadow(
+      color: forestGreen.withValues(alpha: 0.25),
+      blurRadius: 14,
+      offset: const Offset(0, 6),
+    ),
+  ];
+
+  // ─── Reference Gradients ───
+  static const LinearGradient gradientForestSage = LinearGradient(
+    colors: [forestGreen, sageGreen],
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
   );
 
-  static const gradientBlueTeal = LinearGradient(
-    colors: [secondaryBlue, primaryTeal],
+  static const LinearGradient gradientTealGreen = LinearGradient(
+    colors: [skyBlue, sageGreen],
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
   );
 
-  static const gradientStartRun = LinearGradient(
-    colors: [secondaryBlue, primaryTeal],
+  static const LinearGradient gradientPeachOrange = LinearGradient(
+    colors: [accentPeach, accentOrange],
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
   );
 
-  static const gradientPrimary = gradientBlueTeal;
-  static const gradientCyan = gradientTealGreen;
-
-  static const gradientCoral = LinearGradient(
-    colors: [Color(0xFFFF8A80), accentCoral],
+  static const LinearGradient gradientPrimary = gradientForestSage;
+  static const LinearGradient gradientCyan = gradientTealGreen;
+  static const LinearGradient gradientCoral = gradientPeachOrange;
+  static const LinearGradient gradientAmber = LinearGradient(
+    colors: [accentOrange, accentGold],
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
   );
-
-  static const gradientAmber = LinearGradient(
-    colors: [accentOrange, Color(0xFFFFD54F)],
+  static const LinearGradient gradientSecondary = gradientTealGreen;
+  static const LinearGradient gradientGreen = LinearGradient(
+    colors: [sageGreen, Color(0xFF7BAE7F)],
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
   );
-
-  static const gradientSecondary = LinearGradient(
-    colors: [primaryTeal, Color(0xFF00E5FF)],
+  static const LinearGradient gradientBlue = LinearGradient(
+    colors: [skyBlue, Color(0xFF70BFE8)],
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
   );
-
-  static const gradientGreen = LinearGradient(
-    colors: [Color(0xFF81C784), primaryGreen],
-    begin: Alignment.topLeft,
-    end: Alignment.bottomRight,
-  );
-
-  static const gradientBlue = LinearGradient(
-    colors: [Color(0xFF818CF8), secondaryBlue],
-    begin: Alignment.topLeft,
-    end: Alignment.bottomRight,
-  );
-
-  static const gradientPink = LinearGradient(
-    colors: [Color(0xFFF472B6), Color(0xFFEC4899)],
-    begin: Alignment.topLeft,
-    end: Alignment.bottomRight,
-  );
-
-  static const gradientStreak = LinearGradient(
-    colors: [accentCoral, accentOrange],
-    begin: Alignment.topLeft,
-    end: Alignment.bottomRight,
-  );
+  static const LinearGradient gradientStreak = gradientPeachOrange;
 }

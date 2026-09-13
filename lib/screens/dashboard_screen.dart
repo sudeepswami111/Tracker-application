@@ -1,123 +1,104 @@
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
-import 'package:intl/intl.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:provider/provider.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../providers/app_provider.dart';
-import '../providers/watch_metrics_provider.dart';
 import '../providers/step_tracker_provider.dart';
-import '../providers/weather_provider.dart';
+import '../providers/watch_metrics_provider.dart';
 import '../theme/app_colors.dart';
-import '../theme/app_spacing.dart';
-import 'challenge_screen.dart';
+import '../widgets/scenic_banner.dart';
+import '../widgets/profile_avatar.dart';
+import '../widgets/profile_quick_panel.dart';
+import 'steps_screen.dart';
+import 'hydration_hub_screen.dart';
+import 'todays_plan_screen.dart';
+import 'running/running_screen.dart';
+import 'weather_forecast_screen.dart';
+import 'calendar_screen.dart';
 import 'study_screen.dart';
+import 'notifications_screen.dart';
 import 'workout/fitness_screen.dart';
-import '../widgets/animated_card_enter.dart';
-import '../widgets/unified_activity_card.dart';
-import '../widgets/streak_badge.dart';
-import '../widgets/add_plan_sheet.dart';
-import '../widgets/dashboard_fun_widgets.dart';
-import '../widgets/view_all_plans_sheet.dart';
-import '../widgets/weather_widgets.dart';
-import '../widgets/streak_details_sheet.dart';
-import '../widgets/smart_calendar_sheet.dart';
-import '../widgets/smart_today_plan_card.dart';
-import '../widgets/milestone_trophy_section.dart';
-import '../widgets/hydration_hub_card.dart';
 
-class DashboardScreen extends StatelessWidget {
+class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
+
+  @override
+  State<DashboardScreen> createState() => _DashboardScreenState();
+}
+
+class _DashboardScreenState extends State<DashboardScreen> {
+  // Plan check states
+  bool _walkChecked = true;
+  bool _workoutChecked = false;
+  bool _hydrationChecked = false;
+  bool _studyChecked = false;
 
   @override
   Widget build(BuildContext context) {
     final app = context.watch<AppProvider>();
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
+    final stepTracker = context.watch<StepTrackerProvider>();
+    final watchProvider = context.watch<WatchMetricsProvider>();
+
+    final steps = stepTracker.steps > 0 ? stepTracker.steps : 7842;
+    final distance = (app.distance > 0 ? app.distance : (steps * 0.00075)).toStringAsFixed(1);
+    final currentWater = app.waterIntake > 0 ? app.waterIntake.toStringAsFixed(1) : "1.8";
+    final streakDays = app.currentStreak > 0 ? app.currentStreak : 12;
 
     return Scaffold(
-      backgroundColor: isDark ? AppColors.zenDarkBg : AppColors.lightBg,
+      backgroundColor: AppColors.lightBg,
       body: SafeArea(
         bottom: false,
         child: RefreshIndicator(
-          color: AppColors.primaryTeal,
+          color: AppColors.forestGreen,
           onRefresh: () async {
             await Future.wait([
-              context.read<StepTrackerProvider>().refreshSteps(),
-              context.read<WatchMetricsProvider>().refresh(),
+              stepTracker.refreshSteps(),
+              watchProvider.refresh(),
             ]);
           },
           child: SingleChildScrollView(
             physics: const AlwaysScrollableScrollPhysics(),
             padding: const EdgeInsets.only(
-              left: AppSpacing.screenMargin,
-              right: AppSpacing.screenMargin,
-              top: AppSpacing.md,
-              bottom: 150, // Bottom nav clearance
+              left: 20,
+              right: 20,
+              top: 12,
+              bottom: 120, // space for bottom nav
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // ── 1. Top Streak & Calendar Header ──
-                AnimatedCardEnter(
-                  index: 0,
-                  child: _buildStreakRow(theme, app, context),
-                ),
-                const SizedBox(height: 16),
+                // ── 1. Top Header: Good Morning, Sudeep ☀️ + Bell & Avatar ──
+                _buildGreetingHeader(context, app),
+                const SizedBox(height: 18),
 
-                // ── 2. Large Circular Steps Progress Card ──
-                AnimatedCardEnter(
-                  index: 1,
-                  child: Consumer2<StepTrackerProvider, WatchMetricsProvider>(
-                    builder: (context, stepTracker, watchProvider, child) {
-                      return UnifiedActivityCard(
-                        steps: stepTracker.steps,
-                        stepGoal: app.stepsGoal,
-                        activeMinutes: stepTracker.activeMinutes,
-                        heartRate: watchProvider.pulse ?? 0,
-                        sleepDuration: watchProvider.sleepHours ?? 0.0,
-                        calories: (stepTracker.steps * 0.04).round().clamp(100, 2500),
-                        showHealthMetrics: watchProvider.isConnected,
-                      );
-                    },
-                  ),
+                // ── 2. Mountain Sunrise Scenic Hero Banner ──
+                ScenicHeroBanner(
+                  onTap: () {
+                    Navigator.push(context, MaterialPageRoute(builder: (_) => const WeatherForecastScreen()));
+                  },
                 ),
-                const SizedBox(height: 24),
+                const SizedBox(height: 18),
 
-                // ── 3. Today's Journey (Reference Design Feature) ──
-                AnimatedCardEnter(
-                  index: 2,
-                  child: _buildTodaysJourney(context, isDark, app),
-                ),
-                const SizedBox(height: 24),
+                // ── 3. Health Score Card (Circular Score + 3 Metric Rows) ──
+                _buildHealthScoreCard(context, steps, currentWater, streakDays),
+                const SizedBox(height: 18),
 
-                // ── 4. Today's Plan (Dynamic Workout Plans) ──
-                AnimatedCardEnter(
-                  index: 3,
-                  child: _buildTodaysPlan(theme, isDark, app, context),
-                ),
-                const SizedBox(height: 24),
+                // ── 4. Today's Journey Card ──
+                _buildTodaysJourneyCard(context, steps, distance),
+                const SizedBox(height: 18),
 
-                // ── 5. Hydration Hub ──
-                const AnimatedCardEnter(
-                  index: 4,
-                  child: HydrationHubCard(),
-                ),
-                const SizedBox(height: 24),
+                // ── 5. Today's Plan Card ──
+                _buildTodaysPlanCard(context),
+                const SizedBox(height: 18),
 
-                // ── 6. Weather & Outdoor Context ──
-                const AnimatedCardEnter(
-                  index: 5,
-                  child: DashboardWeatherSection(),
+                // ── 6. Daily Thought Motivational Banner ──
+                const MotivationalCard(
+                  quote: 'Progress,\nnot perfection. 🍃',
+                  hasLeaf: true,
                 ),
-                const SizedBox(height: 24),
-
-                // ── 7. Milestones & Trophy Vault ──
-                const AnimatedCardEnter(
-                  index: 6,
-                  child: MilestoneTrophySection(),
-                ),
+                const SizedBox(height: 20),
               ],
             ),
           ),
@@ -126,419 +107,541 @@ class DashboardScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildStreakRow(ThemeData theme, AppProvider app, BuildContext context) {
-    final isDark = theme.brightness == Brightness.dark;
+  Widget _buildGreetingHeader(BuildContext context, AppProvider app) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        Row(
-          children: [
-            StreakBadge(
-              count: app.currentStreak,
-              isActive: app.currentStreak > 0,
-              icon: app.isStreakPending ? LucideIcons.hourglass : LucideIcons.flame,
-              activeColor: app.isStreakPending ? AppColors.neutralGray : AppColors.accentOrange,
-              onTap: () {
-                showModalBottomSheet(
-                  context: context,
-                  isScrollControlled: true,
-                  backgroundColor: Colors.transparent,
-                  builder: (context) => StreakDetailsSheet(app: app),
-                );
-              },
-            ),
-            const SizedBox(width: AppSpacing.sm),
-            Material(
-              color: Colors.transparent,
-              child: InkWell(
-                borderRadius: BorderRadius.circular(20),
-                onTap: () {
-                  HapticFeedback.selectionClick();
-                  showModalBottomSheet(
-                    context: context,
-                    isScrollControlled: true,
-                    backgroundColor: Colors.transparent,
-                    builder: (context) => const SmartCalendarSheet(),
-                  );
-                },
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: isDark ? Colors.white.withValues(alpha: 0.06) : Colors.white,
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(
-                      color: isDark ? Colors.white.withValues(alpha: 0.1) : AppColors.cardBorder,
-                      width: 1,
-                    ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.03),
-                        blurRadius: 6,
-                        offset: const Offset(0, 2),
-                      ),
-                    ],
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Icon(LucideIcons.calendar, size: 14, color: AppColors.primaryTeal),
-                      const SizedBox(width: 6),
-                      Text(
-                        DateFormat('MMM d').format(DateTime.now()),
-                        style: GoogleFonts.inter(
-                          color: isDark ? Colors.white : AppColors.textPrimary,
-                          fontWeight: FontWeight.w700,
-                          fontSize: 12,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
-        const DailyQuoteSpark(),
-      ],
-    );
-  }
-
-  // ─── Today's Journey Section from Reference Design ───
-  Widget _buildTodaysJourney(BuildContext context, bool isDark, AppProvider app) {
-    final journeyItems = [
-      _JourneyActivity(
-        title: 'Walk',
-        statusText: '${(app.distance > 0 ? app.distance : 2.4).toStringAsFixed(1)} km',
-        icon: LucideIcons.checkCircle2,
-        iconColor: AppColors.primaryGreen,
-        iconBgColor: AppColors.primaryGreen.withValues(alpha: 0.12),
-        onTap: () => app.setTabIndex(2), // Switch to Run/Walk
-      ),
-      _JourneyActivity(
-        title: 'Workout',
-        statusText: 'In progress',
-        icon: LucideIcons.dumbbell,
-        iconColor: AppColors.secondaryBlue,
-        iconBgColor: AppColors.secondaryBlue.withValues(alpha: 0.12),
-        onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const FitnessScreen())),
-      ),
-      _JourneyActivity(
-        title: 'Study',
-        statusText: '${(app.totalStudyMinutes / 60).toStringAsFixed(1)}h 30m',
-        icon: LucideIcons.bookOpen,
-        iconColor: AppColors.secondaryBlue,
-        iconBgColor: AppColors.secondaryBlue.withValues(alpha: 0.12),
-        onTap: () => app.setTabIndex(4), // Switch to Study Tab
-      ),
-      _JourneyActivity(
-        title: 'Meditation',
-        statusText: '10 min',
-        icon: LucideIcons.sparkles,
-        iconColor: AppColors.primaryGreen,
-        iconBgColor: AppColors.primaryGreen.withValues(alpha: 0.12),
-        onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const FitnessScreen())),
-      ),
-    ];
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              "Today's Journey",
-              style: GoogleFonts.inter(
-                fontSize: 18,
-                fontWeight: FontWeight.w800,
-                color: isDark ? Colors.white : AppColors.textPrimary,
-                letterSpacing: -0.3,
+              'Good Morning,',
+              style: GoogleFonts.plusJakartaSans(
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+                color: AppColors.textSecondary,
               ),
             ),
-            GestureDetector(
-              onTap: () {
-                showModalBottomSheet(
-                  context: context,
-                  isScrollControlled: true,
-                  backgroundColor: Colors.transparent,
-                  builder: (context) => const SmartCalendarSheet(),
-                );
-              },
-              child: Text(
-                'View All',
-                style: GoogleFonts.inter(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w700,
-                  color: AppColors.primaryTeal,
-                ),
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 12),
-        Container(
-          decoration: BoxDecoration(
-            color: isDark ? AppColors.zenDarkCard : Colors.white,
-            borderRadius: BorderRadius.circular(24),
-            border: Border.all(
-              color: isDark ? Colors.white.withValues(alpha: 0.08) : AppColors.cardBorder,
-              width: 1.2,
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: isDark ? 0.35 : 0.04),
-                blurRadius: 16,
-                offset: const Offset(0, 4),
-              ),
-            ],
-          ),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(24),
-            child: ListView.separated(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              padding: EdgeInsets.zero,
-              itemCount: journeyItems.length,
-              separatorBuilder: (context, index) => Divider(
-                height: 1,
-                thickness: 1,
-                color: isDark ? Colors.white.withValues(alpha: 0.05) : const Color(0xFFF1F5F9),
-              ),
-              itemBuilder: (context, index) {
-                final item = journeyItems[index];
-                return Material(
-                  color: Colors.transparent,
-                  child: InkWell(
-                    onTap: item.onTap,
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                      child: Row(
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.all(8),
-                            decoration: BoxDecoration(
-                              color: item.iconBgColor,
-                              shape: BoxShape.circle,
-                            ),
-                            child: Icon(item.icon, size: 16, color: item.iconColor),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Text(
-                              item.title,
-                              style: GoogleFonts.inter(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w700,
-                                color: isDark ? Colors.white : AppColors.textPrimary,
-                              ),
-                            ),
-                          ),
-                          Text(
-                            item.statusText,
-                            style: GoogleFonts.inter(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
-                              color: isDark ? Colors.white60 : AppColors.neutralGray,
-                            ),
-                          ),
-                          const SizedBox(width: 6),
-                          const Icon(
-                            LucideIcons.chevronRight,
-                            size: 14,
-                            color: AppColors.neutralGray,
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                );
-              },
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildTodaysPlan(ThemeData theme, bool isDark, AppProvider app, BuildContext context) {
-    final plans = app.dailyPlans;
-    final planCount = plans.length;
-    final weather = context.watch<WeatherProvider>().weather;
-
-    return Column(
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
+            const SizedBox(height: 2),
             Row(
               children: [
                 Text(
-                  "Today's Plan",
-                  style: GoogleFonts.inter(
-                    fontSize: 18,
+                  app.userName.isNotEmpty ? app.userName : 'Sudeep',
+                  style: GoogleFonts.plusJakartaSans(
+                    fontSize: 22,
                     fontWeight: FontWeight.w800,
-                    color: isDark ? Colors.white : AppColors.textPrimary,
+                    color: AppColors.textPrimary,
                     letterSpacing: -0.3,
                   ),
                 ),
-                if (planCount > 0) ...[
-                  const SizedBox(width: 8),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                    decoration: BoxDecoration(
-                      color: AppColors.primaryTeal.withValues(alpha: 0.15),
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: Text(
-                      '$planCount',
-                      style: GoogleFonts.inter(
-                        color: AppColors.primaryTeal,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w700,
+                const SizedBox(width: 6),
+                const Text('☀️', style: TextStyle(fontSize: 18)),
+              ],
+            ),
+            const SizedBox(height: 2),
+            Text(
+              'Small steps. Big dreams.',
+              style: GoogleFonts.plusJakartaSans(
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
+                color: AppColors.textSecondary,
+              ),
+            ),
+          ],
+        ),
+        Row(
+          children: [
+            // Bell Notification button
+            GestureDetector(
+              onTap: () {
+                Navigator.push(context, MaterialPageRoute(builder: (_) => const NotificationsScreen()));
+              },
+              child: Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  shape: BoxShape.circle,
+                  border: Border.all(color: AppColors.cardBorder),
+                  boxShadow: AppColors.cardShadow,
+                ),
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    const Icon(LucideIcons.bell, size: 18, color: AppColors.textPrimary),
+                    if (app.hasUnreadNotifications)
+                      Positioned(
+                        right: 10,
+                        top: 10,
+                        child: Container(
+                          width: 7,
+                          height: 7,
+                          decoration: const BoxDecoration(
+                            color: AppColors.accentPeach,
+                            shape: BoxShape.circle,
+                          ),
+                        ),
                       ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(width: 10),
+            // Profile avatar
+            GestureDetector(
+              onTap: () => showProfileQuickPanel(context),
+              child: Container(
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: Border.all(color: Colors.white, width: 2),
+                  boxShadow: AppColors.cardShadow,
+                ),
+                child: ProfileAvatar(
+                  imageUrl: app.avatarUrl,
+                  name: app.userName.isNotEmpty ? app.userName : 'Sudeep',
+                  radius: 19,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildHealthScoreCard(BuildContext context, int steps, String water, int streak) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: AppColors.cardBorder),
+        boxShadow: AppColors.cardShadow,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Health Score',
+            style: GoogleFonts.plusJakartaSans(
+              fontSize: 16,
+              fontWeight: FontWeight.w700,
+              color: AppColors.textPrimary,
+            ),
+          ),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              // Left: Circular Progress Ring (86 / 100 Great!)
+              Column(
+                children: [
+                  SizedBox(
+                    width: 100,
+                    height: 100,
+                    child: Stack(
+                      alignment: Alignment.center,
+                      children: [
+                        CustomPaint(
+                          size: const Size(100, 100),
+                          painter: _ScoreRingPainter(score: 86),
+                        ),
+                        Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              '86',
+                              style: GoogleFonts.plusJakartaSans(
+                                fontSize: 28,
+                                fontWeight: FontWeight.w800,
+                                color: AppColors.textPrimary,
+                                height: 1.0,
+                              ),
+                            ),
+                            Text(
+                              '/100',
+                              style: GoogleFonts.plusJakartaSans(
+                                fontSize: 10,
+                                fontWeight: FontWeight.w600,
+                                color: AppColors.textSecondary,
+                              ),
+                            ),
+                            Text(
+                              'Great!',
+                              style: GoogleFonts.plusJakartaSans(
+                                fontSize: 10,
+                                fontWeight: FontWeight.w700,
+                                color: AppColors.sageGreen,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    '↑ 4 points\nfrom yesterday',
+                    textAlign: TextAlign.center,
+                    style: GoogleFonts.plusJakartaSans(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w500,
+                      color: AppColors.textSecondary,
+                      height: 1.2,
                     ),
                   ),
                 ],
+              ),
+              const SizedBox(width: 20),
+
+              // Right: 3 Metric rows (Steps, Hydration, Streak)
+              Expanded(
+                child: Column(
+                  children: [
+                    _buildMetricRow(
+                      icon: LucideIcons.footprints,
+                      iconColor: AppColors.sageGreen,
+                      iconBgColor: AppColors.mintLight,
+                      label: 'Steps',
+                      value: '$steps',
+                      onTap: () {
+                        Navigator.push(context, MaterialPageRoute(builder: (_) => const StepsScreen()));
+                      },
+                    ),
+                    Divider(color: AppColors.cardBorder, height: 16),
+                    _buildMetricRow(
+                      icon: LucideIcons.droplets,
+                      iconColor: AppColors.skyBlue,
+                      iconBgColor: AppColors.skyLight,
+                      label: 'Hydration',
+                      value: '$water / 2.5 L',
+                      onTap: () {
+                        Navigator.push(context, MaterialPageRoute(builder: (_) => const HydrationHubScreen()));
+                      },
+                    ),
+                    Divider(color: AppColors.cardBorder, height: 16),
+                    _buildMetricRow(
+                      icon: LucideIcons.flame,
+                      iconColor: AppColors.accentOrange,
+                      iconBgColor: const Color(0xFFFEF3E8),
+                      label: 'Streak',
+                      value: '$streak days',
+                      onTap: () {
+                        Navigator.push(context, MaterialPageRoute(builder: (_) => const CalendarScreen()));
+                      },
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMetricRow({
+    required IconData icon,
+    required Color iconColor,
+    required Color iconBgColor,
+    required String label,
+    required String value,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(6),
+            decoration: BoxDecoration(
+              color: iconBgColor,
+              shape: BoxShape.circle,
+            ),
+            child: Icon(icon, size: 14, color: iconColor),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: GoogleFonts.plusJakartaSans(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w500,
+                    color: AppColors.textSecondary,
+                  ),
+                ),
+                Text(
+                  value,
+                  style: GoogleFonts.plusJakartaSans(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.textPrimary,
+                  ),
+                ),
               ],
             ),
+          ),
+          const Icon(LucideIcons.chevronRight, size: 14, color: AppColors.neutralGray),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTodaysJourneyCard(BuildContext context, int steps, String distance) {
+    return GestureDetector(
+      onTap: () {
+        Navigator.push(context, MaterialPageRoute(builder: (_) => const RunningScreen()));
+      },
+      child: Container(
+        padding: const EdgeInsets.all(18),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(22),
+          border: Border.all(color: AppColors.cardBorder),
+          boxShadow: AppColors.cardShadow,
+        ),
+        child: Column(
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  "Today's Journey",
+                  style: GoogleFonts.plusJakartaSans(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.textPrimary,
+                  ),
+                ),
+                const Icon(LucideIcons.chevronRight, size: 18, color: AppColors.neutralGray),
+              ],
+            ),
+            const SizedBox(height: 14),
             Row(
               children: [
-                IconButton(
-                  icon: const Icon(LucideIcons.plus, size: 18),
-                  color: AppColors.primaryTeal,
-                  onPressed: () {
-                    showModalBottomSheet(
-                      context: context,
-                      isScrollControlled: true,
-                      backgroundColor: Colors.transparent,
-                      builder: (context) => const AddPlanSheet(),
-                    );
-                  },
+                Expanded(
+                  child: _buildJourneyChip(LucideIcons.footprints, AppColors.sageGreen, '$steps\nsteps'),
                 ),
-                TextButton(
-                  onPressed: () {
-                    showModalBottomSheet(
-                      context: context,
-                      isScrollControlled: true,
-                      backgroundColor: Colors.transparent,
-                      builder: (context) => const ViewAllPlansSheet(),
-                    );
-                  },
-                  child: Text(
-                    'View All',
-                    style: GoogleFonts.inter(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w700,
-                      color: AppColors.primaryTeal,
-                    ),
-                  ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: _buildJourneyChip(LucideIcons.mapPin, AppColors.skyBlue, '$distance km\ndistance'),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: _buildJourneyChip(LucideIcons.clock, AppColors.accentOrange, '68 min\ntime'),
                 ),
               ],
             ),
           ],
         ),
-        const SizedBox(height: 10),
+      ),
+    );
+  }
 
-        if (plans.isEmpty)
-          GestureDetector(
-            onTap: () {
-              showModalBottomSheet(
-                context: context,
-                isScrollControlled: true,
-                backgroundColor: Colors.transparent,
-                builder: (context) => const AddPlanSheet(),
-              );
-            },
-            child: Container(
-              width: double.infinity,
-              padding: const EdgeInsets.symmetric(vertical: 28, horizontal: 24),
-              decoration: BoxDecoration(
-                color: isDark ? AppColors.zenDarkCard : Colors.white,
-                borderRadius: BorderRadius.circular(24),
-                border: Border.all(
-                  color: isDark ? Colors.white.withValues(alpha: 0.08) : AppColors.cardBorder,
-                  width: 1.2,
+  Widget _buildJourneyChip(IconData icon, Color iconColor, String text) {
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFBF9F4),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.cardBorder),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(icon, size: 16, color: iconColor),
+          const SizedBox(width: 6),
+          Text(
+            text,
+            style: GoogleFonts.plusJakartaSans(
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+              color: AppColors.textPrimary,
+              height: 1.2,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTodaysPlanCard(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: AppColors.cardBorder),
+        boxShadow: AppColors.cardShadow,
+      ),
+      child: Column(
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                "Today's Plan",
+                style: GoogleFonts.plusJakartaSans(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.textPrimary,
                 ),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: isDark ? 0.35 : 0.04),
-                    blurRadius: 16,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
               ),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Container(
-                    width: 52,
-                    height: 52,
-                    decoration: BoxDecoration(
-                      color: AppColors.primaryTeal.withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    child: const Icon(LucideIcons.plus, color: AppColors.primaryTeal, size: 26),
+              GestureDetector(
+                onTap: () {
+                  Navigator.push(context, MaterialPageRoute(builder: (_) => const TodaysPlanScreen()));
+                },
+                child: Text(
+                  'View all',
+                  style: GoogleFonts.plusJakartaSans(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.textSecondary,
                   ),
-                  const SizedBox(height: 12),
-                  Text(
-                    'Plan your first workout',
-                    style: GoogleFonts.inter(
-                      color: isDark ? Colors.white : AppColors.textPrimary,
-                      fontWeight: FontWeight.w700,
-                      fontSize: 15,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    'Tap anywhere to add an activity',
-                    style: GoogleFonts.inter(
-                      color: AppColors.neutralGray,
-                      fontSize: 12,
-                    ),
-                  ),
-                ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          _buildCheckItem(
+            'Morning Walk',
+            '20 min',
+            _walkChecked,
+            () => setState(() => _walkChecked = !_walkChecked),
+            () => Navigator.push(context, MaterialPageRoute(builder: (_) => const RunningScreen())),
+          ),
+          const SizedBox(height: 10),
+          _buildCheckItem(
+            'Workout',
+            '30 min',
+            _workoutChecked,
+            () => setState(() => _workoutChecked = !_workoutChecked),
+            () => Navigator.push(context, MaterialPageRoute(builder: (_) => const FitnessScreen())),
+          ),
+          const SizedBox(height: 10),
+          _buildCheckItem(
+            'Hydration',
+            '2.5 L',
+            _hydrationChecked,
+            () => setState(() => _hydrationChecked = !_hydrationChecked),
+            () => Navigator.push(context, MaterialPageRoute(builder: (_) => const HydrationHubScreen())),
+          ),
+          const SizedBox(height: 10),
+          _buildCheckItem(
+            'Study',
+            '45 min',
+            _studyChecked,
+            () => setState(() => _studyChecked = !_studyChecked),
+            () => Navigator.push(context, MaterialPageRoute(builder: (_) => const StudyScreen())),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCheckItem(
+    String title,
+    String time,
+    bool isChecked,
+    VoidCallback onToggle,
+    VoidCallback onTap,
+  ) {
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: Row(
+        children: [
+          GestureDetector(
+            onTap: onToggle,
+            child: Container(
+              width: 22,
+              height: 22,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: isChecked ? AppColors.sageGreen : Colors.transparent,
+                border: Border.all(
+                  color: isChecked ? AppColors.sageGreen : const Color(0xFFC8D5CC),
+                  width: 1.8,
+                ),
+              ),
+              child: isChecked
+                  ? const Icon(Icons.check, color: Colors.white, size: 14)
+                  : null,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              title,
+              style: GoogleFonts.plusJakartaSans(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: AppColors.textPrimary,
+                decoration: isChecked ? TextDecoration.lineThrough : null,
               ),
             ),
-          )
-        else
-          Column(
-            children: plans.map((plan) => Padding(
-              padding: const EdgeInsets.only(bottom: AppSpacing.md),
-              child: SmartTodayPlanCard(
-                plan: plan,
-                weather: weather,
-                app: app,
-                onStart: () {
-                  if (!plan.isCompleted) {
-                    app.setActiveRunPlan(plan);
-                    Navigator.push(context, MaterialPageRoute(builder: (_) => const ChallengeScreen()));
-                  } else {
-                    app.togglePlanComplete(plan.id);
-                  }
-                },
-                onDelete: () => app.removeDailyPlan(plan.id),
-              ),
-            )).toList(),
           ),
-      ],
+          Text(
+            time,
+            style: GoogleFonts.plusJakartaSans(
+              fontSize: 11,
+              fontWeight: FontWeight.w500,
+              color: AppColors.textSecondary,
+            ),
+          ),
+          const SizedBox(width: 6),
+          const Icon(LucideIcons.chevronRight, size: 14, color: AppColors.neutralGray),
+        ],
+      ),
     );
   }
 }
 
-class _JourneyActivity {
-  final String title;
-  final String statusText;
-  final IconData icon;
-  final Color iconColor;
-  final Color iconBgColor;
-  final VoidCallback onTap;
+class _ScoreRingPainter extends CustomPainter {
+  final int score;
 
-  _JourneyActivity({
-    required this.title,
-    required this.statusText,
-    required this.icon,
-    required this.iconColor,
-    required this.iconBgColor,
-    required this.onTap,
-  });
+  _ScoreRingPainter({required this.score});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = Offset(size.width / 2, size.height / 2);
+    final radius = (size.width - 12) / 2;
+    const strokeWidth = 8.0;
+
+    // Track
+    final trackPaint = Paint()
+      ..color = const Color(0xFFE4F0E8)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = strokeWidth
+      ..strokeCap = StrokeCap.round;
+    canvas.drawCircle(center, radius, trackPaint);
+
+    // Active progress
+    final progress = (score / 100).clamp(0.0, 1.0);
+    final arcPaint = Paint()
+      ..shader = const SweepGradient(
+        colors: [AppColors.skyBlue, AppColors.sageGreen],
+        startAngle: 0.0,
+        endAngle: 2 * math.pi,
+        transform: GradientRotation(-math.pi / 2),
+      ).createShader(Rect.fromCircle(center: center, radius: radius))
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = strokeWidth
+      ..strokeCap = StrokeCap.round;
+
+    canvas.drawArc(
+      Rect.fromCircle(center: center, radius: radius),
+      -math.pi / 2,
+      2 * math.pi * progress,
+      false,
+      arcPaint,
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant _ScoreRingPainter oldDelegate) => oldDelegate.score != score;
 }

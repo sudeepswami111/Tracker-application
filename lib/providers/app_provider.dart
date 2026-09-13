@@ -843,6 +843,13 @@ class AppProvider extends ChangeNotifier with WidgetsBindingObserver {
     }
   }
 
+  void setWaterIntake(double liters) {
+    waterIntake = double.parse(liters.toStringAsFixed(2));
+    waterGlasses = (liters / 0.25).round();
+    _saveData();
+    notifyListeners();
+  }
+
   // ──── 3.3/3.4 Update from HealthService sync ────
   void updateFromHealth(Map<String, dynamic> data) {
     if (data.isEmpty) return;
