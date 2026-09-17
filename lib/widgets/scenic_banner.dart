@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../theme/app_colors.dart';
 import 'botanical_decorations.dart';
+import 'profile_avatar.dart';
 
 /// Scenic Mountain Sunrise Hero Banner on the Home / Dashboard Screen
 class ScenicHeroBanner extends StatelessWidget {
@@ -10,7 +11,7 @@ class ScenicHeroBanner extends StatelessWidget {
 
   const ScenicHeroBanner({
     super.key,
-    this.height = 145,
+    this.height = 165,
     this.onTap,
   });
 
@@ -30,43 +31,38 @@ class ScenicHeroBanner extends StatelessWidget {
           child: Stack(
             fit: StackFit.expand,
             children: [
-              // Sunrise sky gradient
-              Container(
-                decoration: const BoxDecoration(
+              // Scenic Mountain Lake Artwork
+              Image.asset(
+                'assets/dashboard_scenic_hero.jpg',
+                fit: BoxFit.cover,
+                errorBuilder: (context, error, stackTrace) {
+                  return Container(
+                    decoration: const BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [
+                          Color(0xFFFFDAB9),
+                          Color(0xFFE88B58),
+                          Color(0xFF436B56),
+                        ],
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                      ),
+                    ),
+                  );
+                },
+              ),
+              // Soft warm light overlay
+              DecoratedBox(
+                decoration: BoxDecoration(
                   gradient: LinearGradient(
                     colors: [
-                      Color(0xFFFFDAB9), // Warm peach sunrise
-                      Color(0xFFFFE4C4), // Bisque
-                      Color(0xFFE8F1F5), // Misty lake
+                      Colors.black.withValues(alpha: 0.0),
+                      Colors.black.withValues(alpha: 0.12),
                     ],
                     begin: Alignment.topCenter,
                     end: Alignment.bottomCenter,
                   ),
                 ),
-              ),
-              // Sun disc
-              Positioned(
-                top: 25,
-                left: 70,
-                child: Container(
-                  width: 48,
-                  height: 48,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: const Color(0xFFFFF3D4),
-                    boxShadow: [
-                      BoxShadow(
-                        color: const Color(0xFFFFC371).withValues(alpha: 0.5),
-                        blurRadius: 28,
-                        spreadRadius: 8,
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              // Mountain silhouettes custom painter
-              CustomPaint(
-                painter: _ScenicMountainPainter(),
               ),
             ],
           ),
@@ -76,74 +72,134 @@ class ScenicHeroBanner extends StatelessWidget {
   }
 }
 
-class _ScenicMountainPainter extends CustomPainter {
+/// Full Scenic Header that seamlessly integrates the greeting, bell, and avatar over the artwork
+class DashboardScenicHeader extends StatelessWidget {
+  final String userName;
+  final bool hasUnreadNotifications;
+  final VoidCallback onNotificationTap;
+  final VoidCallback onAvatarTap;
+  final VoidCallback? onBannerTap;
+
+  const DashboardScenicHeader({
+    super.key,
+    required this.userName,
+    required this.hasUnreadNotifications,
+    required this.onNotificationTap,
+    required this.onAvatarTap,
+    this.onBannerTap,
+  });
+
   @override
-  void paint(Canvas canvas, Size size) {
-    final w = size.width;
-    final h = size.height;
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Top Greeting + Action Row
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Good Morning,',
+                  style: GoogleFonts.plusJakartaSans(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                    color: AppColors.textSecondary,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Row(
+                  children: [
+                    Text(
+                      userName.isNotEmpty ? userName : 'Sudeep',
+                      style: GoogleFonts.plusJakartaSans(
+                        fontSize: 22,
+                        fontWeight: FontWeight.w800,
+                        color: AppColors.forestGreen,
+                        letterSpacing: -0.3,
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    const Text('☀️', style: TextStyle(fontSize: 18)),
+                  ],
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  'Small steps. Big dreams.',
+                  style: GoogleFonts.plusJakartaSans(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                    color: AppColors.textSecondary,
+                  ),
+                ),
+              ],
+            ),
+            Row(
+              children: [
+                // Bell Notification button
+                GestureDetector(
+                  onTap: onNotificationTap,
+                  child: Container(
+                    width: 42,
+                    height: 42,
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      shape: BoxShape.circle,
+                      border: Border.all(color: AppColors.cardBorder),
+                      boxShadow: AppColors.cardShadow,
+                    ),
+                    child: Stack(
+                      alignment: Alignment.center,
+                      children: [
+                        const Icon(Icons.notifications_none_rounded, size: 20, color: AppColors.forestGreen),
+                        if (hasUnreadNotifications)
+                          Positioned(
+                            right: 11,
+                            top: 11,
+                            child: Container(
+                              width: 7,
+                              height: 7,
+                              decoration: const BoxDecoration(
+                                color: AppColors.coralPeach,
+                                shape: BoxShape.circle,
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                // Avatar button
+                GestureDetector(
+                  onTap: onAvatarTap,
+                  child: Container(
+                    padding: const EdgeInsets.all(2),
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      border: Border.all(color: AppColors.cardBorder, width: 1.5),
+                      boxShadow: AppColors.cardShadow,
+                    ),
+                    child: const ProfileAvatar(radius: 19),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
 
-    // Distant soft mountains
-    final distantPaint = Paint()
-      ..color = const Color(0xFF7A9E8A).withValues(alpha: 0.45)
-      ..style = PaintingStyle.fill;
-    final distantPath = Path();
-    distantPath.moveTo(0, h * 0.7);
-    distantPath.lineTo(w * 0.25, h * 0.42);
-    distantPath.lineTo(w * 0.55, h * 0.65);
-    distantPath.lineTo(w * 0.8, h * 0.38);
-    distantPath.lineTo(w, h * 0.6);
-    distantPath.lineTo(w, h);
-    distantPath.lineTo(0, h);
-    distantPath.close();
-    canvas.drawPath(distantPath, distantPaint);
-
-    // Mid-ground green hills
-    final midPaint = Paint()
-      ..color = const Color(0xFF436B56).withValues(alpha: 0.75)
-      ..style = PaintingStyle.fill;
-    final midPath = Path();
-    midPath.moveTo(0, h * 0.85);
-    midPath.cubicTo(w * 0.2, h * 0.6, w * 0.45, h * 0.75, w * 0.7, h * 0.55);
-    midPath.lineTo(w, h * 0.75);
-    midPath.lineTo(w, h);
-    midPath.lineTo(0, h);
-    midPath.close();
-    canvas.drawPath(midPath, midPaint);
-
-    // Lake water reflection
-    final lakePaint = Paint()
-      ..color = const Color(0xFF6B9B88).withValues(alpha: 0.85)
-      ..style = PaintingStyle.fill;
-    canvas.drawRect(Rect.fromLTWH(0, h * 0.75, w, h * 0.25), lakePaint);
-
-    // Foreground cliff & silhouette person sitting
-    final fgPaint = Paint()
-      ..color = const Color(0xFF16382B)
-      ..style = PaintingStyle.fill;
-    final fgPath = Path();
-    fgPath.moveTo(0, h * 0.45);
-    fgPath.cubicTo(w * 0.12, h * 0.48, w * 0.25, h * 0.75, w * 0.35, h);
-    fgPath.lineTo(0, h);
-    fgPath.close();
-    canvas.drawPath(fgPath, fgPaint);
-
-    // Sitting person silhouette
-    final pX = w * 0.14;
-    final pY = h * 0.50;
-    // Head
-    canvas.drawCircle(Offset(pX, pY - 12), 4.5, fgPaint);
-    // Torso & legs
-    final personPath = Path();
-    personPath.moveTo(pX - 3, pY - 7);
-    personPath.lineTo(pX + 4, pY - 5);
-    personPath.lineTo(pX + 8, pY + 6);
-    personPath.lineTo(pX - 5, pY + 6);
-    personPath.close();
-    canvas.drawPath(personPath, fgPaint);
+        // Aesthetic Scenic Mountain Lake Banner
+        ScenicHeroBanner(
+          height: 170,
+          onTap: onBannerTap,
+        ),
+      ],
+    );
   }
-
-  @override
-  bool shouldRepaint(covariant _ScenicMountainPainter oldDelegate) => false;
 }
 
 /// Scenic Trail Runner Banner used in Steps Screen & Bottom Carousel
@@ -171,29 +227,46 @@ class ScenicRunnerBanner extends StatelessWidget {
         child: Stack(
           fit: StackFit.expand,
           children: [
-            // Warm golden trail gradient
-            Container(
-              decoration: const BoxDecoration(
+            // Scenic Runner Artwork
+            Image.asset(
+              'assets/runner_scenic_hero.jpg',
+              fit: BoxFit.cover,
+              errorBuilder: (context, error, stackTrace) {
+                return Container(
+                  decoration: const BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [
+                        Color(0xFFF39C6B),
+                        Color(0xFFE88B58),
+                        Color(0xFF355442),
+                      ],
+                      begin: Alignment.topRight,
+                      end: Alignment.bottomLeft,
+                    ),
+                  ),
+                );
+              },
+            ),
+            // Gradient scrim for quote readability
+            DecoratedBox(
+              decoration: BoxDecoration(
                 gradient: LinearGradient(
                   colors: [
-                    Color(0xFFF39C6B),
-                    Color(0xFFE88B58),
-                    Color(0xFF355442),
+                    Colors.black.withValues(alpha: 0.6),
+                    Colors.black.withValues(alpha: 0.15),
+                    Colors.transparent,
                   ],
-                  begin: Alignment.topRight,
-                  end: Alignment.bottomLeft,
+                  stops: const [0.0, 0.55, 1.0],
+                  begin: Alignment.centerLeft,
+                  end: Alignment.centerRight,
                 ),
               ),
-            ),
-            // Forest tree silhouettes
-            CustomPaint(
-              painter: _ScenicTrailPainter(),
             ),
             // Motivational Quote on left
             Positioned(
               left: 20,
               top: 24,
-              right: 120,
+              right: 140,
               child: Text(
                 title,
                 style: GoogleFonts.plusJakartaSans(
@@ -203,8 +276,8 @@ class ScenicRunnerBanner extends StatelessWidget {
                   height: 1.35,
                   shadows: [
                     Shadow(
-                      color: Colors.black.withValues(alpha: 0.3),
-                      blurRadius: 6,
+                      color: Colors.black.withValues(alpha: 0.4),
+                      blurRadius: 8,
                     ),
                   ],
                 ),
@@ -215,70 +288,6 @@ class ScenicRunnerBanner extends StatelessWidget {
       ),
     );
   }
-}
-
-class _ScenicTrailPainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    final w = size.width;
-    final h = size.height;
-
-    // Golden sun glow
-    final sunPaint = Paint()
-      ..color = const Color(0xFFFFD59E).withValues(alpha: 0.8)
-      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 20);
-    canvas.drawCircle(Offset(w * 0.75, h * 0.35), 32, sunPaint);
-
-    // Trail path perspective
-    final pathPaint = Paint()
-      ..color = const Color(0xFFC48B68).withValues(alpha: 0.85)
-      ..style = PaintingStyle.fill;
-    final path = Path();
-    path.moveTo(w * 0.74, h * 0.45);
-    path.lineTo(w * 0.76, h * 0.45);
-    path.lineTo(w * 0.90, h);
-    path.lineTo(w * 0.60, h);
-    path.close();
-    canvas.drawPath(path, pathPaint);
-
-    // Trees on left and right
-    final treePaint = Paint()
-      ..color = const Color(0xFF1E3A2B)
-      ..style = PaintingStyle.fill;
-
-    _drawTree(canvas, treePaint, Offset(w * 0.52, h * 0.55), 18, 45);
-    _drawTree(canvas, treePaint, Offset(w * 0.42, h * 0.65), 24, 60);
-    _drawTree(canvas, treePaint, Offset(w * 0.88, h * 0.52), 22, 55);
-    _drawTree(canvas, treePaint, Offset(w * 0.95, h * 0.68), 28, 70);
-
-    // Runner silhouette on trail
-    final rX = w * 0.75;
-    final rY = h * 0.62;
-    final runnerPaint = Paint()
-      ..color = const Color(0xFF162B20)
-      ..style = PaintingStyle.fill;
-
-    canvas.drawCircle(Offset(rX, rY - 14), 4, runnerPaint);
-    final rBody = Path();
-    rBody.moveTo(rX - 3, rY - 9);
-    rBody.lineTo(rX + 3, rY - 7);
-    rBody.lineTo(rX + 5, rY + 8);
-    rBody.lineTo(rX - 4, rY + 8);
-    rBody.close();
-    canvas.drawPath(rBody, runnerPaint);
-  }
-
-  void _drawTree(Canvas canvas, Paint paint, Offset base, double width, double height) {
-    final path = Path();
-    path.moveTo(base.dx, base.dy - height);
-    path.lineTo(base.dx + width / 2, base.dy);
-    path.lineTo(base.dx - width / 2, base.dy);
-    path.close();
-    canvas.drawPath(path, paint);
-  }
-
-  @override
-  bool shouldRepaint(covariant _ScenicTrailPainter oldDelegate) => false;
 }
 
 /// Motivational Daily Thought Banner ("Progress, not perfection. 🍃" or "Discipline today builds the freedom tomorrow.")

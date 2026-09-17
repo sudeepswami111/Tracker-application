@@ -75,6 +75,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
                 // ── 2. Mountain Sunrise Scenic Hero Banner ──
                 ScenicHeroBanner(
+                  height: 180,
                   onTap: () {
                     Navigator.push(context, MaterialPageRoute(builder: (_) => const WeatherForecastScreen()));
                   },
