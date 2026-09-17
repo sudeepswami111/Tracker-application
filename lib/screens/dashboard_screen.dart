@@ -48,61 +48,253 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
     return Scaffold(
       backgroundColor: AppColors.lightBg,
-      body: SafeArea(
-        bottom: false,
-        child: RefreshIndicator(
-          color: AppColors.forestGreen,
-          onRefresh: () async {
-            await Future.wait([
-              stepTracker.refreshSteps(),
-              watchProvider.refresh(),
-            ]);
-          },
-          child: SingleChildScrollView(
-            physics: const AlwaysScrollableScrollPhysics(),
-            padding: const EdgeInsets.only(
+      body: RefreshIndicator(
+        color: AppColors.forestGreen,
+        onRefresh: () async {
+          await Future.wait([
+            stepTracker.refreshSteps(),
+            watchProvider.refresh(),
+          ]);
+        },
+        child: SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.only(bottom: 120),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // ── 1. Edge-to-Edge Scenic Header with Overlaid Greeting ──
+              _buildFullBleedScenicHeader(context, app),
+
+              // ── 2. Content Cards ──
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const SizedBox(height: 6),
+
+                    // ── 3. Health Score Card (Circular Score + 3 Metric Rows) ──
+                    _buildHealthScoreCard(context, steps, currentWater, streakDays),
+                    const SizedBox(height: 18),
+
+                    // ── 4. Today's Journey Card ──
+                    _buildTodaysJourneyCard(context, steps, distance),
+                    const SizedBox(height: 18),
+
+                    // ── 5. Today's Plan Card ──
+                    _buildTodaysPlanCard(context),
+                    const SizedBox(height: 18),
+
+                    // ── 6. Daily Thought Motivational Banner ──
+                    const MotivationalCard(
+                      quote: 'Progress,\nnot perfection. 🍃',
+                      hasLeaf: true,
+                    ),
+                    const SizedBox(height: 20),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFullBleedScenicHeader(BuildContext context, AppProvider app) {
+    final topPadding = MediaQuery.paddingOf(context).top;
+    final headerHeight = topPadding + 245.0;
+
+    return GestureDetector(
+      onTap: () {
+        Navigator.push(context, MaterialPageRoute(builder: (_) => const WeatherForecastScreen()));
+      },
+      child: SizedBox(
+        height: headerHeight,
+        width: double.infinity,
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            // Scenic Background with organic wave bottom
+            ClipPath(
+              clipper: _ScenicHeaderWaveClipper(),
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  Image.asset(
+                    'assets/dashboard_scenic_hero.jpg',
+                    fit: BoxFit.cover,
+                    alignment: Alignment.topCenter,
+                    errorBuilder: (context, error, stackTrace) {
+                      return Container(
+                        decoration: const BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: [
+                              Color(0xFFFFDAB9),
+                              Color(0xFFE88B58),
+                              Color(0xFF436B56),
+                            ],
+                            begin: Alignment.topCenter,
+                            end: Alignment.bottomCenter,
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                  // Subtle top ambient lighting for crystal clear greeting legibility
+                  DecoratedBox(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [
+                          const Color(0xFFFBF9F4).withValues(alpha: 0.60),
+                          Colors.transparent,
+                          Colors.black.withValues(alpha: 0.12),
+                        ],
+                        stops: const [0.0, 0.45, 1.0],
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            // Top Greeting + Action Row Overlaid on the sky
+            Positioned(
+              top: topPadding + 8,
               left: 20,
               right: 20,
-              top: 12,
-              bottom: 120, // space for bottom nav
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Good Morning,',
+                        style: GoogleFonts.plusJakartaSans(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: const Color(0xFF2C3E35),
+                          shadows: [
+                            Shadow(
+                              color: Colors.white.withValues(alpha: 0.8),
+                              blurRadius: 6,
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Row(
+                        children: [
+                          Text(
+                            app.userName.isNotEmpty ? app.userName : 'Sudeep',
+                            style: GoogleFonts.plusJakartaSans(
+                              fontSize: 24,
+                              fontWeight: FontWeight.w800,
+                              color: const Color(0xFF16382B),
+                              letterSpacing: -0.4,
+                              shadows: [
+                                Shadow(
+                                  color: Colors.white.withValues(alpha: 0.8),
+                                  blurRadius: 6,
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          const Text('☀️', style: TextStyle(fontSize: 19)),
+                        ],
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        'Small steps. Big dreams.',
+                        style: GoogleFonts.plusJakartaSans(
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w600,
+                          color: const Color(0xFF385043),
+                          shadows: [
+                            Shadow(
+                              color: Colors.white.withValues(alpha: 0.8),
+                              blurRadius: 6,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  Row(
+                    children: [
+                      // Bell Notification button
+                      GestureDetector(
+                        onTap: () {
+                          Navigator.push(context, MaterialPageRoute(builder: (_) => const NotificationsScreen()));
+                        },
+                        child: Container(
+                          width: 42,
+                          height: 42,
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.95),
+                            shape: BoxShape.circle,
+                            border: Border.all(color: AppColors.cardBorder),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withValues(alpha: 0.08),
+                                blurRadius: 10,
+                                offset: const Offset(0, 3),
+                              ),
+                            ],
+                          ),
+                          child: Stack(
+                            alignment: Alignment.center,
+                            children: [
+                              const Icon(LucideIcons.bell, size: 19, color: AppColors.forestGreen),
+                              if (app.hasUnreadNotifications)
+                                Positioned(
+                                  right: 11,
+                                  top: 11,
+                                  child: Container(
+                                    width: 7,
+                                    height: 7,
+                                    decoration: const BoxDecoration(
+                                      color: AppColors.accentPeach,
+                                      shape: BoxShape.circle,
+                                    ),
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      // Profile Avatar button
+                      GestureDetector(
+                        onTap: () => showProfileQuickPanel(context),
+                        child: Container(
+                          padding: const EdgeInsets.all(2),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            shape: BoxShape.circle,
+                            border: Border.all(color: Colors.white, width: 2),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withValues(alpha: 0.12),
+                                blurRadius: 10,
+                                offset: const Offset(0, 3),
+                              ),
+                            ],
+                          ),
+                          child: const ProfileAvatar(radius: 19),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
             ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // ── 1. Top Header: Good Morning, Sudeep ☀️ + Bell & Avatar ──
-                _buildGreetingHeader(context, app),
-                const SizedBox(height: 18),
-
-                // ── 2. Mountain Sunrise Scenic Hero Banner ──
-                ScenicHeroBanner(
-                  height: 180,
-                  onTap: () {
-                    Navigator.push(context, MaterialPageRoute(builder: (_) => const WeatherForecastScreen()));
-                  },
-                ),
-                const SizedBox(height: 18),
-
-                // ── 3. Health Score Card (Circular Score + 3 Metric Rows) ──
-                _buildHealthScoreCard(context, steps, currentWater, streakDays),
-                const SizedBox(height: 18),
-
-                // ── 4. Today's Journey Card ──
-                _buildTodaysJourneyCard(context, steps, distance),
-                const SizedBox(height: 18),
-
-                // ── 5. Today's Plan Card ──
-                _buildTodaysPlanCard(context),
-                const SizedBox(height: 18),
-
-                // ── 6. Daily Thought Motivational Banner ──
-                const MotivationalCard(
-                  quote: 'Progress,\nnot perfection. 🍃',
-                  hasLeaf: true,
-                ),
-                const SizedBox(height: 20),
-              ],
-            ),
-          ),
+          ],
         ),
       ),
     );
@@ -645,4 +837,24 @@ class _ScoreRingPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _ScoreRingPainter oldDelegate) => oldDelegate.score != score;
+}
+
+class _ScenicHeaderWaveClipper extends CustomClipper<Path> {
+  @override
+  Path getClip(Size size) {
+    final path = Path();
+    path.lineTo(0, size.height - 28);
+    // Smooth organic wave curve matching reference
+    path.cubicTo(
+      size.width * 0.28, size.height - 6,
+      size.width * 0.68, size.height - 38,
+      size.width, size.height - 14,
+    );
+    path.lineTo(size.width, 0);
+    path.close();
+    return path;
+  }
+
+  @override
+  bool shouldReclip(covariant CustomClipper<Path> oldClipper) => false;
 }

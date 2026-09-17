@@ -163,7 +163,7 @@ class DashboardScenicHeader extends StatelessWidget {
                               width: 7,
                               height: 7,
                               decoration: const BoxDecoration(
-                                color: AppColors.coralPeach,
+                                color: AppColors.accentPeach,
                                 shape: BoxShape.circle,
                               ),
                             ),
